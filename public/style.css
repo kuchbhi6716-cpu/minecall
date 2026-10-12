@@ -1,6 +1,4 @@
-#local {
-transform: scaleX(1);
-}
+
 
 * {
   box-sizing: border-box;
@@ -184,3 +182,8 @@ button:disabled {
     font-size: 12px;
   }
 }
+
+#local {
+transform: scaleX(1);
+}
+
