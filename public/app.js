@@ -57,6 +57,9 @@ function closePeer() {
 
 function createPeer(mySession) {
   closePeer();
+  matched = true;
+  messageInput.disabled = false;
+  $("send").disabled = false;
 
   const pc = new RTCPeerConnection(iceConfig);
   peer = pc;
