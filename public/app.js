@@ -226,6 +226,7 @@ $("start").onclick = async () => {
     });
 
     localVideo.srcObject = stream;
+    localVideo.style.transform = "scaleX(-1)";
     $("next").disabled = false;
     $("stop").disabled = false;
 
