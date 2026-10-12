@@ -226,6 +226,7 @@ $("start").onclick = async () => {
     });
 
     localVideo.srcObject = stream;
+    localVideo.style.setProperty("transform", "none", "important");
     $("next").disabled = false;
     $("stop").disabled = false;
 
