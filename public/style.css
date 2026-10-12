@@ -1,3 +1,6 @@
+#local {
+transform: scaleX(1);
+}
 
 * {
   box-sizing: border-box;
