@@ -182,8 +182,10 @@ button:disabled {
     font-size: 12px;
   }
 }
-
+/* Fix only the local camera preview */
 #local {
-transform: scaleX(1);
+  transform: none !important;
+  -webkit-transform: none !important;
 }
+
 
