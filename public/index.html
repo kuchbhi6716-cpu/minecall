@@ -1,0 +1,50 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RandomCall</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h2>Random<span>Call</span></h2>
+    <p>Meet someone new.</p>
+  </header>
+
+  <main>
+    <p id="status">Ready to connect?</p>
+
+    <section class="videos">
+      <div class="video-box">
+        <video id="local" autoplay muted playsinline></video>
+        <span>You</span>
+      </div>
+      <div class="video-box">
+        <video id="remote" autoplay playsinline></video>
+        <span>Stranger</span>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button id="start">Start Chatting</button>
+      <button id="next" disabled>Next →</button>
+      <button id="stop" disabled>Stop</button>
+    </section>
+
+    <section class="chat">
+      <h3>Live Chat</h3>
+      <div id="messages"></div>
+      <form id="chat-form">
+        <input id="message" placeholder="Say hello..." maxlength="1000" disabled>
+        <button id="send" disabled>Send</button>
+      </form>
+    </section>
+    <p class="note">Protect your privacy. Never share personal details with strangers.</p>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
