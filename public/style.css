@@ -286,4 +286,37 @@ button:disabled {
   }
 }
 
+/* Expanded stranger video */
+.video-box.expanded {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  z-index: 9999 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+}
+
+.video-box.expanded video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+body.expanded-video main > *:not(.videos),
+body.expanded-video header,
+body.expanded-video .video-box:not(.expanded) {
+  visibility: hidden !important;
+}
+
+.video-box.expanded #fullscreen-remote {
+  top: max(16px, env(safe-area-inset-top)) !important;
+  right: 16px !important;
+  font-size: 24px !important;
+  padding: 12px 16px !important;
+}
+
 
