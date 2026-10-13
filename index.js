@@ -1,4 +1,3 @@
-
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -8,14 +7,29 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, "public")));
+const distPath = path.join(__dirname, "dist");
+
+// Serve the compiled React application.
+app.use(express.static(distPath));
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", app: "RandomCall" });
+});
+
+// React client-side fallback. Keep API and Socket.IO paths untouched.
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
+});
 
 const waiting = [];
 const partners = new Map();
 
 function removeFromQueue(id) {
-  const index = waiting.indexOf(id);
-  if (index !== -1) waiting.splice(index, 1);
+  let index;
+
+  while ((index = waiting.indexOf(id)) !== -1) {
+    waiting.splice(index, 1);
+  }
 }
 
 function disconnectPartner(id) {
@@ -28,12 +42,17 @@ function disconnectPartner(id) {
   io.to(partnerId).emit("partner-left");
 }
 
+function stopSearching(socket) {
+  removeFromQueue(socket.id);
+  disconnectPartner(socket.id);
+}
+
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
   socket.on("find-stranger", () => {
-    removeFromQueue(socket.id);
-    disconnectPartner(socket.id);
+    // Remove this user from any previous queue or match first.
+    stopSearching(socket);
 
     while (waiting.length > 0) {
       const partnerId = waiting.shift();
@@ -57,17 +76,30 @@ io.on("connection", (socket) => {
         initiator: partnerId < socket.id
       });
 
+      console.log("Matched:", socket.id, partnerId);
       return;
     }
 
     waiting.push(socket.id);
     socket.emit("waiting");
+    console.log("Waiting in queue:", socket.id);
+  });
+
+  socket.on("stop-chat", () => {
+    stopSearching(socket);
+    console.log("Chat stopped:", socket.id);
   });
 
   socket.on("chat-message", (message) => {
     const partnerId = partners.get(socket.id);
 
-    if (!partnerId || typeof message !== "string") return;
+    if (
+      !partnerId ||
+      typeof message !== "string" ||
+      !message.trim()
+    ) {
+      return;
+    }
 
     io.to(partnerId).emit(
       "chat-message",
@@ -78,7 +110,9 @@ io.on("connection", (socket) => {
   socket.on("signal", (data) => {
     const partnerId = partners.get(socket.id);
 
-    if (!partnerId || !data || typeof data !== "object") return;
+    if (!partnerId || !data || typeof data !== "object") {
+      return;
+    }
 
     if (!["offer", "answer", "candidate"].includes(data.type)) {
       return;
@@ -99,4 +133,3 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log("RandomCall server running on port", PORT);
 });
-
