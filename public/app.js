@@ -372,19 +372,19 @@ $("switch-camera").onclick = async () => {
   }
 };
 
-$("fullscreen-remote").onclick = async () => {
-  try {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else if (remoteVideo.requestFullscreen) {
-      await remoteVideo.requestFullscreen();
-    } else if (remoteVideo.webkitEnterFullscreen) {
-      remoteVideo.webkitEnterFullscreen();
-    } else {
-      setStatus("Fullscreen isn't supported by this browser.");
-    }
-  } catch (error) {
-    console.error("Fullscreen failed:", error);
-    setStatus("Couldn't open fullscreen.");
-  }
+
+const fullscreenButton = $("fullscreen-remote");
+const strangerBox = remoteVideo.closest(".video-box");
+
+fullscreenButton.textContent = "⛶";
+
+fullscreenButton.onclick = () => {
+  const expanded = strangerBox.classList.toggle("expanded");
+  document.body.classList.toggle("expanded-video", expanded);
+
+  fullscreenButton.textContent = expanded ? "✕" : "⛶";
+  fullscreenButton.setAttribute(
+    "aria-label",
+    expanded ? "Close expanded video" : "Expand stranger video"
+  );
 };
