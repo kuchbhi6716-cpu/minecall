@@ -320,3 +320,34 @@ body.expanded-video .video-box:not(.expanded) {
 }
 
 
+.video-box.expanded {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  aspect-ratio: auto !important;
+  z-index: 99999 !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+}
+
+.video-box.expanded video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+body.expanded-video header,
+body.expanded-video main > *:not(.videos),
+body.expanded-video .video-box:not(.expanded) {
+  visibility: hidden !important;
+}
+
+.video-box.expanded #fullscreen-remote {
+  position: absolute !important;
+  top: 20px !important;
+  right: 16px !important;
+  z-index: 100000 !important;
+}
+
