@@ -1066,3 +1066,32 @@ p {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Prevent iPhone Safari from zooming into chat inputs */
+input,
+textarea,
+select,
+button {
+  font-size: 16px;
+}
+
+input,
+textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Keep the chat input and Send button within the screen */
+.chat-input,
+.message-form {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.chat-input input,
+.message-form input,
+.message-form button {
+  min-width: 0;
+}
+
+
