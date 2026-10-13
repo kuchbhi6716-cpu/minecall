@@ -576,5 +576,99 @@ main {
   }
 }
 
+/* Responsive call UI polish */
+button {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform .22s cubic-bezier(.2,.8,.2,1),
+    box-shadow .22s ease,
+    background .22s ease,
+    border-color .22s ease,
+    opacity .22s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 24px #a78bfa30;
+  border-color: #b69bff88;
+}
+
+button:active:not(:disabled) {
+  transform: scale(.95);
+  box-shadow: 0 2px 8px #0004;
+}
+
+button:focus-visible {
+  outline: 2px solid #ff72b6;
+  outline-offset: 3px;
+}
+
+#expand-video {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  right: 12px;
+  padding: 10px 13px;
+  color: white;
+  background: #111a;
+  border: 1px solid #ffffff40;
+  border-radius: 13px;
+  backdrop-filter: blur(12px);
+}
+
+.video-box.expanded {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+}
+
+.video-box.expanded video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+body.expanded-video header,
+body.expanded-video main > *:not(.videos),
+body.expanded-video .video-box:not(.expanded) {
+  visibility: hidden !important;
+}
+
+@media (max-width: 600px) {
+  .chat {
+    width: min(260px, 72vw);
+    right: 10px;
+    bottom: 105px;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .controls button {
+    flex: 1 1 30%;
+    min-width: 0;
+    padding: 12px 7px;
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+
 
 
