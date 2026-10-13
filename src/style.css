@@ -1379,3 +1379,139 @@ button:disabled {
     font-size: 13px;
   }
 }
+
+/* Typing indicator */
+.typing-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 4px 0 18px;
+  animation: typing-appear 220ms ease both;
+}
+
+.typing-bubble {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 13px 15px;
+  min-width: 62px;
+  min-height: 42px;
+  border: 1px solid rgba(205, 184, 242, 0.12);
+  border-radius: 14px 14px 14px 4px;
+  background: #2b223a;
+}
+
+.typing-bubble span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c09aff;
+  animation: typing-bounce 850ms ease-in-out infinite;
+}
+
+.typing-bubble span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.typing-bubble span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.typing-label {
+  padding-left: 3px;
+  color: #a995ca;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0) scale(0.85);
+    opacity: 0.45;
+  }
+
+  30% {
+    transform: translateY(-6px) scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes typing-appear {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Sent message animation */
+.message-row.own-message {
+  animation: message-send 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: right bottom;
+}
+
+@keyframes message-send {
+  0% {
+    opacity: 0;
+    transform: translate(24px, 22px) scale(0.72);
+    filter: blur(3px);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translate(-3px, -3px) scale(1.03);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Keep scrolling inside the chat panel */
+.layout {
+  min-width: 0;
+}
+
+.chat-panel {
+  min-height: 0;
+}
+
+.messages-area {
+  min-height: 0;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 760px) {
+  .chat-panel {
+    min-height: 0;
+    height: 480px;
+    max-height: 480px;
+  }
+
+  .messages-area {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-row,
+  .typing-bubble span,
+  .message-row.own-message {
+    animation: none !important;
+  }
+}
+
+
+
+
