@@ -27,9 +27,16 @@ export default function Home() {
         <h1>Meet someone<br /> <span>unexpected.</span></h1>
         <p>Real conversations. New connections. One click away.</p>
 
-        <button className="start-btn" onClick={startChatting}>
-          <span>▶</span> START CHATTING <span>→</span>
-        </button>
+        
+<button className="start-btn" onClick={startChatting}>
+  <span className="start-icon">
+    <Video size={23} />
+    <Sparkles size={13} className="icon-sparkle" />
+  </span>
+  <span>START CHATTING</span>
+  <ArrowUpRight size={21} />
+</button>
+
 
         <small>No complicated setup. Just start chatting.</small>
       </section>
@@ -54,12 +61,16 @@ export default function Home() {
                 <h3>{stream.title}</h3>
                 <p>Preview room</p>
               </div>
-              <button
-                className="join-btn"
-                onClick={startChatting}
-              >
-                Start chatting →
-              </button>
+              
+<button
+  className="join-btn"
+  onClick={() => {
+    window.location.href = "/call?room=" + stream.id;
+  }}
+>
+  View room <ArrowUpRight size={15} />
+</button>
+
             </article>
           ))}
         </div>
