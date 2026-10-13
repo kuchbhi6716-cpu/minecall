@@ -1,6 +1,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import {
+  Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  SkipForward,
+  PhoneOff,
+  RotateCw,
+  Send,
+  Maximize2
+} from "lucide-react";
 
 export default function App() {
   const [status, setStatus] = useState("Ready when you are");
