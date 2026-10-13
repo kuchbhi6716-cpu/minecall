@@ -1,19 +1,33 @@
 import { Video, ArrowUpRight, Sparkles } from "lucide-react";
 import React from "react";
 import "./Home.css";
+import LivePage from "./LivePage";
+
 
 const streams = [
-  { id: 1, title: "Live Room 01", color: "purple" },
-  { id: 2, title: "Live Room 02", color: "blue" },
-  { id: 3, title: "Live Room 03", color: "pink" },
-  { id: 4, title: "Live Room 04", color: "orange" },
-  { id: 5, title: "Live Room 05", color: "green" },
+  { id: 1, title: "TheBurntPeanut", color: "purple", channel: "TheBurntPeanut" },
+  { id: 2, title: "CaseOh", color: "blue", channel: "caseoh_" },
+  { id: 3, title: "xQc", color: "pink", channel: "xQc" },
+  { id: 4, title: "KaiCenat", color: "orange", channel: "KaiCenat" },
+  { id: 5, title: "Stable Ronaldo", color: "green", channel: "stableronaldo" },
 ];
 
-export default function Home() {
-  const startChatting = () => {
-    window.location.href = "/call";
-  };
+
+
+export default function App() {
+  const path = window.location.pathname;
+
+  if (path === "/call" || path.startsWith("/call/")) {
+    return <CallPage />;
+  }
+
+  if (path === "/live") {
+    return <LivePage />;
+  }
+
+  return <Home />;
+}
+
 
   return (
     <main className="minebbe">
@@ -61,15 +75,18 @@ export default function Home() {
                 <h3>{stream.title}</h3>
                 <p>Preview room</p>
               </div>
+
               
 <button
   className="join-btn"
   onClick={() => {
-    window.location.href = "/call?room=" + stream.id;
+    window.location.href =
+      "/live?channel=" + encodeURIComponent(stream.channel);
   }}
 >
-  View room <ArrowUpRight size={15} />
+  Watch live <ArrowUpRight size={15} />
 </button>
+
 
             </article>
           ))}
