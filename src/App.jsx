@@ -1,4 +1,6 @@
+
 import Home from "./Home";
+import LivePage from "./LivePage";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
@@ -640,8 +642,14 @@ function handleMessageChange(event) {
 }
 
 export default function App() {
-  if (window.location.pathname === "/call") {
+  const path = window.location.pathname;
+
+  if (path === "/call" || path.startsWith("/call/")) {
     return <CallPage />;
+  }
+
+  if (path === "/live") {
+    return <LivePage />;
   }
 
   return <Home />;
