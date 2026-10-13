@@ -351,3 +351,230 @@ body.expanded-video .video-box:not(.expanded) {
   z-index: 100000 !important;
 }
 
+/* RandomCall immersive video-call layout */
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: #08080d;
+}
+
+header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  padding: 15px 20px;
+  background: linear-gradient(#08080de8, transparent);
+  border: 0;
+  pointer-events: none;
+}
+
+header h2,
+header p {
+  pointer-events: auto;
+}
+
+main {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+#status {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: max-content;
+  max-width: 90%;
+  padding: 9px 14px;
+  border-radius: 30px;
+  background: #17131dcc;
+  backdrop-filter: blur(14px);
+}
+
+.videos {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: block;
+}
+
+/* Stranger fills the screen */
+.video-box:nth-child(2) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: #111;
+  box-shadow: none;
+}
+
+.video-box:nth-child(2) video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Your camera becomes a floating preview */
+.video-box:first-child {
+  position: fixed;
+  z-index: 30;
+  top: 88px;
+  right: 14px;
+  width: clamp(100px, 27vw, 170px);
+  height: auto;
+  aspect-ratio: 3 / 4;
+  border: 1px solid #ffffff55;
+  border-radius: 17px;
+  box-shadow: 0 8px 28px #0007;
+}
+
+.video-box:first-child video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Floating chat panel */
+.chat {
+  position: fixed;
+  z-index: 40;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  width: min(310px, 42vw);
+  padding: 14px;
+  background: #100f19d9;
+  backdrop-filter: blur(22px);
+  border: 1px solid #ffffff30;
+  border-radius: 20px;
+  box-shadow: 0 12px 50px #0005;
+  transition: background .2s ease, border-color .2s ease;
+}
+
+.chat:hover,
+.chat:focus-within {
+  background: #100f19f5;
+  border-color: #ffffff55;
+}
+
+.chat h3 {
+  font-size: 15px;
+}
+
+#messages {
+  height: min(34vh, 270px);
+}
+
+.message {
+  font-size: 13px;
+}
+
+#chat-form {
+  flex-wrap: wrap;
+}
+
+#message {
+  width: 100%;
+  flex-basis: 100%;
+  font-size: 13px;
+}
+
+#send {
+  width: 100%;
+}
+
+/* Floating call controls */
+.controls {
+  position: fixed;
+  z-index: 35;
+  left: 50%;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(620px, calc(100% - 24px));
+  justify-content: center;
+  padding: 10px;
+  margin: 0;
+  background: #100f19c9;
+  backdrop-filter: blur(20px);
+  border: 1px solid #ffffff20;
+  border-radius: 22px;
+  box-shadow: 0 10px 35px #0006;
+}
+
+.controls button {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 13px 10px;
+  border-radius: 14px;
+}
+
+.note {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  header {
+    padding: 13px 15px;
+  }
+
+  header h2 {
+    font-size: 22px;
+  }
+
+  header p {
+    font-size: 11px;
+  }
+
+  #status {
+    top: 64px;
+    font-size: 12px;
+  }
+
+  .video-box:first-child {
+    top: 105px;
+    right: 10px;
+    width: 112px;
+    border-radius: 14px;
+  }
+
+  .video-box:nth-child(2) video {
+    object-fit: cover;
+  }
+
+  .chat {
+    top: auto;
+    right: 10px;
+    bottom: 100px;
+    transform: none;
+    width: min(255px, 70vw);
+    padding: 11px;
+    border-radius: 17px;
+  }
+
+  #messages {
+    height: 135px;
+  }
+
+  .controls {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: calc(100% - 20px);
+    gap: 6px;
+    padding: 8px;
+    border-radius: 18px;
+  }
+
+  .controls button {
+    padding: 12px 6px;
+    font-size: 11px;
+  }
+}
+
+
+
