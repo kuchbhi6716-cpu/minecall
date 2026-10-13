@@ -1,0 +1,261 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0c0c12;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+}
+
+.minebbe {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 50% 15%, #281747 0%, transparent 48%),
+    #0c0c12;
+  padding: 0 7%;
+}
+
+.navbar {
+  height: 82px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #ffffff12;
+}
+
+.logo {
+  color: white;
+  font-size: 27px;
+  font-weight: 800;
+  text-decoration: none;
+  letter-spacing: -1.5px;
+}
+
+.logo span {
+  color: #a879ff;
+}
+
+.online-status {
+  color: #bdb8cb;
+  font-size: 12px;
+}
+
+.online-status:first-letter {
+  color: #4ade80;
+}
+
+.hero {
+  min-height: 440px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 55px 0;
+}
+
+.eyebrow {
+  color: #c0a0ff;
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.hero h1 {
+  font-size: clamp(40px, 7vw, 72px);
+  line-height: 1.08;
+  letter-spacing: -3px;
+  margin: 22px 0 16px;
+}
+
+.hero h1 span {
+  color: #ad83ff;
+}
+
+.hero p {
+  color: #aaa6b8;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.start-btn {
+  margin-top: 23px;
+  width: min(340px, 100%);
+  min-height: 62px;
+  border: 0;
+  border-radius: 13px;
+  background: linear-gradient(110deg, #8650ef, #ad73ff);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  box-shadow: 0 8px 35px #9257ff35;
+  transition: transform 0.2s, filter 0.2s;
+}
+
+.start-btn:hover {
+  transform: translateY(-3px);
+  filter: brightness(1.1);
+}
+
+.hero small {
+  color: #797589;
+  margin-top: 15px;
+  font-size: 11px;
+}
+
+.streams {
+  padding: 20px 0 65px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 23px;
+}
+
+.section-heading h2 {
+  font-size: 23px;
+  margin: 0 0 7px;
+}
+
+.section-heading p {
+  color: #8e899e;
+  margin: 0;
+  font-size: 12px;
+}
+
+.live-label {
+  color: #c1a5ff;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.stream-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 17px;
+}
+
+.stream-card {
+  min-height: 255px;
+  padding: 15px;
+  border: 1px solid #ffffff15;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.stream-card:hover {
+  transform: translateY(-4px);
+}
+
+.purple {
+  background: linear-gradient(155deg, #52327d, #191327 85%);
+}
+
+.blue {
+  background: linear-gradient(155deg, #285a72, #111d2b 85%);
+}
+
+.pink {
+  background: linear-gradient(155deg, #783c65, #271626 85%);
+}
+
+.orange {
+  background: linear-gradient(155deg, #815132, #281b16 85%);
+}
+
+.green {
+  background: linear-gradient(155deg, #38644c, #15251c 85%);
+}
+
+.stream-badge {
+  align-self: flex-start;
+  padding: 6px 9px;
+  background: #0c0c12a8;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.stream-info h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.stream-info p {
+  color: #c3bdcf;
+  font-size: 11px;
+  margin: 0;
+}
+
+.join-btn {
+  margin-top: 16px;
+  border: 1px solid #ffffff35;
+  background: #ffffff0d;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+footer {
+  min-height: 90px;
+  border-top: 1px solid #ffffff12;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+footer .logo {
+  font-size: 21px;
+}
+
+footer p {
+  font-size: 11px;
+  color: #8e899e;
+}
+
+@media (max-width: 800px) {
+  .minebbe {
+    padding: 0 5%;
+  }
+
+  .stream-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .stream-card {
+    min-height: 215px;
+  }
+
+  .hero {
+    min-height: 400px;
+  }
+
+  .hero h1 {
+    letter-spacing: -2px;
+  }
+}
+
+@media (max-width: 380px) {
+  .stream-grid {
+    grid-template-columns: 1fr;
+  }
+}
