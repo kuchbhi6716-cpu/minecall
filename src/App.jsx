@@ -423,14 +423,15 @@ export default function App() {
               </div>
             </div>
 
-            <div className="video-card local-card">
+            <div className={`video-card local-card ${expanded ? "local-card-expanded" : ""}`}>
               <video
                 ref={localVideo}
                 autoPlay
                 muted
                 playsInline
+                onClick={() => setExpanded((value) => !value)}
                 className={`video-feed local-feed ${cameraOff ? "camera-off" : ""}`}
-              />
+                />
 
               {(!isActive || cameraOff) && (
                 <div className="local-placeholder">
