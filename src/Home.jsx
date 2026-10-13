@@ -1,4 +1,4 @@
-
+import { Video, ArrowUpRight, Sparkles } from "lucide-react";
 import React from "react";
 import "./Home.css";
 
