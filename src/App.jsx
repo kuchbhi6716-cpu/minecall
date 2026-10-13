@@ -94,13 +94,17 @@ export default function App() {
     });
 
     socket.on("partner-left", () => {
-      cleanupPeer();
-
-      if (activeRef.current) {
-        setPhase("idle");
-        setStatus("They left. Find someone else?");
-      }
-    });
+  // Allow the user to start a new chat again
+  activeRef.current = false;
+  cleanupPeer();
+  stopMedia();
+  setPhase("idle");
+  setStatus("They left. Tap Start Chatting to meet someone new.");
+  setMessages([]);
+  setMessage("");
+  setMuted(false);
+  setCameraOff(false);
+});
 
     return () => {
       activeRef.current = false;
