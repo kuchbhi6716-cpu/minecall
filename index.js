@@ -90,6 +90,15 @@ io.on("connection", (socket) => {
     console.log("Chat stopped:", socket.id);
   });
 
+  
+  socket.on("typing", (isTyping) => {
+    const partnerId = partners.get(socket.id);
+
+    if (!partnerId || typeof isTyping !== "boolean") return;
+
+    io.to(partnerId).emit("typing", isTyping);
+  });
+
   socket.on("chat-message", (message) => {
     const partnerId = partners.get(socket.id);
 
