@@ -1,0 +1,289 @@
+
+.live-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at top, #24133d 0%, transparent 48%),
+    #08080d;
+  color: #f8f7fc;
+  font-family: Inter, system-ui, sans-serif;
+  padding-bottom: 36px;
+}
+
+.live-topbar {
+  height: 68px;
+  padding: 0 5%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #ffffff12;
+  background: #09090dcc;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  backdrop-filter: blur(16px);
+}
+
+.live-back,
+.live-brand,
+.live-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.live-back {
+  color: #d5d0e0;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.live-brand {
+  color: white;
+  text-decoration: none;
+  font-size: 23px;
+  font-weight: 850;
+  letter-spacing: -1.2px;
+}
+
+.live-brand span {
+  color: #b38aff;
+}
+
+.live-status {
+  color: #ff5b78;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.live-status svg {
+  fill: #ff5b78;
+}
+
+.live-content {
+  width: min(100% - 32px, 760px);
+  margin: 0 auto;
+}
+
+.live-heading {
+  padding: 30px 0 20px;
+}
+
+.live-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #bba1ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+}
+
+.live-heading h1 {
+  margin: 12px 0 5px;
+  font-size: clamp(34px, 8vw, 52px);
+  line-height: 1.05;
+  letter-spacing: -2px;
+}
+
+.live-heading h1 span {
+  color: #b38aff;
+}
+
+.live-heading p,
+.more-live > p {
+  color: #9691a6;
+  font-size: 14px;
+  margin: 8px 0 0;
+}
+
+.live-player-card {
+  overflow: hidden;
+  border: 1px solid #ffffff17;
+  border-radius: 20px;
+  background: #111019;
+  box-shadow: 0 20px 65px #0007;
+}
+
+.live-player {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  max-height: 680px;
+  min-height: 300px;
+  background: #050507;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-player iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.live-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 17px;
+}
+
+.live-avatar,
+.channel-avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #9d64ff, #4c3a9e);
+  color: white;
+  font-weight: 800;
+  border-radius: 50%;
+}
+
+.live-avatar {
+  width: 46px;
+  height: 46px;
+  font-size: 18px;
+}
+
+.live-channel-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.live-channel-info h2 {
+  font-size: 16px;
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.live-channel-info p {
+  color: #b7a6e6;
+  font-size: 12px;
+  margin: 0 0 7px;
+}
+
+.live-note {
+  color: #898496;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.live-open-twitch {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #ffffff20;
+  border-radius: 12px;
+  color: white;
+  text-decoration: none;
+}
+
+.live-open-twitch:hover {
+  background: #ffffff12;
+}
+
+.more-live {
+  margin-top: 30px;
+}
+
+.more-live h3 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.channel-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 17px;
+}
+
+.channel-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #ffffff12;
+  background: #ffffff05;
+  border-radius: 14px;
+  color: white;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.channel-item:hover,
+.channel-item.selected {
+  background: #9b73ff12;
+  border-color: #a782ff70;
+}
+
+.channel-avatar {
+  width: 42px;
+  height: 42px;
+}
+
+.channel-text {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.channel-text strong {
+  font-size: 13px;
+}
+
+.channel-text small {
+  color: #9c96ac;
+  font-size: 11px;
+}
+
+.channel-watch {
+  font-size: 12px;
+  color: #c5aaff;
+  white-space: nowrap;
+}
+
+.live-footer {
+  color: #716c7e;
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+  padding: 28px 10px 0;
+}
+
+@media (min-width: 700px) {
+  .live-content {
+    width: min(100% - 48px, 760px);
+  }
+
+  .live-heading {
+    padding-top: 42px;
+  }
+
+  .live-player {
+    aspect-ratio: 16 / 9;
+    max-height: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .live-content {
+    width: calc(100% - 22px);
+  }
+
+  .live-topbar {
+    padding: 0 12px;
+  }
+
+  .live-brand {
+    font-size: 20px;
+  }
+
+  .live-back {
+    font-size: 12px;
+  }
+}
