@@ -472,7 +472,8 @@ export default function App() {
                 disabled={isActive}
                 type="button"
               >
-                <span className="button-symbol">↗</span>
+                <Video size={19} strokeWidth={2.2} />
+<span>Start Chatting</span>
                 Start Chatting
               </button>
 
@@ -482,7 +483,8 @@ export default function App() {
                 disabled={!isActive}
                 type="button"
               >
-                Next <span>→</span>
+                <SkipForward size={19} />
+<span>Next</span>
               </button>
 
               <button
@@ -491,7 +493,8 @@ export default function App() {
                 disabled={!isActive}
                 type="button"
               >
-                Stop
+                <PhoneOff size={19} />
+<span>Stop</span>
               </button>
             </div>
 
