@@ -324,3 +324,67 @@ $("stop").addEventListener("click", () => {
   muteButton.disabled = true;
   cameraButton.disabled = true;
 });
+
+
+let cameraFacingMode = "user";
+
+$("switch-camera").onclick = async () => {
+  if (!stream) return;
+
+  const nextMode =
+    cameraFacingMode === "user" ? "environment" : "user";
+
+  try {
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: nextMode } },
+      audio: false
+    });
+
+    const newTrack = newStream.getVideoTracks()[0];
+    const oldTrack = stream.getVideoTracks()[0];
+
+    const sender = peer?.getSenders().find(
+      item => item.track?.kind === "video"
+    );
+
+    if (sender) {
+      await sender.replaceTrack(newTrack);
+    }
+
+    if (oldTrack) {
+      stream.removeTrack(oldTrack);
+      oldTrack.stop();
+    }
+
+    stream.addTrack(newTrack);
+    localVideo.srcObject = stream;
+
+    localVideo.style.setProperty(
+      "transform",
+      nextMode === "user" ? "scaleX(-1)" : "none",
+      "important"
+    );
+
+    cameraFacingMode = nextMode;
+  } catch (error) {
+    console.error("Camera switch failed:", error);
+    setStatus("Couldn't switch camera. Check camera permissions.");
+  }
+};
+
+$("fullscreen-remote").onclick = async () => {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else if (remoteVideo.requestFullscreen) {
+      await remoteVideo.requestFullscreen();
+    } else if (remoteVideo.webkitEnterFullscreen) {
+      remoteVideo.webkitEnterFullscreen();
+    } else {
+      setStatus("Fullscreen isn't supported by this browser.");
+    }
+  } catch (error) {
+    console.error("Fullscreen failed:", error);
+    setStatus("Couldn't open fullscreen.");
+  }
+};
