@@ -562,3 +562,21 @@ footer p {
     transition-duration: 0.01ms !important;
   }
 }
+
+.start-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.icon-sparkle {
+  position: absolute;
+  top: -7px;
+  right: -8px;
+}
+
+.start-btn svg,
+.join-btn svg {
+  flex-shrink: 0;
+}
+
