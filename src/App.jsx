@@ -524,7 +524,8 @@ export default function App() {
                 disabled={!isActive}
                 type="button"
               >
-                ↻ Flip camera
+               <RotateCw size={17} strokeWidth={2.2} />
+<span>Flip camera</span>
               </button>
             </div>
           </div>
@@ -590,7 +591,7 @@ export default function App() {
               disabled={phase !== "connected" || !message.trim()}
               aria-label="Send message"
             >
-              ↗
+              <Send size={18} strokeWidth={2.2} />
             </button>
           </form>
 
