@@ -331,20 +331,24 @@ let cameraFacingMode = "user";
 $("switch-camera").onclick = async () => {
   if (!stream) return;
 
+  const button = $("switch-camera");
   const nextMode =
     cameraFacingMode === "user" ? "environment" : "user";
 
-  try {
-    const newStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: nextMode } },
-      audio: false
-    });
+  button.disabled = true;
 
-    const newTrack = newStream.getVideoTracks()[0];
+  try {
+    const cameraStream =
+      await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { exact: nextMode } },
+        audio: false
+      });
+
+    const newTrack = cameraStream.getVideoTracks()[0];
     const oldTrack = stream.getVideoTracks()[0];
 
     const sender = peer?.getSenders().find(
-      item => item.track?.kind === "video"
+      s => s.track?.kind === "video"
     );
 
     if (sender) {
@@ -359,34 +363,32 @@ $("switch-camera").onclick = async () => {
     stream.addTrack(newTrack);
     localVideo.srcObject = stream;
 
-    localVideo.style.setProperty(
-      "transform",
-      nextMode === "user" ? "scaleX(-1)" : "none",
-      "important"
-    );
-
     cameraFacingMode = nextMode;
+
+    localVideo.style.transform =
+      nextMode === "user" ? "scaleX(-1)" : "none";
+
+    button.textContent =
+      nextMode === "user"
+        ? "↻ Front camera"
+        : "↻ Back camera";
+
   } catch (error) {
     console.error("Camera switch failed:", error);
-    setStatus("Couldn't switch camera. Check camera permissions.");
+    setStatus("Camera unavailable. Check permissions.");
+  } finally {
+    button.disabled = false;
   }
 };
 
-
-
-const fullscreenButton = $("fullscreen-remote");
+const expandButton = $("expand-video");
 const strangerBox = remoteVideo.closest(".video-box");
 
-if (fullscreenButton && strangerBox) {
-  fullscreenButton.type = "button";
+expandButton.onclick = () => {
+  const expanded = strangerBox.classList.toggle("expanded");
 
-  fullscreenButton.onclick = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+  document.body.classList.toggle("expanded-video", expanded);
 
-    const expanded = strangerBox.classList.toggle("expanded");
-    document.body.classList.toggle("expanded-video", expanded);
+  expandButton.textContent = expanded ? "✕" : "⛶";
+};
 
-    fullscreenButton.textContent = expanded ? "✕" : "⛶";
-  };
-}
