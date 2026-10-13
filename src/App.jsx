@@ -505,7 +505,8 @@ export default function App() {
                 disabled={!isActive}
                 type="button"
               >
-                {muted ? "♫" : "♬"} {muted ? "Unmute" : "Mute"}
+                {muted ? <MicOff size={17} /> : <Mic size={17} />}
+<span>{muted ? "Unmute" : "Mute"}</span>
               </button>
 
               <button
