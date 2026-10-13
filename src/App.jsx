@@ -473,7 +473,6 @@ export default function App() {
               >
                 <Video size={19} strokeWidth={2.2} />
 <span>Start Chatting</span>
-                Start Chatting
               </button>
 
               <button
