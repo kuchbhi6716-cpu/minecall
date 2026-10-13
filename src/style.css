@@ -1189,4 +1189,110 @@ a {
   touch-action: manipulation;
 }
 
-
+/* ===== RandomCall: premium button polish ===== */
+.start-button,
+.next-button,
+.stop-button,
+.utility-button,
+.mini-control,
+.chat-form button,
+.icon-button {
+  position: relative;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    opacity 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.start-button,
+.next-button,
+.stop-button,
+.utility-button,
+.mini-control,
+.chat-form button {
+  cursor: pointer;
+  border-radius: 14px;
+  font-weight: 650;
+}
+.start-button:hover:not(:disabled),
+.next-button:hover:not(:disabled),
+.stop-button:hover:not(:disabled),
+.utility-button:hover:not(:disabled),
+.mini-control:hover:not(:disabled),
+.chat-form button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+.start-button:active:not(:disabled),
+.next-button:active:not(:disabled),
+.stop-button:active:not(:disabled),
+.utility-button:active:not(:disabled),
+.mini-control:active:not(:disabled),
+.chat-form button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.start-button:not(:disabled) {
+  box-shadow: 0 6px 22px rgba(139, 92, 246, 0.22);
+}
+.utility-button {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.utility-button.utility-active,
+.mini-control.control-off {
+  border-color: rgba(255, 100, 100, 0.45);
+}
+.chat-form button {
+  min-width: 46px;
+  min-height: 46px;
+  box-shadow: 0 4px 18px rgba(139, 92, 246, 0.2);
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  transform: none;
+  filter: none;
+}
+/* Tap your own video to enlarge it */
+.local-card {
+  transition:
+    width 240ms ease,
+    height 240ms ease,
+    transform 240ms ease,
+    box-shadow 240ms ease;
+}
+.local-card-expanded {
+  position: fixed !important;
+  inset: 5% 4% !important;
+  z-index: 1000 !important;
+  width: 92vw !important;
+  height: 90dvh !important;
+  max-width: none !important;
+  border-radius: 22px !important;
+  box-shadow: 0 0 0 100vmax rgba(8, 6, 18, 0.82);
+}
+.local-card-expanded .video-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.local-feed {
+  cursor: zoom-in;
+}
+.local-card-expanded .local-feed {
+  cursor: zoom-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .start-button,
+  .next-button,
+  .stop-button,
+  .utility-button,
+  .mini-control,
+  .chat-form button,
+  .icon-button,
+  .local-card {
+    transition: none;
+  }
+}
