@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
@@ -17,6 +18,11 @@ export default function App() {
   const [phase, setPhase] = useState("idle");
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
+  const [partnerTyping, setPartnerTyping] = useState(false);
+  const typingTimeout = useRef(null);
+  const messagesArea = useRef(null);
+  const typingRef = useRef(false);
+
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [facing, setFacing] = useState("user");
@@ -124,12 +130,17 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    messagesEnd.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "end"
-    });
-  }, [messages]);
+  
+useEffect(() => {
+  const area = messagesArea.current;
+  if (!area) return;
+
+  area.scrollTo({
+    top: area.scrollHeight,
+    behavior: "smooth"
+  });
+}, [messages, partnerTyping]);
+
 
   function createPeer(socket) {
     const peer = new RTCPeerConnection({
@@ -252,12 +263,37 @@ export default function App() {
     setMuted(false);
     setCameraOff(false);
   }
+  
+function handleMessageChange(event) {
+  const value = event.target.value;
+  setMessage(value);
+
+  if (phase !== "connected") return;
+
+  if (!typingRef.current) {
+    typingRef.current = true;
+    socketRef.current.emit("typing", true);
+  }
+
+  clearTimeout(typingTimeout.current);
+
+  typingTimeout.current = setTimeout(() => {
+    typingRef.current = false;
+    socketRef.current.emit("typing", false);
+  }, 900);
+}
+
 
   function sendMessage(event) {
     event.preventDefault();
     const text = message.trim();
 
     if (!text || phase !== "connected") return;
+    
+    clearTimeout(typingTimeout.current);
+    typingRef.current = false;
+    socketRef.current.emit("typing", false);
+
 
     socketRef.current.emit("chat-message", text);
     setMessages((old) => [
@@ -443,14 +479,7 @@ export default function App() {
               )}
 
               <span className="local-label">YOU</span>
-              <button
-                className={`mini-control ${muted ? "control-off" : ""}`}
-                onClick={toggleMute}
-                type="button"
-                aria-label={muted ? "Unmute microphone" : "Mute microphone"}
-              >
-                {muted ? "Mic off" : "Mic on"}
-              </button>
+            
             </div>
           </div>
 
@@ -541,7 +570,7 @@ export default function App() {
               : "Messages unlock when you connect"}
           </div>
 
-          <div className="messages-area">
+          <div className="messages-area" ref={messagesArea}>
             {messages.length === 0 ? (
               <div className="empty-chat">
                 <div className="chat-art">✉</div>
@@ -562,12 +591,24 @@ export default function App() {
               ))
             )}
             <div ref={messagesEnd} />
+            
+{partnerTyping && (
+  <div className="typing-row">
+    <div className="typing-bubble" aria-label="Stranger is typing">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <span className="typing-label">STRANGER IS TYPING</span>
+  </div>
+)}
+
           </div>
 
           <form className="chat-form" onSubmit={sendMessage}>
             <input
               value={message}
-              onChange={(event) => setMessage(event.target.value)}
+              onChange={handleMessageChange}
               placeholder={
                 phase === "connected" ? "Write a message..." : "Connect first..."
               }
