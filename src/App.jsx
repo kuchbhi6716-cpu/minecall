@@ -418,15 +418,6 @@ export default function App() {
                 STRANGER
               </div>
 
-              <button
-                className="icon-button expand-button"
-                onClick={toggleFullscreen}
-                aria-label="Expand stranger video"
-                type="button"
-              >
-                ⛶
-              </button>
-
               <div className="video-bottom-label">
                 <span className="live-dot" />
                 {phase === "connected" ? "LIVE" : "WAITING FOR CONNECTION"}
