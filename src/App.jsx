@@ -1,4 +1,4 @@
-
+import Home from "./Home";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
@@ -13,7 +13,7 @@ import {
   Maximize2
 } from "lucide-react";
 
-export default function App() {
+function CallPage() {
   const [status, setStatus] = useState("Ready when you are");
   const [phase, setPhase] = useState("idle");
   const [messages, setMessages] = useState([]);
@@ -637,4 +637,12 @@ function handleMessageChange(event) {
       </footer>
     </div>
   );
+}
+
+export default function App() {
+  if (window.location.pathname === "/call") {
+    return <CallPage />;
+  }
+
+  return <Home />;
 }
