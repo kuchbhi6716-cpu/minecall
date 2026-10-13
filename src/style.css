@@ -1095,3 +1095,52 @@ textarea {
 }
 
 
+/* iPhone: prevent input zoom and horizontal overflow */
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Keep chat panel inside the viewport */
+.chat-panel,
+.chat-messages,
+.chat-form,
+.message-form {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.chat-form,
+.message-form {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-form input,
+.message-form input,
+.chat-form textarea,
+.message-form textarea {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+}
+
+.chat-form button,
+.message-form button {
+  flex-shrink: 0;
+}
+
+
