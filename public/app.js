@@ -373,18 +373,20 @@ $("switch-camera").onclick = async () => {
 };
 
 
+
 const fullscreenButton = $("fullscreen-remote");
 const strangerBox = remoteVideo.closest(".video-box");
 
-fullscreenButton.textContent = "⛶";
+if (fullscreenButton && strangerBox) {
+  fullscreenButton.type = "button";
 
-fullscreenButton.onclick = () => {
-  const expanded = strangerBox.classList.toggle("expanded");
-  document.body.classList.toggle("expanded-video", expanded);
+  fullscreenButton.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
 
-  fullscreenButton.textContent = expanded ? "✕" : "⛶";
-  fullscreenButton.setAttribute(
-    "aria-label",
-    expanded ? "Close expanded video" : "Expand stranger video"
-  );
-};
+    const expanded = strangerBox.classList.toggle("expanded");
+    document.body.classList.toggle("expanded-video", expanded);
+
+    fullscreenButton.textContent = expanded ? "✕" : "⛶";
+  };
+}
