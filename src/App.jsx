@@ -228,6 +228,7 @@ export default function App() {
 
   function stopChat() {
     activeRef.current = false;
+    socketRef.current.emit("stop-chat");
     cleanupPeer();
     stopMedia();
 
