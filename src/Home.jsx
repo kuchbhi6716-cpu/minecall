@@ -1,40 +1,114 @@
 
 import React from "react";
-import { Video, ArrowUpRight, Sparkles } from "lucide-react";
+import {
+  Video,
+  ArrowUpRight,
+  Sparkles,
+  ChevronRight,
+  Gamepad2,
+  Music2,
+  MessageCircle,
+  Radio,
+  TrendingUp,
+} from "lucide-react";
 import "./Home.css";
 
 const streams = [
+  { id: 1, title: "TheBurntPeanut", channel: "TheBurntPeanut", color: "purple" },
+  { id: 2, title: "CaseOh", channel: "caseoh_", color: "blue" },
+  { id: 3, title: "xQc", channel: "xQc", color: "pink" },
+  { id: 4, title: "KaiCenat", channel: "KaiCenat", color: "orange" },
+  { id: 5, title: "Stable Ronaldo", channel: "stableronaldo", color: "green" },
+];
+
+const categories = [
   {
-    id: 1,
-    title: "TheBurntPeanut",
+    id: "trending",
+    title: "Trending creators",
+    subtitle: "Creators people are discovering",
+    icon: TrendingUp,
     color: "purple",
-    channel: "TheBurntPeanut",
+    cards: streams,
   },
   {
-    id: 2,
-    title: "CaseOh",
+    id: "gaming",
+    title: "Gaming",
+    subtitle: "Jump into gaming communities",
+    icon: Gamepad2,
     color: "blue",
-    channel: "caseoh_",
+    cards: [
+      { id: 1, title: "Gaming", channel: "Gaming", color: "blue" },
+      { id: 2, title: "Competitive", channel: "Competitive gaming", color: "purple" },
+      { id: 3, title: "Minecraft", channel: "Minecraft", color: "green" },
+      { id: 4, title: "Variety games", channel: "Variety gaming", color: "pink" },
+      { id: 5, title: "Just gaming", channel: "Gaming streams", color: "orange" },
+    ],
   },
   {
-    id: 3,
-    title: "xQc",
+    id: "just-chatting",
+    title: "Just chatting",
+    subtitle: "Conversations, reactions and more",
+    icon: MessageCircle,
     color: "pink",
-    channel: "xQc",
+    cards: [
+      { id: 1, title: "Chill conversations", channel: "Just chatting", color: "pink" },
+      { id: 2, title: "React & discuss", channel: "Reactions", color: "purple" },
+      { id: 3, title: "Late night talks", channel: "Chatting", color: "blue" },
+      { id: 4, title: "Community time", channel: "Community", color: "orange" },
+      { id: 5, title: "Random topics", channel: "Discussion", color: "green" },
+    ],
   },
   {
-    id: 4,
-    title: "KaiCenat",
+    id: "music",
+    title: "Music",
+    subtitle: "Music sessions and performances",
+    icon: Music2,
     color: "orange",
-    channel: "KaiCenat",
+    cards: [
+      { id: 1, title: "Live music", channel: "Music", color: "orange" },
+      { id: 2, title: "Acoustic sessions", channel: "Acoustic", color: "purple" },
+      { id: 3, title: "DJ sessions", channel: "DJ", color: "pink" },
+      { id: 4, title: "Music discovery", channel: "Music discovery", color: "blue" },
+      { id: 5, title: "Sing & play", channel: "Live performance", color: "green" },
+    ],
   },
   {
-    id: 5,
-    title: "Stable Ronaldo",
+    id: "live-now",
+    title: "Explore live",
+    subtitle: "Find a stream to watch",
+    icon: Radio,
     color: "green",
-    channel: "stableronaldo",
+    cards: streams,
   },
 ];
+
+function openLive(channel) {
+  window.location.href =
+    "/live?channel=" + encodeURIComponent(channel);
+}
+
+function StreamCard({ stream }) {
+  return (
+    <article
+      className={`stream-card ${stream.color} category-card`}
+      key={stream.id}
+    >
+      <span className="stream-badge">EXPLORE</span>
+
+      <div className="stream-info">
+        <h3>{stream.title}</h3>
+        <p>{stream.channel}</p>
+      </div>
+
+      <button
+        className="join-btn"
+        onClick={() => openLive(stream.channel)}
+      >
+        Explore <ArrowUpRight size={15} />
+      </button>
+    </article>
+  );
+}
 
 export default function Home() {
   const startChatting = () => {
@@ -47,11 +121,10 @@ export default function Home() {
         <a className="logo" href="/">
           minebbe<span>.</span>
         </a>
-        <span className="online-status">
-          ● We're online
-        </span>
+        <span className="online-status">● We're online</span>
       </nav>
 
+      {/* Existing hero — kept in place */}
       <section className="hero">
         <span className="eyebrow">
           YOUR NEXT CONVERSATION STARTS HERE
@@ -67,20 +140,13 @@ export default function Home() {
           Real conversations. New connections. One click away.
         </p>
 
-        <button
-          className="start-btn"
-          onClick={startChatting}
-        >
+        <button className="start-btn" onClick={startChatting}>
           <span className="start-icon">
             <Video size={23} />
-            <Sparkles
-              size={13}
-              className="icon-sparkle"
-            />
+            <Sparkles size={13} className="icon-sparkle" />
           </span>
 
           <span>START CHATTING</span>
-
           <ArrowUpRight size={21} />
         </button>
 
@@ -89,47 +155,52 @@ export default function Home() {
         </small>
       </section>
 
-      <section className="streams">
-        <div className="section-heading">
-          <div>
-            <h2>Explore live</h2>
-            <p>Discover what's happening</p>
-          </div>
+      {/* Category carousels */}
+      <section className="discovery">
+        {categories.map((category) => {
+          const Icon = category.icon;
 
-          <span className="live-label">
-            ● LIVE PREVIEWS
-          </span>
-        </div>
-
-        <div className="stream-grid">
-          {streams.map((stream) => (
-            <article
-              className={`stream-card ${stream.color}`}
-              key={stream.id}
+          return (
+            <section
+              className="category-section"
+              key={category.id}
             >
-              <span className="stream-badge">
-                LIVE
-              </span>
+              <div className="category-heading">
+                <div className="category-title-wrap">
+                  <span className={`category-icon ${category.color}`}>
+                    <Icon size={19} />
+                  </span>
 
-              <div className="stream-info">
-                <h3>{stream.title}</h3>
-                <p>{stream.channel}</p>
+                  <div>
+                    <h2>{category.title}</h2>
+                    <p>{category.subtitle}</p>
+                  </div>
+                </div>
+
+                <button
+                  className="view-more-btn"
+                  onClick={() => {
+                    window.location.href =
+                      `/category/${category.id}`;
+                  }}
+                  aria-label={`View more ${category.title}`}
+                >
+                  <span>View more</span>
+                  <ChevronRight size={18} />
+                </button>
               </div>
 
-              <button
-                className="join-btn"
-                onClick={() => {
-                  window.location.href =
-                    "/live?channel=" +
-                    encodeURIComponent(stream.channel);
-                }}
-              >
-                Watch live
-                <ArrowUpRight size={15} />
-              </button>
-            </article>
-          ))}
-        </div>
+              <div className="category-track">
+                {category.cards.map((stream) => (
+                  <StreamCard
+                    key={`${category.id}-${stream.id}`}
+                    stream={stream}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </section>
 
       <footer>
@@ -141,3 +212,4 @@ export default function Home() {
     </main>
   );
 }
+
