@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import "./LivePage.css";
 const API_URL = "/api/aw-models";
+const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
 function getUsername(item) {
   return String(
     item?.performerId ||
@@ -31,10 +32,6 @@ function getThumbnail(item) {
     item?.image,
     item?.imageUrl,
     item?.image_url,
-    item?.images?.["800x600"],
-    item?.images?.["320x180"],
-    item?.images?.large,
-    item?.images?.medium,
   ];
   return (
     images.find(
@@ -45,14 +42,8 @@ function getThumbnail(item) {
   );
 }
 function extractModels(response) {
-  if (Array.isArray(response)) {
-    return response;
-  }
-  if (!response || typeof response !== "object") {
-    return [];
-  }
-  // Actual A.W. Empire format:
-  // response.data.models
+  if (Array.isArray(response)) return response;
+  if (!response || typeof response !== "object") return [];
   const candidates = [
     response.data?.models,
     response.models,
@@ -65,19 +56,11 @@ function extractModels(response) {
     response.data,
   ];
   for (const candidate of candidates) {
-    if (Array.isArray(candidate)) {
-      return candidate;
-    }
+    if (Array.isArray(candidate)) return candidate;
     if (candidate && typeof candidate === "object") {
-      const nestedLists = [
-        candidate.models,
-        candidate.performers,
-        candidate.results,
-        candidate.items,
-      ];
-      for (const list of nestedLists) {
-        if (Array.isArray(list)) {
-          return list;
+      for (const key of ["models", "performers", "results", "items"]) {
+        if (Array.isArray(candidate[key])) {
+          return candidate[key];
         }
       }
     }
@@ -104,19 +87,57 @@ function normalizeModel(item) {
         item?.viewerCount ??
         item?.viewer_count ??
         item?.numViewers ??
-        item?.details?.viewers ??
         0
     ) || 0,
-    // A.W. Empire supplies the provider's chat-room URL.
-    profileUrl:
-      item?.chatRoomUrl ||
-      item?.link ||
-      item?.profileUrl ||
-      item?.profile_url ||
-      item?.url ||
-      "",
-    status: item?.status || "",
+    profileUrl: item?.chatRoomUrl || item?.profileUrl || "",
   };
+}
+function AWLivePlayer({ username }) {
+  const [playerError, setPlayerError] = useState(false);
+  useEffect(() => {
+    if (!username) return;
+    const container = document.getElementById(
+      "onlystream-player"
+    );
+    if (!container) return;
+    container.replaceChildren();
+    setPlayerError(false);
+    const script = document.createElement("script");
+    script.async = true;
+    const params = new URLSearchParams({
+      c: "onlystream-player",
+      site: "jasmin",
+      psid: "kuchbhi6677",
+      pstool: "202_1",
+      psprogram: "revs",
+      category: "girl",
+      ms_notrack: "1",
+    });
+    // Pass the selected performer to the generated feed.
+    params.append("forcedPerformers[]", username);
+    script.src = `${PLAYER_SCRIPT}?${params.toString()}`;
+    script.onerror = () => {
+      setPlayerError(true);
+    };
+    container.appendChild(script);
+    return () => {
+      container.replaceChildren();
+    };
+  }, [username]);
+  return (
+    <div className="onlystream-embed-wrap">
+      <div
+        id="onlystream-player"
+        className="onlystream-embed"
+      />
+      {playerError && (
+        <p className="player-error">
+          The player couldn't load. Check the provider's
+          embed settings and performer selection format.
+        </p>
+      )}
+    </div>
+  );
 }
 export default function LivePage() {
   const params = new URLSearchParams(window.location.search);
@@ -124,19 +145,15 @@ export default function LivePage() {
   const [model, setModel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [imageError, setImageError] = useState(false);
   useEffect(() => {
     let cancelled = false;
     async function loadModel() {
       setLoading(true);
       setError("");
       setModel(null);
-      setImageError(false);
       try {
         const response = await fetch(API_URL, {
-          headers: {
-            Accept: "application/json",
-          },
+          headers: { Accept: "application/json" },
         });
         if (!response.ok) {
           throw new Error(
@@ -144,44 +161,31 @@ export default function LivePage() {
           );
         }
         const data = await response.json();
-        const items = extractModels(data);
-        const models = items
+        const selected = extractModels(data)
           .map(normalizeModel)
-          .filter((item) => item.username);
-        console.log(
-          "OnlyStream model feed count:",
-          models.length
-        );
-        const selected = models.find(
-          (item) =>
-            item.username.toLowerCase() ===
-            username.trim().toLowerCase()
-        );
+          .find(
+            (item) =>
+              item.username.toLowerCase() ===
+              username.trim().toLowerCase()
+          );
         if (!selected) {
           throw new Error(
-            "This model wasn't found in the current feed. It may have left the feed, or the selected username may have changed."
+            "This model was not found in the current feed."
           );
         }
-        if (!cancelled) {
-          setModel(selected);
-        }
+        if (!cancelled) setModel(selected);
       } catch (err) {
-        console.error("OnlyStream LivePage error:", err);
         if (!cancelled) {
-          setError(
-            err.message || "Couldn't load this model."
-          );
+          setError(err.message || "Couldn't load this model.");
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
     if (username) {
       loadModel();
     } else {
-      setError("No model selected. Please return home.");
+      setError("No model selected. Return to the homepage.");
       setLoading(false);
     }
     return () => {
@@ -210,178 +214,65 @@ export default function LivePage() {
           <h1>
             Watch <span>live.</span>
           </h1>
-          <p>
-            Discover live creators on OnlyStream.
-          </p>
+          <p>Watch creators on OnlyStream.</p>
         </div>
-        <article className="live-player-card">
-          <div
-            className="live-player"
-            style={{
-              width: "100%",
-              minHeight: "320px",
-              background: "#111",
-              borderRadius: "12px",
-              overflow: "hidden",
-            }}
-          >
-            {loading ? (
-              <div
-                style={{
-                  minHeight: "320px",
-                  display: "grid",
-                  placeItems: "center",
-                  color: "#ccc",
-                }}
-              >
-                Loading model...
+        {loading ? (
+          <div className="live-player-message">
+            Loading model...
+          </div>
+        ) : error ? (
+          <div className="live-player-message">
+            <p>{error}</p>
+            <a href="/">Back to live models</a>
+          </div>
+        ) : model ? (
+          <>
+            <article className="live-player-card">
+              <div className="live-player">
+                <AWLivePlayer key={model.username} username={model.username} />
               </div>
-            ) : error ? (
-              <div
-                style={{
-                  padding: "32px 24px",
-                  textAlign: "center",
-                  color: "#fff",
-                }}
-              >
-                <p>{error}</p>
-                <a href="/">Back to live models</a>
-              </div>
-            ) : model ? (
-              <div
-                style={{
-                  width: "100%",
-                  minHeight: "320px",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "16px",
-                  padding: "24px",
-                  boxSizing: "border-box",
-                  textAlign: "center",
-                }}
-              >
-                {model.thumbnail && !imageError ? (
-                  <img
-                    src={model.thumbnail}
-                    alt={`${model.name} preview`}
-                    onError={() => setImageError(true)}
-                    style={{
-                      width: "100%",
-                      maxWidth: "640px",
-                      maxHeight: "420px",
-                      objectFit: "contain",
-                      borderRadius: "12px",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      color: "#aaa",
-                      padding: "40px",
-                    }}
-                  >
-                    Preview unavailable
-                  </div>
-                )}
-                <h2
-                  style={{
-                    color: "#fff",
-                    margin: 0,
-                  }}
-                >
-                  {model.name}
-                </h2>
-                <p
-                  style={{
-                    color: "#ccc",
-                    margin: 0,
-                  }}
-                >
-                  {model.age > 0
-                    ? `${model.age}+ · `
-                    : ""}
-                  <Eye
-                    size={15}
-                    style={{
-                      display: "inline",
-                      verticalAlign: "middle",
-                    }}
-                  />{" "}
-                  {model.viewers.toLocaleString()} watching
-                </p>
-                {model.profileUrl ? (
+              <div className="live-details">
+                <div className="live-avatar">
+                  {model.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="live-channel-info">
+                  <h2>{model.name}</h2>
+                  <p>
+                    {model.age > 0
+                      ? `Age ${model.age}+`
+                      : "Live model"}
+                  </p>
+                  <span className="live-note">
+                    <Eye
+                      size={14}
+                      style={{
+                        display: "inline",
+                        verticalAlign: "middle",
+                      }}
+                    />{" "}
+                    {model.viewers.toLocaleString()} watching
+                  </span>
+                </div>
+                {model.profileUrl && (
                   <a
-                    className="join-btn"
+                    className="live-open-twitch"
                     href={model.profileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      textDecoration: "none",
-                    }}
+                    aria-label="Open provider room"
                   >
-                    OPEN MODEL ROOM
-                    <ExternalLink size={17} />
+                    <ExternalLink size={18} />
                   </a>
-                ) : (
-                  <p style={{ color: "#aaa" }}>
-                    No provider room link is available.
-                  </p>
                 )}
-                <p
-                  style={{
-                    color: "#aaa",
-                    fontSize: "13px",
-                    maxWidth: "460px",
-                  }}
-                >
-                  This is a model preview. Live video playback
-                  inside OnlyStream requires a provider-approved
-                  player or embed integration.
-                </p>
               </div>
-            ) : null}
-          </div>
-          {model && (
-            <div className="live-details">
-              <div className="live-avatar">
-                {model.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="live-channel-info">
-                <h2>{model.name}</h2>
-                <p>
-                  {model.age > 0
-                    ? `Age ${model.age}+`
-                    : "Live model"}
-                </p>
-                <span className="live-note">
-                  Availability depends on the provider's feed.
-                </span>
-              </div>
-              {model.profileUrl && (
-                <a
-                  className="live-open-twitch"
-                  href={model.profileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Open model room"
-                >
-                  <ExternalLink size={18} />
-                </a>
-              )}
-            </div>
-          )}
-        </article>
-        <section className="more-live">
-          <h3>Explore more models</h3>
-          <p>Discover other models from the feed.</p>
-          <a href="/">Browse live models →</a>
-        </section>
+            </article>
+            <section className="more-live">
+              <h3>Explore more models</h3>
+              <p>Discover other creators.</p>
+              <a href="/">Browse live models →</a>
+            </section>
+          </>
+        ) : null}
         <footer className="live-footer">
           Powered by OnlyStream
         </footer>
