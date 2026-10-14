@@ -1,17 +1,28 @@
 
 import React from "react";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  Play,
+  Radio,
+  Users,
+} from "lucide-react";
 import { categories } from "./categories";
 import "./Home.css";
 
 export default function CategoryPage() {
   const slug = window.location.pathname.split("/")[2];
-  const category = categories.find((item) => item.id === slug);
+
+  const category = categories.find(
+    (item) => item.id === slug
+  );
 
   if (!category) {
     return (
       <main className="minebbe category-page">
-        <a className="logo" href="/">minebbe<span>.</span></a>
+        <a className="logo" href="/">
+          minebbe<span>.</span>
+        </a>
         <h1>Category not found</h1>
         <a href="/">Back to home</a>
       </main>
@@ -23,55 +34,121 @@ export default function CategoryPage() {
   return (
     <main className="minebbe category-page">
       <nav className="navbar">
-        <a className="logo" href="/">minebbe<span>.</span></a>
+        <a className="logo" href="/">
+          minebbe<span>.</span>
+        </a>
+
         <a className="view-more-btn" href="/">
-          <ArrowLeft size={17} /> Home
+          <ArrowLeft size={17} />
+          Home
         </a>
       </nav>
 
-      <section className="category-page-heading">
-        <span className={`category-icon ${category.color}`}>
+      <section className="stream-page-heading">
+        <div className={`category-icon ${category.color}`}>
           <Icon size={24} />
-        </span>
-        <p className="eyebrow">DISCOVER SOMETHING NEW</p>
-        <h1>{category.title}</h1>
-        <p>{category.subtitle}</p>
+        </div>
+
+        <div>
+          <p className="eyebrow">MINEBBE DISCOVERY</p>
+          <h1>{category.title}</h1>
+          <p>{category.subtitle}</p>
+        </div>
       </section>
 
-      <section className="category-page-grid">
-        {category.cards.map((card) => (
-          <article
-            className={`stream-card ${card.color} category-card`}
-            key={`${category.id}-${card.id}`}
-          >
-            <span className="stream-badge">
-              {card.live ? "CHANNEL" : "EXPLORE"}
-            </span>
+      <div className="stream-page-toolbar">
+        <span>
+          <Radio size={16} />
+          Explore channels
+        </span>
+        <span className="stream-total">
+          {category.cards.length} listings
+        </span>
+      </div>
 
-            <div className="stream-info">
-              <h3>{card.title}</h3>
-              <p>{card.live ? "Twitch channel" : "Discovery preview"}</p>
+      <section className="vertical-stream-list">
+        {category.cards.map((card, index) => (
+          <article
+            className="vertical-stream-card"
+            key={`${category.id}-${card.id}`}
+            style={{ animationDelay: `${index * 45}ms` }}
+          >
+            <div className={`stream-thumbnail ${card.color}`}>
+              <div className="thumbnail-glow" />
+
+              {card.live ? (
+                <span className="thumbnail-live">
+                  <span /> CHANNEL
+                </span>
+              ) : (
+                <span className="thumbnail-live demo-label">
+                  DISCOVER
+                </span>
+              )}
+
+              <div className="thumbnail-play">
+                <Play size={23} fill="currentColor" />
+              </div>
+
+              <span className="thumbnail-number">
+                {String(index + 1).padStart(2, "0")}
+              </span>
             </div>
 
-            {card.live ? (
-              <button
-                className="join-btn"
-                onClick={() => {
-                  window.location.href =
-                    "/live?channel=" + encodeURIComponent(card.channel);
-                }}
-              >
-                Watch live <ArrowUpRight size={15} />
-              </button>
-            ) : (
-              <span className="coming-soon">Preview · Demo</span>
-            )}
+            <div className="vertical-stream-info">
+              <span className="stream-category-label">
+                {category.title}
+              </span>
+
+              <h2>{card.title}</h2>
+
+              <p className="stream-channel-name">
+                {card.channel}
+              </p>
+
+              <p className="stream-description">
+                {card.live
+                  ? "Open this creator's channel and check their live broadcast."
+                  : "Discovery listing. A verified stream source can be connected here."}
+              </p>
+
+              <div className="stream-meta">
+                <span>
+                  <Users size={14} />
+                  Channel listing
+                </span>
+                <span className="stream-dot">•</span>
+                <span>{card.live ? "External stream" : "Preview"}</span>
+              </div>
+            </div>
+
+            <div className="vertical-stream-action">
+              {card.live ? (
+                <button
+                  className="vertical-watch-btn"
+                  onClick={() => {
+                    window.location.href =
+                      "/live?channel=" +
+                      encodeURIComponent(card.channel);
+                  }}
+                >
+                  Watch live
+                  <ArrowUpRight size={17} />
+                </button>
+              ) : (
+                <span className="vertical-demo-tag">
+                  Demo listing
+                </span>
+              )}
+            </div>
           </article>
         ))}
       </section>
 
       <footer>
-        <a className="logo" href="/">minebbe<span>.</span></a>
+        <a className="logo" href="/">
+          minebbe<span>.</span>
+        </a>
         <p>Meet respectfully. Connect safely.</p>
       </footer>
     </main>
