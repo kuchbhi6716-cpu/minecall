@@ -6,18 +6,37 @@ import {
   Radio,
   Tv,
   Eye,
+  RefreshCw,
 } from "lucide-react";
 import "./LivePage.css";
 
 const API_URL = "/api/aw-models";
 const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
 
+const PLAYER_CONFIG = {
+  site: "jasmin",
+  cobrandId: "",
+  psid: "kuchbhi6677",
+  pstool: "202_1",
+  psprogram: "revs",
+  campaign_id: "",
+  category: "girl",
+  "vp[showChat]": "true",
+  "vp[chatAutoHide]": "",
+  "vp[showCallToAction]": "",
+  "vp[showPerformerName]": "",
+  "vp[showPerformerStatus]": "",
+  ms_notrack: "1",
+  subAffId: "",
+};
+
 function getUsername(item) {
   return String(
-    item?.performerId ||
-      item?.performer_id ||
-      item?.username ||
+    item?.username ||
       item?.nickname ||
+      item?.displayName ||
+      item?.performerId ||
+      item?.performer_id ||
       item?.id ||
       item?.name ||
       ""
@@ -67,7 +86,12 @@ function extractModels(response) {
     if (Array.isArray(candidate)) return candidate;
 
     if (candidate && typeof candidate === "object") {
-      for (const key of ["models", "performers", "results", "items"]) {
+      for (const key of [
+        "models",
+        "performers",
+        "results",
+        "items",
+      ]) {
         if (Array.isArray(candidate[key])) {
           return candidate[key];
         }
@@ -79,18 +103,20 @@ function extractModels(response) {
 }
 
 function normalizeModel(item) {
+  const username = getUsername(item);
   const age = Number(
     item?.persons?.[0]?.age ?? item?.age ?? 0
   );
 
   return {
-    username: getUsername(item),
+    username,
     name:
       item?.displayName ||
       item?.nickname ||
       item?.username ||
       item?.performerId ||
       item?.name ||
+      username ||
       "Live Model",
     age: Number.isFinite(age) ? age : 0,
     thumbnail: getThumbnail(item),
@@ -106,66 +132,80 @@ function normalizeModel(item) {
 }
 
 function AWLivePlayer({ username }) {
-  const [playerError, setPlayerError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [playerError, setPlayerError] = useState("");
+  const [loadingPlayer, setLoadingPlayer] = useState(true);
 
   useEffect(() => {
-    if (!username) return;
+    if (!username) {
+      setPlayerError("No performer username was provided.");
+      setLoadingPlayer(false);
+      return;
+    }
 
-    const container = document.getElementById("onlystream-player");
-    if (!container) return;
+    const container = document.getElementById(
+      "onlystream-player"
+    );
 
+    if (!container) {
+      setPlayerError("Player container was not found.");
+      setLoadingPlayer(false);
+      return;
+    }
+
+    let cancelled = false;
+    let timer;
+
+    setLoadingPlayer(true);
+    setPlayerError("");
     container.replaceChildren();
-    setPlayerError(false);
-
-    let finished = false;
-
-    const showError = () => {
-      if (!finished) {
-        finished = true;
-        setPlayerError(true);
-      }
-    };
-
-    const timer = window.setTimeout(showError, 20000);
 
     const params = new URLSearchParams({
       c: "onlystream-player",
-      site: "jasmin",
-      cobrandId: "",
-      psid: "kuchbhi6677",
-      pstool: "202_1",
-      psprogram: "revs",
-      campaign_id: "",
-      category: "girl",
+      ...PLAYER_CONFIG,
       "forcedPerformers[]": username,
-      "vp[showChat]": "",
-      "vp[chatAutoHide]": "",
-      "vp[showCallToAction]": "",
-      "vp[showPerformerName]": "",
-      "vp[showPerformerStatus]": "",
-      ms_notrack: "1",
-      subAffId: "",
     });
 
     const script = document.createElement("script");
     script.async = true;
     script.src = `${PLAYER_SCRIPT}?${params.toString()}`;
-    console.log("Player URL:", script.src);
-
-    script.onerror = showError;
 
     script.onload = () => {
+      if (cancelled) return;
+
+      // The script loading does not necessarily mean
+      // the video stream has started playing.
       window.clearTimeout(timer);
+      setLoadingPlayer(false);
+    };
+
+    script.onerror = () => {
+      if (cancelled) return;
+
+      window.clearTimeout(timer);
+      setLoadingPlayer(false);
+      setPlayerError(
+        "The provider player script could not load."
+      );
     };
 
     container.appendChild(script);
 
+    timer = window.setTimeout(() => {
+      if (cancelled) return;
+
+      setLoadingPlayer(false);
+      setPlayerError(
+        "The player is taking too long to load. Check the connection or try again."
+      );
+    }, 25000);
+
     return () => {
-      finished = true;
+      cancelled = true;
       window.clearTimeout(timer);
       container.replaceChildren();
     };
-  }, [username]);
+  }, [username, attempt]);
 
   return (
     <div className="onlystream-embed-wrap">
@@ -174,18 +214,32 @@ function AWLivePlayer({ username }) {
         className="onlystream-embed"
       />
 
+      {loadingPlayer && (
+        <div className="player-error">
+          <p>Loading live stream...</p>
+        </div>
+      )}
+
       {playerError && (
         <div className="player-error">
-          <p>Unable to load the live player.</p>
+          <p>{playerError}</p>
           <p>
-            Try opening this creator's official room using the
-            external-link button below.
+            The stream may be unavailable or the provider
+            may have blocked the embed.
           </p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() => setAttempt((value) => value + 1)}
           >
-            Retry
+            <RefreshCw
+              size={15}
+              style={{
+                display: "inline",
+                verticalAlign: "middle",
+                marginRight: 6,
+              }}
+            />
+            Retry player
           </button>
         </div>
       )}
@@ -195,14 +249,16 @@ function AWLivePlayer({ username }) {
 
 export default function LivePage() {
   const params = new URLSearchParams(window.location.search);
-  const username = params.get("model") || "";
+  const requestedModel = (params.get("model") || "").trim();
 
   const [model, setModel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     async function loadModel() {
       setLoading(true);
@@ -212,6 +268,7 @@ export default function LivePage() {
       try {
         const response = await fetch(API_URL, {
           headers: { Accept: "application/json" },
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -221,32 +278,40 @@ export default function LivePage() {
         }
 
         const data = await response.json();
-
-        const selected = extractModels(data)
+        const models = extractModels(data)
           .map(normalizeModel)
-          .find(
-            (item) =>
-              item.username.toLowerCase() ===
-              username.trim().toLowerCase()
+          .filter((item) => item.username);
+
+        const selected = models.find((item) => {
+          const requested = requestedModel.toLowerCase();
+
+          return (
+            item.username.toLowerCase() === requested ||
+            item.name.toLowerCase() === requested
           );
+        });
 
         if (!selected) {
           throw new Error(
-            "This model was not found in the current feed."
+            "This model was not found in the current feed. Go back and select a model from the cards."
           );
         }
 
-        if (!cancelled) setModel(selected);
-      } catch (err) {
         if (!cancelled) {
-          setError(err.message || "Couldn't load this model.");
+          setModel(selected);
+        }
+      } catch (err) {
+        if (!cancelled && err.name !== "AbortError") {
+          setError(
+            err.message || "Couldn't load this model."
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    if (username) {
+    if (requestedModel) {
       loadModel();
     } else {
       setError("No model selected. Return to the homepage.");
@@ -255,8 +320,9 @@ export default function LivePage() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [username]);
+  }, [requestedModel, retry]);
 
   return (
     <main className="live-page">
@@ -295,7 +361,25 @@ export default function LivePage() {
         ) : error ? (
           <div className="live-player-message">
             <p>{error}</p>
-            <a href="/">Back to live models</a>
+
+            <button
+              type="button"
+              onClick={() => setRetry((value) => value + 1)}
+            >
+              <RefreshCw
+                size={15}
+                style={{
+                  display: "inline",
+                  verticalAlign: "middle",
+                  marginRight: 6,
+                }}
+              />
+              Retry
+            </button>
+
+            <p>
+              <a href="/">Back to live models</a>
+            </p>
           </div>
         ) : model ? (
           <>
