@@ -9,17 +9,10 @@ import {
   MessageCircle,
   Radio,
   TrendingUp,
+  Heart,
 } from "lucide-react";
 import "./Home.css";
-import { categories } from "./categories";
 
-const streams = [
-  { id: 1, title: "TheBurntPeanut", channel: "TheBurntPeanut", color: "purple" },
-  { id: 2, title: "CaseOh", channel: "caseoh_", color: "blue" },
-  { id: 3, title: "xQc", channel: "xQc", color: "pink" },
-  { id: 4, title: "KaiCenat", channel: "KaiCenat", color: "orange" },
-  { id: 5, title: "Stable Ronaldo", channel: "stableronaldo", color: "green" },
-];
 
 
 function ModelCard({ model }) {
@@ -202,54 +195,105 @@ export default function Home() {
         )}
       </section>
 
-
-      {/* Category carousels */}
-      <section className="discovery">
-        {categories.map((category) => {
-          const Icon = category.icon;
-
-          return (
-            <section
-              className="category-section"
-              key={category.id}
-            >
-              <div className="category-heading">
-                <div className="category-title-wrap">
-                  <span className={`category-icon ${category.color}`}>
-                    <Icon size={19} />
-                  </span>
-
-                  <div>
-                    <h2>{category.title}</h2>
-                    <p>{category.subtitle}</p>
-                  </div>
-                </div>
-
-                <button
-                  className="view-more-btn"
-                  onClick={() => {
-                    window.location.href =
-                      `/category/${category.id}`;
-                  }}
-                  aria-label={`View more ${category.title}`}
-                >
-                  <span>View more</span>
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-
-              <div className="category-track">
-                {category.cards.map((stream) => (
-                  <StreamCard
-                    key={`${category.id}-${stream.id}`}
-                    stream={stream}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </section>
+        {/* Category carousels */}
+  <section className="discovery">
+    {/* Section 1: Trending Now */}
+    <section className="category-section">
+      <div className="category-heading">
+        <div className="category-title-wrap">
+          <span className="category-icon purple">
+            <TrendingUp size={19} />
+          </span>
+          <div>
+            <h2>Trending Now</h2>
+            <p>What's popular right now</p>
+          </div>
+        </div>
+      </div>
+      <div className="category-track">
+        {[
+          { id: 1, title: "Trending Creator", channel: "Discover", color: "purple" },
+          { id: 2, title: "Popular Stream", channel: "Explore", color: "pink" },
+          { id: 3, title: "Live Spotlight", channel: "Featured", color: "orange" },
+          { id: 4, title: "Hot Pick", channel: "Trending", color: "blue" },
+        ].map((stream) => (
+          <StreamCard key={stream.id} stream={stream} />
+        ))}
+      </div>
+    </section>
+    {/* Section 2: Popular Creators */}
+    <section className="category-section">
+      <div className="category-heading">
+        <div className="category-title-wrap">
+          <span className="category-icon blue">
+            <Sparkles size={19} />
+          </span>
+          <div>
+            <h2>Popular Creators</h2>
+            <p>Creators worth checking out</p>
+          </div>
+        </div>
+      </div>
+      <div className="category-track">
+        {[
+          { id: 5, title: "Creator One", channel: "Popular", color: "blue" },
+          { id: 6, title: "Creator Two", channel: "Featured", color: "purple" },
+          { id: 7, title: "Creator Three", channel: "Discover", color: "green" },
+          { id: 8, title: "Creator Four", channel: "Popular", color: "pink" },
+        ].map((stream) => (
+          <StreamCard key={stream.id} stream={stream} />
+        ))}
+      </div>
+    </section>
+    {/* Section 3: Just For You */}
+    <section className="category-section">
+      <div className="category-heading">
+        <div className="category-title-wrap">
+          <span className="category-icon pink">
+            <Heart size={19} />
+          </span>
+          <div>
+            <h2>Just For You</h2>
+            <p>A little something to explore</p>
+          </div>
+        </div>
+      </div>
+      <div className="category-track">
+        {[
+          { id: 9, title: "Your Next Pick", channel: "Recommended", color: "pink" },
+          { id: 10, title: "New Discovery", channel: "Explore", color: "purple" },
+          { id: 11, title: "Something Different", channel: "Discover", color: "orange" },
+          { id: 12, title: "Surprise Stream", channel: "For You", color: "blue" },
+        ].map((stream) => (
+          <StreamCard key={stream.id} stream={stream} />
+        ))}
+      </div>
+    </section>
+    {/* Section 4: Explore More */}
+    <section className="category-section">
+      <div className="category-heading">
+        <div className="category-title-wrap">
+          <span className="category-icon green">
+            <Radio size={19} />
+          </span>
+          <div>
+            <h2>Explore More</h2>
+            <p>Find something new</p>
+          </div>
+        </div>
+      </div>
+      <div className="category-track">
+        {[
+          { id: 13, title: "Fresh Finds", channel: "Explore", color: "green" },
+          { id: 14, title: "Featured Live", channel: "Featured", color: "orange" },
+          { id: 15, title: "Around the World", channel: "Discover", color: "blue" },
+          { id: 16, title: "More to Explore", channel: "Live", color: "purple" },
+        ].map((stream) => (
+          <StreamCard key={stream.id} stream={stream} />
+        ))}
+      </div>
+    </section>
+  </section>
 
       <footer>
         <a className="logo" href="/">
