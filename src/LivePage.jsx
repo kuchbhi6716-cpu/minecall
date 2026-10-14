@@ -160,6 +160,10 @@ function AWLivePlayer({ username }) {
     };
 
     container.appendChild(script);
+    script.onload = () => {
+  console.log("Player script loaded");
+  console.log("Container:", container.innerHTML);
+};
 
     // Detect an actual playable video where accessible.
     checkTimer = window.setInterval(() => {
