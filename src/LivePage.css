@@ -287,3 +287,56 @@
     font-size: 12px;
   }
 }
+
+
+/* OnlyStream: enlarge the embedded live video */
+.onlystream-embed-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  overflow: hidden;
+  background: #000;
+}
+
+.onlystream-embed {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  overflow: hidden;
+  background: #000;
+}
+
+/* Make the provider's video and iframe fill the player */
+.onlystream-embed iframe,
+.onlystream-embed video,
+.onlystream-embed object,
+.onlystream-embed embed {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  border: 0 !important;
+}
+
+/* Prevent taps on the video itself */
+.onlystream-embed video,
+.onlystream-embed iframe {
+  pointer-events: none !important;
+}
+
+/* Mobile player sizing */
+@media (max-width: 768px) {
+  .live-player,
+  .live-player-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .onlystream-embed-wrap,
+  .onlystream-embed {
+    min-height: 65vh;
+    height: 65vh;
+  }
+}
+
