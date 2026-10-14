@@ -20,7 +20,6 @@ function getModelUsername(model) {
       ""
   ).trim();
 }
-
 function getModelName(model) {
   return (
     model?.displayName ||
