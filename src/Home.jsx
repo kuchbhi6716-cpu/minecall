@@ -12,17 +12,27 @@ import "./Home.css";
 function ModelCard({ model }) {
   const [imageError, setImageError] = useState(false);
 
+  const username =
+    model.username || model.nickname || model.name || "";
+
   const thumbnail =
-    model.thumbnail || model.thumb || model.thumb_error;
+    model.thumbnail ||
+    model.thumb ||
+    model.thumb_big ||
+    model.profile_thumb_sfw ||
+    model.profile_thumb ||
+    model.thumb_error;
 
   const name = model.name || model.nickname || "Live Model";
   const viewers = Number(model.viewers) || 0;
   const age = Number(model.age);
 
+  // Open our own LivePage instead of opening CAM4 directly.
   const openModel = () => {
-    if (model.link) {
-      window.open(model.link, "_blank", "noopener,noreferrer");
-    }
+    if (!username) return;
+
+    window.location.href =
+      "/live?model=" + encodeURIComponent(username);
   };
 
   return (
@@ -30,8 +40,8 @@ function ModelCard({ model }) {
       <button
         className="model-card-click"
         onClick={openModel}
-        aria-label={`Watch ${name} on CAM4`}
-        disabled={!model.link}
+        aria-label={`View ${name}`}
+        disabled={!username}
       >
         {!imageError && thumbnail ? (
           <img
@@ -54,7 +64,13 @@ function ModelCard({ model }) {
 
           <p>
             {age > 0 ? `${age}+ · ` : ""}
-            <Eye size={14} style={{ display: "inline", verticalAlign: "middle" }} />
+            <Eye
+              size={14}
+              style={{
+                display: "inline",
+                verticalAlign: "middle",
+              }}
+            />
             {" "}{viewers.toLocaleString()} watching
           </p>
         </div>
@@ -81,7 +97,6 @@ export default function Home() {
 
         const data = await response.json();
 
-        // Accept either a plain array or an object containing models.
         const list = Array.isArray(data)
           ? data
           : Array.isArray(data.models)
@@ -89,39 +104,52 @@ export default function Home() {
           : [];
 
         const normalized = list
-          .filter((model) => model && (model.nickname || model.name))
+          .filter(
+            (model) =>
+              model &&
+              (model.nickname || model.username || model.name)
+          )
           .map((model) => ({
             ...model,
-            username: model.nickname || model.username || model.name,
-            name: model.nickname || model.name,
+            username:
+              model.nickname || model.username || model.name,
+            name:
+              model.nickname || model.name || model.username,
             thumbnail:
-              model.thumb || model.thumb_big || model.profile_thumb_sfw ||
-              model.profile_thumb || model.thumb_error,
+              model.thumb ||
+              model.thumb_big ||
+              model.profile_thumb_sfw ||
+              model.profile_thumb ||
+              model.thumb_error,
             viewers: Number(model.viewers) || 0,
             link: model.link || model.profileUrl || "",
           }));
 
-        // Keep each model once, even if the API returns duplicates.
         const unique = Array.from(
-          new Map(normalized.map((model) => [model.username, model])).values()
+          new Map(
+            normalized.map((model) => [model.username, model])
+          ).values()
         );
 
         if (active) {
           setModels(unique);
           setModelsError(false);
-          setModelsLoading(false);
         }
       } catch (error) {
         console.error("CAM4 models error:", error);
 
         if (active) {
           setModelsError(true);
+        }
+      } finally {
+        if (active) {
           setModelsLoading(false);
         }
       }
     }
 
     loadModels();
+
     const interval = setInterval(loadModels, 45000);
 
     return () => {
@@ -175,6 +203,7 @@ export default function Home() {
         <a className="logo" href="/">
           OnlyStream<span>.</span>
         </a>
+
         <span className="online-status">● We're online</span>
       </nav>
 
@@ -198,16 +227,22 @@ export default function Home() {
             <Video size={23} />
             <Sparkles size={13} className="icon-sparkle" />
           </span>
+
           <span>START CHATTING</span>
           <ArrowUpRight size={21} />
         </button>
 
-        <small>No complicated setup. Just start chatting.</small>
+        <small>
+          No complicated setup. Just start chatting.
+        </small>
       </section>
 
       <section className="discovery">
         {liveSections.map((section) => (
-          <section className="category-section" key={section.title}>
+          <section
+            className="category-section"
+            key={section.title}
+          >
             <div className="category-heading">
               <div className="category-title-wrap">
                 <span className={`category-icon ${section.color}`}>
@@ -228,13 +263,18 @@ export default function Home() {
             {modelsLoading ? (
               <p>Loading live models...</p>
             ) : modelsError ? (
-              <p>Couldn't load live models. Please try again later.</p>
+              <p>
+                Couldn't load live models. Please try again later.
+              </p>
             ) : section.models.length === 0 ? (
               <p>No live models available in this section.</p>
             ) : (
               <div className="category-track">
                 {section.models.map((model) => (
-                  <ModelCard key={model.username} model={model} />
+                  <ModelCard
+                    key={model.username}
+                    model={model}
+                  />
                 ))}
               </div>
             )}
@@ -246,6 +286,7 @@ export default function Home() {
         <a className="logo" href="/">
           OnlyStream<span>.</span>
         </a>
+
         <p>Meet respectfully. Connect safely.</p>
       </footer>
     </main>
