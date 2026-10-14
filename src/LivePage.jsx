@@ -1,6 +1,12 @@
 
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, Radio, Tv, Eye } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Radio,
+  Tv,
+  Eye
+} from "lucide-react";
 import "./LivePage.css";
 
 export default function LivePage() {
@@ -10,6 +16,7 @@ export default function LivePage() {
   const [model, setModel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,14 +116,15 @@ export default function LivePage() {
             Watch <span>live.</span>
           </h1>
 
-          <p>Catch the moment as it happens.</p>
+          <p>Discover live creators on OnlyStream.</p>
         </div>
 
         <article className="live-player-card">
           <div
             className="live-player"
             style={{
-              minHeight: "300px",
+              width: "100%",
+              minHeight: "320px",
               background: "#111"
             }}
           >
@@ -128,7 +136,7 @@ export default function LivePage() {
               <div
                 style={{
                   width: "100%",
-                  minHeight: "300px",
+                  minHeight: "320px",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -139,18 +147,28 @@ export default function LivePage() {
                   textAlign: "center"
                 }}
               >
-                {model.thumbnail && (
+                {model.thumbnail && !imageError ? (
                   <img
                     src={model.thumbnail}
                     alt={`${model.name} thumbnail`}
+                    onError={() => setImageError(true)}
                     style={{
                       width: "100%",
-                      maxWidth: "420px",
-                      maxHeight: "320px",
+                      maxWidth: "480px",
+                      maxHeight: "340px",
                       objectFit: "contain",
                       borderRadius: "12px"
                     }}
                   />
+                ) : (
+                  <div
+                    style={{
+                      color: "#aaa",
+                      padding: "40px"
+                    }}
+                  >
+                    Preview unavailable
+                  </div>
                 )}
 
                 <h2 style={{ color: "white", margin: 0 }}>
@@ -158,6 +176,7 @@ export default function LivePage() {
                 </h2>
 
                 <p style={{ color: "#ccc", margin: 0 }}>
+                  {model.age ? `${model.age}+ · ` : ""}
                   <Eye
                     size={15}
                     style={{
@@ -168,7 +187,7 @@ export default function LivePage() {
                   {model.viewers.toLocaleString()} watching
                 </p>
 
-                {model.profileUrl && (
+                {model.profileUrl ? (
                   <a
                     className="join-btn"
                     href={model.profileUrl}
@@ -177,6 +196,7 @@ export default function LivePage() {
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
+                      justifyContent: "center",
                       gap: "8px",
                       textDecoration: "none"
                     }}
@@ -184,6 +204,10 @@ export default function LivePage() {
                     WATCH ON CAM4
                     <ExternalLink size={17} />
                   </a>
+                ) : (
+                  <p style={{ color: "#aaa" }}>
+                    The model profile link is unavailable.
+                  </p>
                 )}
 
                 <p style={{ color: "#aaa", fontSize: "13px" }}>
@@ -207,7 +231,7 @@ export default function LivePage() {
                 </p>
 
                 <span className="live-note">
-                  Stream availability depends on the model being online.
+                  Availability depends on the model being online.
                 </span>
               </div>
 
