@@ -11,6 +11,8 @@ import "./Home.css";
 
 const API_URL = "/api/aw-models";
 const REFRESH_INTERVAL = 45000;
+const VIEWER_MIN = 80;
+const VIEWER_MAX = 200;
 
 function getModelUsername(model) {
   return String(
@@ -64,40 +66,9 @@ function getModelThumbnail(model) {
   );
 }
 
-function getViewerCount(model) {
-  const possibleValues = [
-    model?.viewers,
-    model?.viewerCount,
-    model?.viewer_count,
-    model?.numViewers,
-    model?.details?.viewers,
-    model?.details?.viewerCount,
-    model?.stats?.viewers,
-  ];
-
-  for (const value of possibleValues) {
-    if (
-      value !== null &&
-      value !== undefined &&
-      value !== "" &&
-      Number.isFinite(Number(value)) &&
-      Number(value) >= 0
-    ) {
-      return Number(value);
-    }
-  }
-
-  return null;
-}
-
 function extractModels(response) {
-  if (Array.isArray(response)) {
-    return response;
-  }
-
-  if (!response || typeof response !== "object") {
-    return [];
-  }
+  if (Array.isArray(response)) return response;
+  if (!response || typeof response !== "object") return [];
 
   const possibleLists = [
     response.data?.models,
@@ -112,9 +83,7 @@ function extractModels(response) {
   ];
 
   for (const list of possibleLists) {
-    if (Array.isArray(list)) {
-      return list;
-    }
+    if (Array.isArray(list)) return list;
 
     if (list && typeof list === "object") {
       const nestedLists = [
@@ -125,14 +94,20 @@ function extractModels(response) {
       ];
 
       for (const nested of nestedLists) {
-        if (Array.isArray(nested)) {
-          return nested;
-        }
+        if (Array.isArray(nested)) return nested;
       }
     }
   }
 
   return [];
+}
+
+function getRandomViewerCount() {
+  return (
+    Math.floor(
+      Math.random() * (VIEWER_MAX - VIEWER_MIN + 1)
+    ) + VIEWER_MIN
+  );
 }
 
 function normalizeModels(list) {
@@ -145,9 +120,7 @@ function normalizeModels(list) {
     )
     .map((model) => {
       const age = Number(
-        model?.persons?.[0]?.age ??
-          model?.age ??
-          0
+        model?.persons?.[0]?.age ?? model?.age ?? 0
       );
 
       return {
@@ -156,7 +129,6 @@ function normalizeModels(list) {
         name: getModelName(model),
         thumbnail: getModelThumbnail(model),
         age: Number.isFinite(age) ? age : 0,
-        viewers: getViewerCount(model),
       };
     });
 
@@ -170,14 +142,13 @@ function normalizeModels(list) {
   );
 }
 
-function ModelCard({ model }) {
+function ModelCard({ model, viewers }) {
   const [imageError, setImageError] = useState(false);
 
   const username = model.username;
   const thumbnail = model.thumbnail;
   const name = model.name || "Live Model";
   const age = model.age || 0;
-  const viewers = model.viewers;
 
   useEffect(() => {
     setImageError(false);
@@ -229,13 +200,8 @@ function ModelCard({ model }) {
                 display: "inline",
                 verticalAlign: "middle",
               }}
-            />
-
-            {" "}
-
-            {viewers !== null
-              ? `${viewers.toLocaleString()} watching`
-              : "Viewers unavailable"}
+            />{" "}
+            {viewers.toLocaleString()} demo watching
           </p>
         </div>
       </button>
@@ -245,14 +211,27 @@ function ModelCard({ model }) {
 
 export default function Home() {
   const [models, setModels] = useState([]);
+  const [viewerCounts, setViewerCounts] = useState({});
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Generate independent random counts for every model.
+  function randomizeViewerCounts(modelList) {
+    const nextCounts = {};
+
+    modelList.forEach((model) => {
+      nextCounts[model.username] = getRandomViewerCount();
+    });
+
+    setViewerCounts(nextCounts);
+    setLastUpdated(new Date());
+  }
 
   useEffect(() => {
     let active = true;
-    let firstLoad = true;
     let requestInProgress = false;
 
     async function loadModels() {
@@ -260,9 +239,7 @@ export default function Home() {
 
       requestInProgress = true;
 
-      if (active && !firstLoad) {
-        setRefreshing(true);
-      }
+      if (active) setRefreshing(true);
 
       try {
         const response = await fetch(API_URL, {
@@ -279,42 +256,22 @@ export default function Home() {
         }
 
         const data = await response.json();
-        const list = extractModels(data);
-        const normalized = normalizeModels(list);
-
-        console.log(
-          "OnlyStream model feed:",
-          data
-        );
-
-        console.log(
-          "Models loaded:",
-          normalized.length
+        const normalized = normalizeModels(
+          extractModels(data)
         );
 
         if (!active) return;
 
         if (normalized.length === 0) {
-          if (models.length === 0) {
-            setModelsError(
-              "No models found in the API response."
-            );
-          }
+          setModelsError("No models found in the API response.");
         } else {
           setModels(normalized);
           setModelsError("");
-          setLastUpdated(new Date());
         }
       } catch (error) {
-        console.error(
-          "OnlyStream model feed error:",
-          error
-        );
-
         if (active) {
           setModelsError(
-            error.message ||
-              "Could not load live models."
+            error.message || "Could not load live models."
           );
         }
       } finally {
@@ -324,23 +281,35 @@ export default function Home() {
           setModelsLoading(false);
           setRefreshing(false);
         }
-
-        firstLoad = false;
       }
     }
 
     loadModels();
 
-    const interval = window.setInterval(
-      loadModels,
-      REFRESH_INTERVAL
-    );
+    const interval = window.setInterval(() => {
+      loadModels();
+    }, REFRESH_INTERVAL);
 
     return () => {
       active = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [reloadKey]);
+
+  // Randomize counts immediately, then every 45 seconds.
+  useEffect(() => {
+    if (models.length === 0) return;
+
+    randomizeViewerCounts(models);
+
+    const interval = window.setInterval(() => {
+      randomizeViewerCounts(models);
+    }, REFRESH_INTERVAL);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [models]);
 
   const sectionSize = Math.ceil(models.length / 5);
 
@@ -382,7 +351,7 @@ export default function Home() {
   }
 
   function refreshModels() {
-    window.location.reload();
+    setReloadKey((current) => current + 1);
   }
 
   return (
@@ -446,7 +415,7 @@ export default function Home() {
               <h2>Live discovery</h2>
               <p>
                 {lastUpdated
-                  ? `Updated ${lastUpdated.toLocaleTimeString()}`
+                  ? `Demo counts updated ${lastUpdated.toLocaleTimeString()}`
                   : "Discover live creators"}
               </p>
             </div>
@@ -455,9 +424,11 @@ export default function Home() {
           <button
             type="button"
             className="online-status"
-            onClick={refreshModels}
-            disabled={refreshing}
-            aria-label="Refresh live models"
+            onClick={() => {
+              randomizeViewerCounts(models);
+              refreshModels();
+            }}
+            disabled={refreshing || models.length === 0}
           >
             <RefreshCw
               size={14}
@@ -467,7 +438,6 @@ export default function Home() {
                 marginRight: 5,
               }}
             />
-
             {refreshing ? "Updating..." : "Refresh"}
           </button>
         </div>
@@ -522,6 +492,10 @@ export default function Home() {
                     <ModelCard
                       key={model.username}
                       model={model}
+                      viewers={
+                        viewerCounts[model.username] ??
+                        VIEWER_MIN
+                      }
                     />
                   ))}
                 </div>
