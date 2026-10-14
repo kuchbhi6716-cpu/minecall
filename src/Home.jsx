@@ -61,7 +61,7 @@ export default function Home() {
     <main className="minebbe">
       <nav className="navbar">
         <a className="logo" href="/">
-          minebbe<span>.</span>
+          OnlyStream<span>.</span>
         </a>
         <span className="online-status">● We're online</span>
       </nav>
