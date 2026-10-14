@@ -12,6 +12,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import "./Home.css";
+import { categories } from "./categories";
 
 const streams = [
   { id: 1, title: "TheBurntPeanut", channel: "TheBurntPeanut", color: "purple" },
@@ -21,66 +22,7 @@ const streams = [
   { id: 5, title: "Stable Ronaldo", channel: "stableronaldo", color: "green" },
 ];
 
-const categories = [
-  {
-    id: "trending",
-    title: "Trending creators",
-    subtitle: "Creators people are discovering",
-    icon: TrendingUp,
-    color: "purple",
-    cards: streams,
-  },
-  {
-    id: "gaming",
-    title: "Gaming",
-    subtitle: "Jump into gaming communities",
-    icon: Gamepad2,
-    color: "blue",
-    cards: [
-      { id: 1, title: "Gaming", channel: "Gaming", color: "blue" },
-      { id: 2, title: "Competitive", channel: "Competitive gaming", color: "purple" },
-      { id: 3, title: "Minecraft", channel: "Minecraft", color: "green" },
-      { id: 4, title: "Variety games", channel: "Variety gaming", color: "pink" },
-      { id: 5, title: "Just gaming", channel: "Gaming streams", color: "orange" },
-    ],
-  },
-  {
-    id: "just-chatting",
-    title: "Just chatting",
-    subtitle: "Conversations, reactions and more",
-    icon: MessageCircle,
-    color: "pink",
-    cards: [
-      { id: 1, title: "Chill conversations", channel: "Just chatting", color: "pink" },
-      { id: 2, title: "React & discuss", channel: "Reactions", color: "purple" },
-      { id: 3, title: "Late night talks", channel: "Chatting", color: "blue" },
-      { id: 4, title: "Community time", channel: "Community", color: "orange" },
-      { id: 5, title: "Random topics", channel: "Discussion", color: "green" },
-    ],
-  },
-  {
-    id: "music",
-    title: "Music",
-    subtitle: "Music sessions and performances",
-    icon: Music2,
-    color: "orange",
-    cards: [
-      { id: 1, title: "Live music", channel: "Music", color: "orange" },
-      { id: 2, title: "Acoustic sessions", channel: "Acoustic", color: "purple" },
-      { id: 3, title: "DJ sessions", channel: "DJ", color: "pink" },
-      { id: 4, title: "Music discovery", channel: "Music discovery", color: "blue" },
-      { id: 5, title: "Sing & play", channel: "Live performance", color: "green" },
-    ],
-  },
-  {
-    id: "live-now",
-    title: "Explore live",
-    subtitle: "Find a stream to watch",
-    icon: Radio,
-    color: "green",
-    cards: streams,
-  },
-];
+
 
 function openLive(channel) {
   window.location.href =
