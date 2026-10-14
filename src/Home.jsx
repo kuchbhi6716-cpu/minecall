@@ -1,45 +1,61 @@
+
 import React, { useEffect, useState } from "react";
 import {
   Video,
   ArrowUpRight,
   Sparkles,
-  ChevronRight,
-  Gamepad2,
-  Music2,
-  MessageCircle,
   Radio,
-  TrendingUp,
-  Heart,
+  Eye,
 } from "lucide-react";
 import "./Home.css";
 
-
-
 function ModelCard({ model }) {
+  const [imageError, setImageError] = useState(false);
+
+  const thumbnail =
+    model.thumbnail || model.thumb || model.thumb_error;
+
+  const name = model.name || model.nickname || "Live Model";
+  const viewers = Number(model.viewers) || 0;
+  const age = Number(model.age);
+
+  const openModel = () => {
+    if (model.link) {
+      window.open(model.link, "_blank", "noopener,noreferrer");
+    }
+  };
+
   return (
     <article className="stream-card model-card">
       <button
         className="model-card-click"
-        onClick={() => {
-          window.location.href =
-            "/live?model=" + encodeURIComponent(model.username);
-        }}
-        aria-label={`Watch ${model.name}`}
+        onClick={openModel}
+        aria-label={`Watch ${name} on CAM4`}
+        disabled={!model.link}
       >
-        <img
-          className="model-thumbnail"
-          src={model.thumbnail}
-          alt=""
-          loading="lazy"
-        />
+        {!imageError && thumbnail ? (
+          <img
+            className="model-thumbnail"
+            src={thumbnail}
+            alt={`${name} thumbnail`}
+            loading="lazy"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="model-thumbnail model-thumbnail-fallback">
+            <Radio size={32} />
+          </div>
+        )}
 
         <span className="model-online">● LIVE</span>
 
         <div className="stream-info">
-          <h3>{model.name}</h3>
+          <h3>{name}</h3>
+
           <p>
-            {model.age ? `${model.age}+ · ` : ""}
-            Online now
+            {age > 0 ? `${age}+ · ` : ""}
+            <Eye size={14} style={{ display: "inline", verticalAlign: "middle" }} />
+            {" "}{viewers.toLocaleString()} watching
           </p>
         </div>
       </button>
@@ -47,37 +63,7 @@ function ModelCard({ model }) {
   );
 }
 
-
-function openLive(channel) {
-  window.location.href =
-    "/live?channel=" + encodeURIComponent(channel);
-}
-
-function StreamCard({ stream }) {
-  return (
-    <article
-      className={`stream-card ${stream.color} category-card`}
-      key={stream.id}
-    >
-      <span className="stream-badge">EXPLORE</span>
-
-      <div className="stream-info">
-        <h3>{stream.title}</h3>
-        <p>{stream.channel}</p>
-      </div>
-
-      <button
-        className="join-btn"
-        onClick={() => openLive(stream.channel)}
-      >
-        Watch <ArrowUpRight size={15} />
-      </button>
-    </article>
-  );
-}
-
 export default function Home() {
-  
   const [models, setModels] = useState([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState(false);
@@ -87,20 +73,47 @@ export default function Home() {
 
     async function loadModels() {
       try {
-        const response = await fetch("/api/models-online");
+        const response = await fetch("/api/cam4-models");
 
         if (!response.ok) {
-          throw new Error("Could not load models");
+          throw new Error("Could not load CAM4 models");
         }
 
         const data = await response.json();
 
+        // Accept either a plain array or an object containing models.
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data.models)
+          ? data.models
+          : [];
+
+        const normalized = list
+          .filter((model) => model && (model.nickname || model.name))
+          .map((model) => ({
+            ...model,
+            username: model.nickname || model.username || model.name,
+            name: model.nickname || model.name,
+            thumbnail:
+              model.thumb || model.thumb_big || model.profile_thumb_sfw ||
+              model.profile_thumb || model.thumb_error,
+            viewers: Number(model.viewers) || 0,
+            link: model.link || model.profileUrl || "",
+          }));
+
+        // Keep each model once, even if the API returns duplicates.
+        const unique = Array.from(
+          new Map(normalized.map((model) => [model.username, model])).values()
+        );
+
         if (active) {
-          setModels(Array.isArray(data.models) ? data.models : []);
+          setModels(unique);
           setModelsError(false);
           setModelsLoading(false);
         }
-      } catch {
+      } catch (error) {
+        console.error("CAM4 models error:", error);
+
         if (active) {
           setModelsError(true);
           setModelsLoading(false);
@@ -109,7 +122,6 @@ export default function Home() {
     }
 
     loadModels();
-
     const interval = setInterval(loadModels, 45000);
 
     return () => {
@@ -118,49 +130,40 @@ export default function Home() {
     };
   }, []);
 
-  
+  const sectionSize = Math.ceil(models.length / 5);
+
   const liveSections = [
     {
       title: "Models Live Now",
       subtitle: "Discover who's online",
       color: "purple",
-      models: models.slice(0, Math.ceil(models.length / 5)),
+      models: models.slice(0, sectionSize),
     },
     {
       title: "Trending Now",
       subtitle: "Live models to discover",
       color: "blue",
-      models: models.slice(
-        Math.ceil(models.length / 5),
-        Math.ceil(models.length * 2 / 5)
-      ),
+      models: models.slice(sectionSize, sectionSize * 2),
     },
     {
       title: "Popular Creators",
       subtitle: "More creators online",
       color: "pink",
-      models: models.slice(
-        Math.ceil(models.length * 2 / 5),
-        Math.ceil(models.length * 3 / 5)
-      ),
+      models: models.slice(sectionSize * 2, sectionSize * 3),
     },
     {
       title: "Just For You",
       subtitle: "Discover more live models",
       color: "green",
-      models: models.slice(
-        Math.ceil(models.length * 3 / 5),
-        Math.ceil(models.length * 4 / 5)
-      ),
+      models: models.slice(sectionSize * 3, sectionSize * 4),
     },
     {
       title: "Explore More",
       subtitle: "Keep discovering",
       color: "purple",
-      models: models.slice(Math.ceil(models.length * 4 / 5)),
+      models: models.slice(sectionSize * 4),
     },
   ];
-
 
   const startChatting = () => {
     window.location.href = "/call";
@@ -175,7 +178,6 @@ export default function Home() {
         <span className="online-status">● We're online</span>
       </nav>
 
-      {/* Existing hero — kept in place */}
       <section className="hero">
         <span className="eyebrow">
           YOUR NEXT CONVERSATION STARTS HERE
@@ -196,17 +198,13 @@ export default function Home() {
             <Video size={23} />
             <Sparkles size={13} className="icon-sparkle" />
           </span>
-
           <span>START CHATTING</span>
           <ArrowUpRight size={21} />
         </button>
 
-        <small>
-          No complicated setup. Just start chatting.
-        </small>
+        <small>No complicated setup. Just start chatting.</small>
       </section>
 
-      
       <section className="discovery">
         {liveSections.map((section) => (
           <section className="category-section" key={section.title}>
@@ -215,11 +213,13 @@ export default function Home() {
                 <span className={`category-icon ${section.color}`}>
                   <Radio size={19} />
                 </span>
+
                 <div>
                   <h2>{section.title}</h2>
                   <p>{section.subtitle}</p>
                 </div>
               </div>
+
               <span className="online-status">
                 ● {section.models.length} online
               </span>
@@ -228,9 +228,9 @@ export default function Home() {
             {modelsLoading ? (
               <p>Loading live models...</p>
             ) : modelsError ? (
-              <p>Couldn't load live models.</p>
+              <p>Couldn't load live models. Please try again later.</p>
             ) : section.models.length === 0 ? (
-              <p>No unique live models available in this section.</p>
+              <p>No live models available in this section.</p>
             ) : (
               <div className="category-track">
                 {section.models.map((model) => (
@@ -242,7 +242,6 @@ export default function Home() {
         ))}
       </section>
 
-      
       <footer>
         <a className="logo" href="/">
           OnlyStream<span>.</span>
@@ -252,4 +251,3 @@ export default function Home() {
     </main>
   );
 }
-
