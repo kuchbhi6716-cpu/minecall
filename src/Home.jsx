@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import {
   Video,
@@ -8,36 +7,133 @@ import {
   Eye,
 } from "lucide-react";
 import "./Home.css";
-
+const API_URL = "/api/aw-models";
+const REFRESH_INTERVAL = 45000;
+function getModelUsername(model) {
+  return (
+    model?.username ||
+    model?.nickname ||
+    model?.performerId ||
+    model?.performer_id ||
+    model?.id ||
+    model?.name ||
+    ""
+  );
+}
+function getModelName(model) {
+  return (
+    model?.nickname ||
+    model?.username ||
+    model?.name ||
+    model?.performerId ||
+    "Live Model"
+  );
+}
+function getModelThumbnail(model) {
+  const images = [
+    model?.thumbnail,
+    model?.thumb,
+    model?.thumb_big,
+    model?.profile_thumb_sfw,
+    model?.profile_thumb,
+    model?.image,
+    model?.imageUrl,
+    model?.image_url,
+    model?.images?.["320x180"],
+    model?.images?.["800x600"],
+    model?.images?.medium,
+    model?.images?.large,
+    model?.imageSizes?.["320x180"],
+    model?.imageSizes?.["800x600"],
+  ];
+  return images.find(
+    (image) => typeof image === "string" && image.trim()
+  ) || "";
+}
+// Feed providers may wrap their model array in different objects.
+function extractModels(data) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (!data || typeof data !== "object") {
+    return [];
+  }
+  const possibleLists = [
+    data.models,
+    data.performers,
+    data.results,
+    data.data,
+    data.items,
+    data.model,
+  ];
+  for (const list of possibleLists) {
+    if (Array.isArray(list)) {
+      return list;
+    }
+    if (list && typeof list === "object") {
+      if (Array.isArray(list.models)) return list.models;
+      if (Array.isArray(list.performers)) return list.performers;
+      if (Array.isArray(list.results)) return list.results;
+      if (Array.isArray(list.items)) return list.items;
+    }
+  }
+  return [];
+}
+function normalizeModels(list) {
+  const normalized = list
+    .filter(
+      (model) =>
+        model &&
+        typeof model === "object" &&
+        getModelUsername(model)
+    )
+    .map((model) => {
+      const username = String(getModelUsername(model));
+      const thumbnail = getModelThumbnail(model);
+      return {
+        ...model,
+        username,
+        name: getModelName(model),
+        thumbnail,
+        viewers: Number(
+          model.viewers ??
+          model.viewerCount ??
+          model.viewer_count ??
+          model.numViewers ??
+          0
+        ) || 0,
+        age: Number(model.age) || 0,
+      };
+    });
+  // Keep one card per username.
+  return Array.from(
+    new Map(
+      normalized.map((model) => [
+        model.username.toLowerCase(),
+        model,
+      ])
+    ).values()
+  );
+}
 function ModelCard({ model }) {
   const [imageError, setImageError] = useState(false);
-
-  const username =
-    model.username || model.nickname || model.name || "";
-
-  const thumbnail =
-    model.thumbnail ||
-    model.thumb ||
-    model.thumb_big ||
-    model.profile_thumb_sfw ||
-    model.profile_thumb ||
-    model.thumb_error;
-
-  const name = model.name || model.nickname || "Live Model";
-  const viewers = Number(model.viewers) || 0;
-  const age = Number(model.age);
-
-  // Open our own LivePage instead of opening CAM4 directly.
+  const username = model.username;
+  const thumbnail = model.thumbnail;
+  const name = model.name || "Live Model";
+  const viewers = model.viewers || 0;
+  const age = model.age || 0;
+  useEffect(() => {
+    setImageError(false);
+  }, [thumbnail]);
   const openModel = () => {
     if (!username) return;
-
     window.location.href =
       "/live?model=" + encodeURIComponent(username);
   };
-
   return (
     <article className="stream-card model-card">
       <button
+        type="button"
         className="model-card-click"
         onClick={openModel}
         aria-label={`View ${name}`}
@@ -56,12 +152,9 @@ function ModelCard({ model }) {
             <Radio size={32} />
           </div>
         )}
-
         <span className="model-online">● LIVE</span>
-
         <div className="stream-info">
           <h3>{name}</h3>
-
           <p>
             {age > 0 ? `${age}+ · ` : ""}
             <Eye
@@ -71,75 +164,52 @@ function ModelCard({ model }) {
                 verticalAlign: "middle",
               }}
             />
-            {" "}{viewers.toLocaleString()} watching
+            {" "}
+            {viewers.toLocaleString()} watching
           </p>
         </div>
       </button>
     </article>
   );
 }
-
 export default function Home() {
   const [models, setModels] = useState([]);
   const [modelsLoading, setModelsLoading] = useState(true);
-  const [modelsError, setModelsError] = useState(false);
-
+  const [modelsError, setModelsError] = useState("");
   useEffect(() => {
     let active = true;
-
     async function loadModels() {
       try {
-        const response = await fetch("/api/cam4-models");
-
+        const response = await fetch(API_URL, {
+          headers: {
+            Accept: "application/json",
+          },
+        });
         if (!response.ok) {
-          throw new Error("Could not load CAM4 models");
+          const errorText = await response.text();
+          throw new Error(
+            `API returned ${response.status}: ${errorText.slice(0, 200)}`
+          );
         }
-
         const data = await response.json();
-
-        const list = Array.isArray(data)
-          ? data
-          : Array.isArray(data.models)
-          ? data.models
-          : [];
-
-        const normalized = list
-          .filter(
-            (model) =>
-              model &&
-              (model.nickname || model.username || model.name)
-          )
-          .map((model) => ({
-            ...model,
-            username:
-              model.nickname || model.username || model.name,
-            name:
-              model.nickname || model.name || model.username,
-            thumbnail:
-              model.thumb ||
-              model.thumb_big ||
-              model.profile_thumb_sfw ||
-              model.profile_thumb ||
-              model.thumb_error,
-            viewers: Number(model.viewers) || 0,
-            link: model.link || model.profileUrl || "",
-          }));
-
-        const unique = Array.from(
-          new Map(
-            normalized.map((model) => [model.username, model])
-          ).values()
-        );
-
-        if (active) {
-          setModels(unique);
-          setModelsError(false);
+        const list = extractModels(data);
+        const normalized = normalizeModels(list);
+        console.log("OnlyStream A.W. API response:", data);
+        console.log("OnlyStream normalized models:", normalized.length);
+        if (!active) return;
+        if (normalized.length === 0) {
+          setModels([]);
+          setModelsError(
+            "The API responded, but no recognizable models were found. Check the feed response in the browser console."
+          );
+        } else {
+          setModels(normalized);
+          setModelsError("");
         }
       } catch (error) {
-        console.error("CAM4 models error:", error);
-
+        console.error("OnlyStream model feed error:", error);
         if (active) {
-          setModelsError(true);
+          setModelsError(error.message || "Could not load live models.");
         }
       } finally {
         if (active) {
@@ -147,19 +217,17 @@ export default function Home() {
         }
       }
     }
-
     loadModels();
-
-    const interval = setInterval(loadModels, 45000);
-
+    const interval = setInterval(
+      loadModels,
+      REFRESH_INTERVAL
+    );
     return () => {
       active = false;
       clearInterval(interval);
     };
   }, []);
-
   const sectionSize = Math.ceil(models.length / 5);
-
   const liveSections = [
     {
       title: "Models Live Now",
@@ -192,51 +260,50 @@ export default function Home() {
       models: models.slice(sectionSize * 4),
     },
   ];
-
   const startChatting = () => {
     window.location.href = "/call";
   };
-
   return (
     <main className="minebbe">
       <nav className="navbar">
         <a className="logo" href="/">
           OnlyStream<span>.</span>
         </a>
-
-        <span className="online-status">● We're online</span>
+        <span className="online-status">
+          ● We're online
+        </span>
       </nav>
-
       <section className="hero">
         <span className="eyebrow">
           YOUR NEXT CONVERSATION STARTS HERE
         </span>
-
         <h1>
           Meet someone
           <br />
           <span>unexpected.</span>
         </h1>
-
         <p>
           Real conversations. New connections. One click away.
         </p>
-
-        <button className="start-btn" onClick={startChatting}>
+        <button
+          type="button"
+          className="start-btn"
+          onClick={startChatting}
+        >
           <span className="start-icon">
             <Video size={23} />
-            <Sparkles size={13} className="icon-sparkle" />
+            <Sparkles
+              size={13}
+              className="icon-sparkle"
+            />
           </span>
-
           <span>START CHATTING</span>
           <ArrowUpRight size={21} />
         </button>
-
         <small>
           No complicated setup. Just start chatting.
         </small>
       </section>
-
       <section className="discovery">
         {liveSections.map((section) => (
           <section
@@ -245,29 +312,30 @@ export default function Home() {
           >
             <div className="category-heading">
               <div className="category-title-wrap">
-                <span className={`category-icon ${section.color}`}>
+                <span
+                  className={`category-icon ${section.color}`}
+                >
                   <Radio size={19} />
                 </span>
-
                 <div>
                   <h2>{section.title}</h2>
                   <p>{section.subtitle}</p>
                 </div>
               </div>
-
               <span className="online-status">
                 ● {section.models.length} online
               </span>
             </div>
-
             {modelsLoading ? (
               <p>Loading live models...</p>
-            ) : modelsError ? (
-              <p>
-                Couldn't load live models. Please try again later.
+            ) : modelsError && models.length === 0 ? (
+              <p className="models-error">
+                Couldn't load live models.
+                {" "}
+                {modelsError}
               </p>
             ) : section.models.length === 0 ? (
-              <p>No live models available in this section.</p>
+              <p>No more live models available in this section.</p>
             ) : (
               <div className="category-track">
                 {section.models.map((model) => (
@@ -281,12 +349,10 @@ export default function Home() {
           </section>
         ))}
       </section>
-
       <footer>
         <a className="logo" href="/">
           OnlyStream<span>.</span>
         </a>
-
         <p>Meet respectfully. Connect safely.</p>
       </footer>
     </main>
