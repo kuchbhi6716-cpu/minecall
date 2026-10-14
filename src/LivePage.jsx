@@ -9,19 +9,20 @@ import {
 import "./LivePage.css";
 const API_URL = "/api/aw-models";
 function getUsername(item) {
-  return (
-    item?.nickname ||
-    item?.username ||
+  return String(
     item?.performerId ||
-    item?.performer_id ||
-    item?.id ||
-    item?.name ||
-    ""
-  );
+      item?.performer_id ||
+      item?.username ||
+      item?.nickname ||
+      item?.id ||
+      item?.name ||
+      ""
+  ).trim();
 }
-
 function getThumbnail(item) {
   const images = [
+    item?.profilePictureUrl?.size800x600,
+    item?.profilePictureUrl?.size320x180,
     item?.thumbnail,
     item?.thumb,
     item?.thumb_big,
@@ -38,57 +39,83 @@ function getThumbnail(item) {
   return (
     images.find(
       (image) =>
-        typeof image === "string" && image.trim()
+        typeof image === "string" &&
+        image.trim().length > 0
     ) || ""
   );
 }
-function extractModels(data) {
-  if (Array.isArray(data)) return data;
-  if (!data || typeof data !== "object") return [];
+function extractModels(response) {
+  if (Array.isArray(response)) {
+    return response;
+  }
+  if (!response || typeof response !== "object") {
+    return [];
+  }
+  // Actual A.W. Empire format:
+  // response.data.models
   const candidates = [
-    data.models,
-    data.performers,
-    data.results,
-    data.data,
-    data.items,
-    data.model,
+    response.data?.models,
+    response.models,
+    response.data?.performers,
+    response.performers,
+    response.data?.results,
+    response.results,
+    response.data?.items,
+    response.items,
+    response.data,
   ];
   for (const candidate of candidates) {
-    if (Array.isArray(candidate)) return candidate;
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
     if (candidate && typeof candidate === "object") {
-      if (Array.isArray(candidate.models)) return candidate.models;
-      if (Array.isArray(candidate.performers)) return candidate.performers;
-      if (Array.isArray(candidate.results)) return candidate.results;
-      if (Array.isArray(candidate.items)) return candidate.items;
+      const nestedLists = [
+        candidate.models,
+        candidate.performers,
+        candidate.results,
+        candidate.items,
+      ];
+      for (const list of nestedLists) {
+        if (Array.isArray(list)) {
+          return list;
+        }
+      }
     }
   }
   return [];
 }
 function normalizeModel(item) {
+  const age = Number(
+    item?.persons?.[0]?.age ?? item?.age ?? 0
+  );
   return {
-    username: String(getUsername(item)),
+    username: getUsername(item),
     name:
+      item?.displayName ||
       item?.nickname ||
-      item?.name ||
       item?.username ||
+      item?.performerId ||
+      item?.name ||
       "Live Model",
-    age: Number(item?.age) || 0,
+    age: Number.isFinite(age) ? age : 0,
     thumbnail: getThumbnail(item),
-    viewers:
-      Number(
-        item?.viewers ??
+    viewers: Number(
+      item?.viewers ??
         item?.viewerCount ??
         item?.viewer_count ??
         item?.numViewers ??
+        item?.details?.viewers ??
         0
-      ) || 0,
-    // The model feed may not provide a usable profile URL.
+    ) || 0,
+    // A.W. Empire supplies the provider's chat-room URL.
     profileUrl:
+      item?.chatRoomUrl ||
       item?.link ||
       item?.profileUrl ||
       item?.profile_url ||
       item?.url ||
       "",
+    status: item?.status || "",
   };
 }
 export default function LivePage() {
@@ -118,14 +145,21 @@ export default function LivePage() {
         }
         const data = await response.json();
         const items = extractModels(data);
-        const models = items.map(normalizeModel);
+        const models = items
+          .map(normalizeModel)
+          .filter((item) => item.username);
+        console.log(
+          "OnlyStream model feed count:",
+          models.length
+        );
         const selected = models.find(
           (item) =>
-            item.username.toLowerCase() === username.toLowerCase()
+            item.username.toLowerCase() ===
+            username.trim().toLowerCase()
         );
         if (!selected) {
           throw new Error(
-            "This model wasn't found in the current feed. It may have gone offline or the feed may use a different username field."
+            "This model wasn't found in the current feed. It may have left the feed, or the selected username may have changed."
           );
         }
         if (!cancelled) {
@@ -176,7 +210,9 @@ export default function LivePage() {
           <h1>
             Watch <span>live.</span>
           </h1>
-          <p>Discover live creators on OnlyStream.</p>
+          <p>
+            Discover live creators on OnlyStream.
+          </p>
         </div>
         <article className="live-player-card">
           <div
@@ -185,12 +221,29 @@ export default function LivePage() {
               width: "100%",
               minHeight: "320px",
               background: "#111",
+              borderRadius: "12px",
+              overflow: "hidden",
             }}
           >
             {loading ? (
-              <p>Loading model...</p>
+              <div
+                style={{
+                  minHeight: "320px",
+                  display: "grid",
+                  placeItems: "center",
+                  color: "#ccc",
+                }}
+              >
+                Loading model...
+              </div>
             ) : error ? (
-              <div style={{ padding: "24px", textAlign: "center" }}>
+              <div
+                style={{
+                  padding: "32px 24px",
+                  textAlign: "center",
+                  color: "#fff",
+                }}
+              >
                 <p>{error}</p>
                 <a href="/">Back to live models</a>
               </div>
@@ -212,12 +265,12 @@ export default function LivePage() {
                 {model.thumbnail && !imageError ? (
                   <img
                     src={model.thumbnail}
-                    alt={`${model.name} thumbnail`}
+                    alt={`${model.name} preview`}
                     onError={() => setImageError(true)}
                     style={{
                       width: "100%",
-                      maxWidth: "480px",
-                      maxHeight: "340px",
+                      maxWidth: "640px",
+                      maxHeight: "420px",
                       objectFit: "contain",
                       borderRadius: "12px",
                     }}
@@ -232,11 +285,23 @@ export default function LivePage() {
                     Preview unavailable
                   </div>
                 )}
-                <h2 style={{ color: "white", margin: 0 }}>
+                <h2
+                  style={{
+                    color: "#fff",
+                    margin: 0,
+                  }}
+                >
                   {model.name}
                 </h2>
-                <p style={{ color: "#ccc", margin: 0 }}>
-                  {model.age > 0 ? `${model.age}+ · ` : ""}
+                <p
+                  style={{
+                    color: "#ccc",
+                    margin: 0,
+                  }}
+                >
+                  {model.age > 0
+                    ? `${model.age}+ · `
+                    : ""}
                   <Eye
                     size={15}
                     style={{
@@ -260,17 +325,24 @@ export default function LivePage() {
                       textDecoration: "none",
                     }}
                   >
-                    WATCH LIVE
+                    OPEN MODEL ROOM
                     <ExternalLink size={17} />
                   </a>
                 ) : (
                   <p style={{ color: "#aaa" }}>
-                    The provider hasn't supplied a profile link.
+                    No provider room link is available.
                   </p>
                 )}
-                <p style={{ color: "#aaa", fontSize: "13px" }}>
-                  Live playback depends on the provider's supported
-                  player or embed options.
+                <p
+                  style={{
+                    color: "#aaa",
+                    fontSize: "13px",
+                    maxWidth: "460px",
+                  }}
+                >
+                  This is a model preview. Live video playback
+                  inside OnlyStream requires a provider-approved
+                  player or embed integration.
                 </p>
               </div>
             ) : null}
@@ -288,7 +360,7 @@ export default function LivePage() {
                     : "Live model"}
                 </p>
                 <span className="live-note">
-                  Availability depends on the provider's current feed.
+                  Availability depends on the provider's feed.
                 </span>
               </div>
               {model.profileUrl && (
@@ -297,7 +369,7 @@ export default function LivePage() {
                   href={model.profileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="Open model profile"
+                  aria-label="Open model room"
                 >
                   <ExternalLink size={18} />
                 </a>
@@ -307,7 +379,7 @@ export default function LivePage() {
         </article>
         <section className="more-live">
           <h3>Explore more models</h3>
-          <p>Discover other models who are online.</p>
+          <p>Discover other models from the feed.</p>
           <a href="/">Browse live models →</a>
         </section>
         <footer className="live-footer">
