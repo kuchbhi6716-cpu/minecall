@@ -1,20 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, ExternalLink, Radio, Tv } from "lucide-react";
 import "./LivePage.css";
-useEffect(() => {
-  if (loading || error || !model) return;
-  const oldScript = document.getElementById("bongacams-widget-script");
-  if (oldScript) oldScript.remove();
-  const script = document.createElement("script");
-  script.id = "bongacams-widget-script";
-  script.type = "text/javascript";
-  script.src =
-    "https://bngprm.com/promo.php?c=844239&type=embed_chat&model_offline=homepage";
-  script.async = true;
-  document.getElementById("BC_EC")?.appendChild(script);
-  return () => script.remove();
-}, [loading, error, model]);
-
 export default function LivePage() {
   const params = new URLSearchParams(window.location.search);
   const username = params.get("model");
@@ -49,6 +35,21 @@ export default function LivePage() {
       setLoading(false);
     }
   }, [username]);
+  useEffect(() => {
+    if (loading || error || !model) return;
+    const container = document.getElementById("BC_EC");
+    if (!container) return;
+    const script = document.createElement("script");
+    script.id = "bongacams-widget-script";
+    script.type = "text/javascript";
+    script.src =
+      "https://bngprm.com/promo.php?c=844239&type=embed_chat&model_offline=homepage";
+    script.async = true;
+    container.replaceChildren(script);
+    return () => {
+      container.replaceChildren();
+    };
+  }, [loading, error, model]);
   return (
     <main className="live-page">
       <header className="live-topbar">
@@ -68,30 +69,32 @@ export default function LivePage() {
           <span className="live-eyebrow">
             <Tv size={15} /> LIVE MODEL
           </span>
-          <h1>Watch <span>live.</span></h1>
+          <h1>
+            Watch <span>live.</span>
+          </h1>
           <p>Catch the moment as it happens.</p>
         </div>
         <article className="live-player-card">
-        <div className="live-player">
-  {loading ? (
-    <p>Loading model...</p>
-  ) : error ? (
-    <p>{error}</p>
-  ) : (
-    <div
-      id="BC_EC"
-      style={{
-        width: "100%",
-        minHeight: "500px",
-        background: "#111",
-      }}
-    >
-      <p style={{ color: "white", padding: "20px" }}>
-        Loading BongaCams live chat...
-      </p>
-    </div>
-  )}
-</div>
+          <div className="live-player">
+            {loading ? (
+              <p>Loading model...</p>
+            ) : error ? (
+              <p>{error}</p>
+            ) : (
+              <div
+                id="BC_EC"
+                style={{
+                  width: "100%",
+                  minHeight: "500px",
+                  background: "#111",
+                }}
+              >
+                <p style={{ color: "white", padding: "20px" }}>
+                  Loading BongaCams live chat...
+                </p>
+              </div>
+            )}
+          </div>
           {model && (
             <div className="live-details">
               <div className="live-avatar">
