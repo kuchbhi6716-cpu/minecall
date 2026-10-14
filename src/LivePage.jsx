@@ -81,18 +81,18 @@ export default function LivePage() {
             ) : error ? (
               <p>{error}</p>
             ) : (
-              <div
-                id="BC_EC"
-                style={{
-                  width: "100%",
-                  minHeight: "500px",
-                  background: "#111",
-                }}
-              >
-                <p style={{ color: "white", padding: "20px" }}>
-                  Loading BongaCams live chat...
-                </p>
-              </div>
+              
+<div style={{ width: "100%", minHeight: "500px", background: "#111" }}>
+  <p style={{ color: "white", padding: "20px" }}>
+    Loading BongaCams live chat...
+  </p>
+  <script
+    type="text/javascript"
+    src="https://bngprm.com/promo.php?c=844239&type=embed_chat&model_offline=homepage"
+    id="BC_EC"
+  />
+</div>
+
             )}
           </div>
           {model && (
