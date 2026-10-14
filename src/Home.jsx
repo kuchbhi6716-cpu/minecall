@@ -10,27 +10,30 @@ import "./Home.css";
 const API_URL = "/api/aw-models";
 const REFRESH_INTERVAL = 45000;
 function getModelUsername(model) {
-  return (
-    model?.username ||
-    model?.nickname ||
+  return String(
     model?.performerId ||
-    model?.performer_id ||
-    model?.id ||
-    model?.name ||
-    ""
-  );
+      model?.performer_id ||
+      model?.username ||
+      model?.nickname ||
+      model?.id ||
+      model?.name ||
+      ""
+  ).trim();
 }
 function getModelName(model) {
   return (
+    model?.displayName ||
     model?.nickname ||
     model?.username ||
-    model?.name ||
     model?.performerId ||
+    model?.name ||
     "Live Model"
   );
 }
 function getModelThumbnail(model) {
   const images = [
+    model?.profilePictureUrl?.size320x180,
+    model?.profilePictureUrl?.size800x600,
     model?.thumbnail,
     model?.thumb,
     model?.thumb_big,
@@ -46,35 +49,50 @@ function getModelThumbnail(model) {
     model?.imageSizes?.["320x180"],
     model?.imageSizes?.["800x600"],
   ];
-  return images.find(
-    (image) => typeof image === "string" && image.trim()
-  ) || "";
+  return (
+    images.find(
+      (image) =>
+        typeof image === "string" &&
+        image.trim().length > 0
+    ) || ""
+  );
 }
-// Feed providers may wrap their model array in different objects.
-function extractModels(data) {
-  if (Array.isArray(data)) {
-    return data;
+function extractModels(response) {
+  if (Array.isArray(response)) {
+    return response;
   }
-  if (!data || typeof data !== "object") {
+  if (!response || typeof response !== "object") {
     return [];
   }
+  // Actual A.W. Empire response:
+  // { status: "OK", data: { models: [...] } }
   const possibleLists = [
-    data.models,
-    data.performers,
-    data.results,
-    data.data,
-    data.items,
-    data.model,
+    response.data?.models,
+    response.models,
+    response.data?.performers,
+    response.performers,
+    response.data?.results,
+    response.results,
+    response.data?.items,
+    response.items,
+    response.data,
   ];
   for (const list of possibleLists) {
     if (Array.isArray(list)) {
       return list;
     }
     if (list && typeof list === "object") {
-      if (Array.isArray(list.models)) return list.models;
-      if (Array.isArray(list.performers)) return list.performers;
-      if (Array.isArray(list.results)) return list.results;
-      if (Array.isArray(list.items)) return list.items;
+      const nestedLists = [
+        list.models,
+        list.performers,
+        list.results,
+        list.items,
+      ];
+      for (const nested of nestedLists) {
+        if (Array.isArray(nested)) {
+          return nested;
+        }
+      }
     }
   }
   return [];
@@ -88,24 +106,27 @@ function normalizeModels(list) {
         getModelUsername(model)
     )
     .map((model) => {
-      const username = String(getModelUsername(model));
-      const thumbnail = getModelThumbnail(model);
+      const username = getModelUsername(model);
+      const age = Number(
+        model?.persons?.[0]?.age ?? model?.age ?? 0
+      );
       return {
         ...model,
         username,
         name: getModelName(model),
-        thumbnail,
+        thumbnail: getModelThumbnail(model),
+        age: Number.isFinite(age) ? age : 0,
         viewers: Number(
-          model.viewers ??
-          model.viewerCount ??
-          model.viewer_count ??
-          model.numViewers ??
-          0
+          model?.viewers ??
+            model?.viewerCount ??
+            model?.viewer_count ??
+            model?.numViewers ??
+            model?.details?.viewers ??
+            0
         ) || 0,
-        age: Number(model.age) || 0,
       };
     });
-  // Keep one card per username.
+  // Remove duplicate usernames.
   return Array.from(
     new Map(
       normalized.map((model) => [
@@ -120,16 +141,16 @@ function ModelCard({ model }) {
   const username = model.username;
   const thumbnail = model.thumbnail;
   const name = model.name || "Live Model";
-  const viewers = model.viewers || 0;
   const age = model.age || 0;
+  const viewers = model.viewers || 0;
   useEffect(() => {
     setImageError(false);
   }, [thumbnail]);
-  const openModel = () => {
+  function openModel() {
     if (!username) return;
     window.location.href =
       "/live?model=" + encodeURIComponent(username);
-  };
+  }
   return (
     <article className="stream-card model-card">
       <button
@@ -152,7 +173,9 @@ function ModelCard({ model }) {
             <Radio size={32} />
           </div>
         )}
-        <span className="model-online">● LIVE</span>
+        <span className="model-online">
+          ● LIVE
+        </span>
         <div className="stream-info">
           <h3>{name}</h3>
           <p>
@@ -195,12 +218,13 @@ export default function Home() {
         const list = extractModels(data);
         const normalized = normalizeModels(list);
         console.log("OnlyStream A.W. API response:", data);
-        console.log("OnlyStream normalized models:", normalized.length);
+        console.log("Extracted model count:", list.length);
+        console.log("Normalized model count:", normalized.length);
         if (!active) return;
         if (normalized.length === 0) {
           setModels([]);
           setModelsError(
-            "The API responded, but no recognizable models were found. Check the feed response in the browser console."
+            "No models were found in the API response. Check the feed response and field names."
           );
         } else {
           setModels(normalized);
@@ -209,7 +233,9 @@ export default function Home() {
       } catch (error) {
         console.error("OnlyStream model feed error:", error);
         if (active) {
-          setModelsError(error.message || "Could not load live models.");
+          setModelsError(
+            error.message || "Could not load live models."
+          );
         }
       } finally {
         if (active) {
@@ -243,13 +269,13 @@ export default function Home() {
     },
     {
       title: "Popular Creators",
-      subtitle: "More creators online",
+      subtitle: "More creators to discover",
       color: "pink",
       models: models.slice(sectionSize * 2, sectionSize * 3),
     },
     {
       title: "Just For You",
-      subtitle: "Discover more live models",
+      subtitle: "Discover more creators",
       color: "green",
       models: models.slice(sectionSize * 3, sectionSize * 4),
     },
@@ -260,9 +286,9 @@ export default function Home() {
       models: models.slice(sectionSize * 4),
     },
   ];
-  const startChatting = () => {
+  function startChatting() {
     window.location.href = "/call";
-  };
+  }
   return (
     <main className="minebbe">
       <nav className="navbar">
@@ -323,19 +349,17 @@ export default function Home() {
                 </div>
               </div>
               <span className="online-status">
-                ● {section.models.length} online
+                ● {section.models.length} models
               </span>
             </div>
             {modelsLoading ? (
               <p>Loading live models...</p>
             ) : modelsError && models.length === 0 ? (
               <p className="models-error">
-                Couldn't load live models.
-                {" "}
-                {modelsError}
+                Couldn't load live models. {modelsError}
               </p>
             ) : section.models.length === 0 ? (
-              <p>No more live models available in this section.</p>
+              <p>No more models in this section.</p>
             ) : (
               <div className="category-track">
                 {section.models.map((model) => (
