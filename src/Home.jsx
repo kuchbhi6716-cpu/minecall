@@ -46,7 +46,7 @@ function StreamCard({ stream }) {
         className="join-btn"
         onClick={() => openLive(stream.channel)}
       >
-        Explore <ArrowUpRight size={15} />
+        View <ArrowUpRight size={15} />
       </button>
     </article>
   );
