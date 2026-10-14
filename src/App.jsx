@@ -1,6 +1,7 @@
 
 import Home from "./Home";
 import LivePage from "./LivePage";
+import CategoryPage from "./CategoryPage";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
