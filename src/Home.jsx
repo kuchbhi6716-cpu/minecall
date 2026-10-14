@@ -118,6 +118,50 @@ export default function Home() {
     };
   }, []);
 
+  
+  const liveSections = [
+    {
+      title: "Models Live Now",
+      subtitle: "Discover who's online",
+      color: "purple",
+      models: models.slice(0, Math.ceil(models.length / 5)),
+    },
+    {
+      title: "Trending Now",
+      subtitle: "Live models to discover",
+      color: "blue",
+      models: models.slice(
+        Math.ceil(models.length / 5),
+        Math.ceil(models.length * 2 / 5)
+      ),
+    },
+    {
+      title: "Popular Creators",
+      subtitle: "More creators online",
+      color: "pink",
+      models: models.slice(
+        Math.ceil(models.length * 2 / 5),
+        Math.ceil(models.length * 3 / 5)
+      ),
+    },
+    {
+      title: "Just For You",
+      subtitle: "Discover more live models",
+      color: "green",
+      models: models.slice(
+        Math.ceil(models.length * 3 / 5),
+        Math.ceil(models.length * 4 / 5)
+      ),
+    },
+    {
+      title: "Explore More",
+      subtitle: "Keep discovering",
+      color: "purple",
+      models: models.slice(Math.ceil(models.length * 4 / 5)),
+    },
+  ];
+
+
   const startChatting = () => {
     window.location.href = "/call";
   };
@@ -163,83 +207,42 @@ export default function Home() {
       </section>
 
       
-      {/* Live BongaCams models */}
-      <section className="discovery live-models-section">
-        <div className="category-heading">
-          <div className="category-title-wrap">
-            <span className="category-icon purple">
-              <Radio size={19} />
-            </span>
-            <div>
-              <h2>Models Live Now</h2>
-              <p>Discover who's online</p>
+      <section className="discovery">
+        {liveSections.map((section) => (
+          <section className="category-section" key={section.title}>
+            <div className="category-heading">
+              <div className="category-title-wrap">
+                <span className={`category-icon ${section.color}`}>
+                  <Radio size={19} />
+                </span>
+                <div>
+                  <h2>{section.title}</h2>
+                  <p>{section.subtitle}</p>
+                </div>
+              </div>
+              <span className="online-status">
+                ● {section.models.length} online
+              </span>
             </div>
-          </div>
-          <span className="online-status">
-            ● {models.length} online
-          </span>
-        </div>
 
-        {modelsLoading ? (
-          <p>Loading live models...</p>
-        ) : modelsError ? (
-          <p>Couldn't load live models. Please try again later.</p>
-        ) : models.length === 0 ? (
-          <p>No models are available right now.</p>
-        ) : (
-          <div className="category-track">
-            {models.map((model) => (
-              <ModelCard key={model.username} model={model} />
-            ))}
-          </div>
-        )}
+            {modelsLoading ? (
+              <p>Loading live models...</p>
+            ) : modelsError ? (
+              <p>Couldn't load live models.</p>
+            ) : section.models.length === 0 ? (
+              <p>No unique live models available in this section.</p>
+            ) : (
+              <div className="category-track">
+                {section.models.map((model) => (
+                  <ModelCard key={model.username} model={model} />
+                ))}
+              </div>
+            )}
+          </section>
+        ))}
       </section>
 
       
-<section className="discovery">
-  {[
-    { title: "Trending Now", subtitle: "Live models to discover", color: "purple" },
-    { title: "Popular Creators", subtitle: "More creators online", color: "blue" },
-    { title: "Just For You", subtitle: "Discover more live models", color: "pink" },
-    { title: "Explore More", subtitle: "Keep discovering", color: "green" },
-  ].map((section, index) => {
-    const start = models.length ? (index * 3) % models.length : 0;
-    const sectionModels = [
-      ...models.slice(start),
-      ...models.slice(0, start),
-    ];
-
-    return (
-      <section className="category-section" key={section.title}>
-        <div className="category-heading">
-          <div className="category-title-wrap">
-            <div>
-              <h2>{section.title}</h2>
-              <p>{section.subtitle}</p>
-            </div>
-          </div>
-          <span className="online-status">● {sectionModels.length} online</span>
-        </div>
-
-        {modelsLoading ? (
-          <p>Loading live models...</p>
-        ) : modelsError ? (
-          <p>Couldn't load live models.</p>
-        ) : sectionModels.length === 0 ? (
-          <p>No live models available right now.</p>
-        ) : (
-          <div className="category-track">
-            {sectionModels.map((model) => (
-              <ModelCard key={model.username} model={model} />
-            ))}
-          </div>
-        )}
-      </section>
-    );
-  })}
-</section>
-
-
       <footer>
         <a className="logo" href="/">
           OnlyStream<span>.</span>
