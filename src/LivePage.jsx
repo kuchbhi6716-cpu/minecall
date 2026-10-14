@@ -20,7 +20,6 @@ function getUsername(item) {
       ""
   ).trim();
 }
-
 function getThumbnail(item) {
   const images = [
     item?.profilePictureUrl?.size800x600,
