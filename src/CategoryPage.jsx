@@ -21,7 +21,7 @@ export default function CategoryPage() {
     return (
       <main className="minebbe category-page">
         <a className="logo" href="/">
-          minebbe<span>.</span>
+          OnlyStream<span>.</span>
         </a>
         <h1>Category not found</h1>
         <a href="/">Back to home</a>
@@ -147,9 +147,9 @@ export default function CategoryPage() {
 
       <footer>
         <a className="logo" href="/">
-          minebbe<span>.</span>
+          OnlyStream<span>.</span>
         </a>
-        <p>Meet respectfully. Connect safely.</p>
+        <p> Connect safely.</p>
       </footer>
     </main>
   );
