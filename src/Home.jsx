@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import {
   Video,
@@ -5,14 +6,11 @@ import {
   Sparkles,
   Radio,
   Eye,
-  RefreshCw,
 } from "lucide-react";
 import "./Home.css";
 
 const API_URL = "/api/aw-models";
 const REFRESH_INTERVAL = 45000;
-const VIEWER_MIN = 80;
-const VIEWER_MAX = 200;
 
 function getModelUsername(model) {
   return String(
@@ -103,11 +101,7 @@ function extractModels(response) {
 }
 
 function getRandomViewerCount() {
-  return (
-    Math.floor(
-      Math.random() * (VIEWER_MAX - VIEWER_MIN + 1)
-    ) + VIEWER_MIN
-  );
+  return Math.floor(Math.random() * (200 - 80 + 1)) + 80;
 }
 
 function normalizeModels(list) {
@@ -184,16 +178,13 @@ function ModelCard({ model, viewers }) {
           </div>
         )}
 
-        <span className="model-online">
-          ● LIVE
-        </span>
+        <span className="model-online">● LIVE</span>
 
         <div className="stream-info">
           <h3>{name}</h3>
 
           <p>
             {age > 0 ? `${age}+ · ` : ""}
-
             <Eye
               size={14}
               style={{
@@ -201,7 +192,7 @@ function ModelCard({ model, viewers }) {
                 verticalAlign: "middle",
               }}
             />{" "}
-            {viewers.toLocaleString()} demo watching
+            {viewers.toLocaleString()}
           </p>
         </div>
       </button>
@@ -214,11 +205,7 @@ export default function Home() {
   const [viewerCounts, setViewerCounts] = useState({});
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
 
-  // Generate independent random counts for every model.
   function randomizeViewerCounts(modelList) {
     const nextCounts = {};
 
@@ -227,7 +214,6 @@ export default function Home() {
     });
 
     setViewerCounts(nextCounts);
-    setLastUpdated(new Date());
   }
 
   useEffect(() => {
@@ -239,8 +225,6 @@ export default function Home() {
 
       requestInProgress = true;
 
-      if (active) setRefreshing(true);
-
       try {
         const response = await fetch(API_URL, {
           headers: {
@@ -250,15 +234,11 @@ export default function Home() {
         });
 
         if (!response.ok) {
-          throw new Error(
-            `API returned ${response.status}`
-          );
+          throw new Error(`API returned ${response.status}`);
         }
 
         const data = await response.json();
-        const normalized = normalizeModels(
-          extractModels(data)
-        );
+        const normalized = normalizeModels(extractModels(data));
 
         if (!active) return;
 
@@ -279,24 +259,23 @@ export default function Home() {
 
         if (active) {
           setModelsLoading(false);
-          setRefreshing(false);
         }
       }
     }
 
     loadModels();
 
-    const interval = window.setInterval(() => {
-      loadModels();
-    }, REFRESH_INTERVAL);
+    const interval = window.setInterval(
+      loadModels,
+      REFRESH_INTERVAL
+    );
 
     return () => {
       active = false;
       window.clearInterval(interval);
     };
-  }, [reloadKey]);
+  }, []);
 
-  // Randomize counts immediately, then every 45 seconds.
   useEffect(() => {
     if (models.length === 0) return;
 
@@ -350,10 +329,6 @@ export default function Home() {
     window.location.href = "/call";
   }
 
-  function refreshModels() {
-    setReloadKey((current) => current + 1);
-  }
-
   return (
     <main className="minebbe">
       <nav className="navbar">
@@ -405,57 +380,11 @@ export default function Home() {
       </section>
 
       <section className="discovery">
-        <div className="category-heading">
-          <div className="category-title-wrap">
-            <span className="category-icon purple">
-              <Radio size={19} />
-            </span>
-
-            <div>
-              <h2>Live discovery</h2>
-              <p>
-                {lastUpdated
-                  ? `Demo counts updated ${lastUpdated.toLocaleTimeString()}`
-                  : "Discover live creators"}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className="online-status"
-            onClick={() => {
-              randomizeViewerCounts(models);
-              refreshModels();
-            }}
-            disabled={refreshing || models.length === 0}
-          >
-            <RefreshCw
-              size={14}
-              style={{
-                display: "inline",
-                verticalAlign: "middle",
-                marginRight: 5,
-              }}
-            />
-            {refreshing ? "Updating..." : "Refresh"}
-          </button>
-        </div>
-
         {modelsLoading ? (
           <p>Loading live models...</p>
         ) : modelsError && models.length === 0 ? (
           <div className="models-error">
-            <p>
-              Couldn't load live models. {modelsError}
-            </p>
-
-            <button
-              type="button"
-              onClick={refreshModels}
-            >
-              Try again
-            </button>
+            <p>Couldn't load live models. {modelsError}</p>
           </div>
         ) : models.length === 0 ? (
           <p>No models available right now.</p>
@@ -493,8 +422,7 @@ export default function Home() {
                       key={model.username}
                       model={model}
                       viewers={
-                        viewerCounts[model.username] ??
-                        VIEWER_MIN
+                        viewerCounts[model.username] ?? 80
                       }
                     />
                   ))}
