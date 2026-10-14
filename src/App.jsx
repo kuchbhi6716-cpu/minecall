@@ -642,6 +642,7 @@ function handleMessageChange(event) {
   );
 }
 
+
 export default function App() {
   const path = window.location.pathname;
 
@@ -653,5 +654,10 @@ export default function App() {
     return <LivePage />;
   }
 
+  if (path.startsWith("/category/")) {
+    return <CategoryPage />;
+  }
+
   return <Home />;
 }
+
