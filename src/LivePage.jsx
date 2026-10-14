@@ -58,52 +58,28 @@ export default function LivePage() {
           <p>Catch the moment as it happens.</p>
         </div>
         <article className="live-player-card">
-          <div className="live-player">
-            {loading ? (
-              <p>Loading model...</p>
-            ) : error ? (
-              <p>{error}</p>
-            ) : (
-              <div style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "14px",
-                padding: "20px",
-                boxSizing: "border-box",
-                textAlign: "center"
-              }}>
-                {model.thumbnail && (
-                  <img
-                    src={model.thumbnail}
-                    alt={model.name}
-                    style={{
-                      maxWidth: "100%",
-                      maxHeight: "65%",
-                      objectFit: "contain",
-                      borderRadius: "12px"
-                    }}
-                  />
-                )}
-                <p>
-                  Open the model's page to watch their live stream.
-                </p>
-                {model.profileUrl && (
-                  <a
-                    className="live-open-twitch"
-                    href={model.profileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Watch live <ExternalLink size={18} />
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
+         <div className="live-player">
+  {loading ? (
+    <p>Loading model...</p>
+  ) : error ? (
+    <p>{error}</p>
+  ) : (
+    <iframe
+      title={"Live stream: " + model.name}
+      src={
+        "https://bngprm.com/promo.php?c=844239&type=embed_chat&model=" +
+        encodeURIComponent(model.username)
+      }
+      style={{
+        width: "100%",
+        height: "600px",
+        border: "none",
+      }}
+      allow="autoplay; fullscreen"
+      allowFullScreen
+    />
+  )}
+</div>
           {model && (
             <div className="live-details">
               <div className="live-avatar">
