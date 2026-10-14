@@ -1,6 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, ExternalLink, Radio, Tv } from "lucide-react";
 import "./LivePage.css";
+useEffect(() => {
+  if (loading || error || !model) return;
+  const oldScript = document.getElementById("bongacams-widget-script");
+  if (oldScript) oldScript.remove();
+  const script = document.createElement("script");
+  script.id = "bongacams-widget-script";
+  script.type = "text/javascript";
+  script.src =
+    "https://bngprm.com/promo.php?c=844239&type=embed_chat&model_offline=homepage";
+  script.async = true;
+  document.getElementById("BC_EC")?.appendChild(script);
+  return () => script.remove();
+}, [loading, error, model]);
+
 export default function LivePage() {
   const params = new URLSearchParams(window.location.search);
   const username = params.get("model");
@@ -58,26 +72,24 @@ export default function LivePage() {
           <p>Catch the moment as it happens.</p>
         </div>
         <article className="live-player-card">
-         <div className="live-player">
+        <div className="live-player">
   {loading ? (
     <p>Loading model...</p>
   ) : error ? (
     <p>{error}</p>
   ) : (
-    <iframe
-      title={"Live stream: " + model.name}
-      src={
-        "https://bngprm.com/promo.php?c=844239&type=embed_chat&model=" +
-        encodeURIComponent(model.username)
-      }
+    <div
+      id="BC_EC"
       style={{
         width: "100%",
-        height: "600px",
-        border: "none",
+        minHeight: "500px",
+        background: "#111",
       }}
-      allow="autoplay; fullscreen"
-      allowFullScreen
-    />
+    >
+      <p style={{ color: "white", padding: "20px" }}>
+        Loading BongaCams live chat...
+      </p>
+    </div>
   )}
 </div>
           {model && (
