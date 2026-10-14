@@ -390,8 +390,8 @@ function handleMessageChange(event) {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="RandomCall home">
-          Random<span>Call</span><i>.</i>
+        <a className="brand" href="/" aria-label="OnlyStream home">
+          Only<span>Stream</span><i>.</i>
         </a>
 
         <div className="topbar-right">
@@ -476,7 +476,7 @@ function handleMessageChange(event) {
               {(!isActive || cameraOff) && (
                 <div className="local-placeholder">
                   <span>YOU</span>
-                  <div className="self-avatar">☺</div>
+                  <div className="self-avatar"></div>
                   <p>{cameraOff ? "Camera is off" : "Your preview"}</p>
                 </div>
               )}
@@ -635,7 +635,7 @@ function handleMessageChange(event) {
       </main>
 
       <footer className="footer">
-        <span>RandomCall © 2026</span>
+        <span>OnlyStream © 2026</span>
         <span>Made for spontaneous connections <b>✳</b></span>
       </footer>
     </div>
