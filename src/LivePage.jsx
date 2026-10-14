@@ -110,83 +110,90 @@ function normalizeModel(item) {
   };
 }
 
+
 function AWLivePlayer({ username }) {
   const [retry, setRetry] = useState(0);
   const [playerError, setPlayerError] = useState("");
+  const [videoLoaded, setVideoLoaded] = useState(false);
 
   useEffect(() => {
-    if (!username) {
-      setPlayerError("Missing performer username.");
-      return;
-    }
+    if (!username) return;
 
-    const container = document.getElementById(
-      "object_container"
-    );
-
-    if (!container) {
-      setPlayerError("Player container is missing.");
-      return;
-    }
+    const container = document.getElementById("object_container");
+    if (!container) return;
 
     let cancelled = false;
     let timer;
+    let checkTimer;
 
     container.replaceChildren();
+    setVideoLoaded(false);
     setPlayerError("");
 
-    // Match the working A.W. Empire embed parameters.
-    const params = new URLSearchParams();
-    params.set("c", "object_container");
-    params.set("site", "jasmin");
-    params.set("cobrandId", "");
-    params.set("psid", "kuchbhi6677");
-    params.set("pstool", "202_1");
-    params.set("psprogram", "revs");
-    params.set("campaign_id", "");
-    params.set("category", "girl");
+    const params = new URLSearchParams({
+      c: "object_container",
+      site: "jasmin",
+      cobrandId: "",
+      psid: "kuchbhi6677",
+      pstool: "202_1",
+      psprogram: "revs",
+      campaign_id: "",
+      category: "girl",
+      "vp[showChat]": "true",
+      "vp[chatAutoHide]": "",
+      "vp[showCallToAction]": "",
+      "vp[showPerformerName]": "",
+      "vp[showPerformerStatus]": "",
+      ms_notrack: "1",
+      subAffId: "",
+    });
+
     params.append("forcedPerformers[]", username);
-    params.set("vp[showChat]", "true");
-    params.set("vp[chatAutoHide]", "");
-    params.set("vp[showCallToAction]", "");
-    params.set("vp[showPerformerName]", "");
-    params.set("vp[showPerformerStatus]", "");
-    params.set("ms_notrack", "1");
-    params.set("subAffId", "");
 
     const script = document.createElement("script");
-    script.src = `${PLAYER_SCRIPT}?${params.toString()}`;
     script.async = true;
-
-    // Do not delay script insertion; start loading immediately.
-    script.onload = () => {
-      window.clearTimeout(timer);
-    };
+    script.src = `${PLAYER_SCRIPT}?${params.toString()}`;
 
     script.onerror = () => {
       if (cancelled) return;
-
-      window.clearTimeout(timer);
-      setPlayerError(
-        "The live player script could not load. Check your connection and retry."
-      );
+      setPlayerError("Player load nahi ho paya. Retry karo.");
     };
 
     container.appendChild(script);
 
-    // This timer only reports a possible problem.
-    // It does not delay video startup.
-    timer = window.setTimeout(() => {
-      if (!cancelled && !container.querySelector("iframe, video")) {
-        setPlayerError(
-          "The player has not appeared yet. The provider may be slow or unavailable."
-        );
+    // Detect an actual playable video where accessible.
+    checkTimer = window.setInterval(() => {
+      if (cancelled) return;
+
+      const video = container.querySelector("video");
+
+      if (video && video.readyState >= 2) {
+        setVideoLoaded(true);
+        window.clearInterval(checkTimer);
       }
-    }, 15000);
+    }, 300);
+
+    // Keep the loader visible while waiting.
+    timer = window.setTimeout(() => {
+      if (cancelled) return;
+
+      const video = container.querySelector("video");
+      const iframe = container.querySelector("iframe");
+
+      if (video && video.readyState >= 2) {
+        setVideoLoaded(true);
+      } else if (iframe) {
+        // Cross-origin iframe internals cannot be inspected.
+        // Don't remove the loader just because an iframe exists.
+      } else {
+        setPlayerError("Stream abhi load nahi hui. Dobara try karo.");
+      }
+    }, 25000);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      window.clearInterval(checkTimer);
       container.replaceChildren();
     };
   }, [username, retry]);
@@ -196,12 +203,23 @@ function AWLivePlayer({ username }) {
       <div
         id="object_container"
         className="onlystream-embed"
-        style={{
-          width: "100%",
-          height: "100%",
-          minHeight: "360px",
-        }}
       />
+
+      {!videoLoaded && !playerError && (
+        <div className="video-skeleton" aria-live="polite">
+          <div className="skeleton-glow" />
+          <div className="skeleton-content">
+            <div className="skeleton-orb">▶</div>
+            <div className="skeleton-line" />
+            <div className="skeleton-caption">
+              Connecting to live stream...
+            </div>
+          </div>
+          <div className="skeleton-progress">
+            <div />
+          </div>
+        </div>
+      )}
 
       {playerError && (
         <div className="player-error">
@@ -210,14 +228,6 @@ function AWLivePlayer({ username }) {
             type="button"
             onClick={() => setRetry((value) => value + 1)}
           >
-            <RefreshCw
-              size={15}
-              style={{
-                display: "inline",
-                verticalAlign: "middle",
-                marginRight: 6,
-              }}
-            />
             Retry player
           </button>
         </div>
@@ -225,6 +235,7 @@ function AWLivePlayer({ username }) {
     </div>
   );
 }
+
 
 export default function LivePage() {
   const requestedModel = (
