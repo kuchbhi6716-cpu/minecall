@@ -811,3 +811,330 @@ footer p {
   }
 }
 
+
+/* Vertical stream discovery page */
+
+.stream-page-heading {
+  width: min(1050px, 92%);
+  margin: 45px auto 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stream-page-heading h1 {
+  margin: 6px 0;
+  font-size: clamp(30px, 5vw, 44px);
+  letter-spacing: -1.2px;
+}
+
+.stream-page-heading p:last-child {
+  margin: 0;
+  opacity: 0.68;
+  font-size: 14px;
+}
+
+.stream-page-toolbar {
+  width: min(1050px, 92%);
+  margin: 0 auto 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  opacity: 0.78;
+}
+
+.stream-page-toolbar > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vertical-stream-list {
+  width: min(1050px, 92%);
+  margin: 0 auto 65px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.vertical-stream-card {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 19px;
+  background: rgba(255,255,255,0.035);
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    background 0.22s ease;
+  animation: categoryReveal 0.4s ease both;
+}
+
+.vertical-stream-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(175,130,255,0.38);
+  background: rgba(255,255,255,0.055);
+}
+
+.stream-thumbnail {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  min-width: 0;
+  border-radius: 13px;
+  background: #29203e;
+}
+
+.stream-thumbnail.purple { background: linear-gradient(135deg, #482c78, #171324); }
+.stream-thumbnail.blue { background: linear-gradient(135deg, #244b80, #131b30); }
+.stream-thumbnail.pink { background: linear-gradient(135deg, #792e67, #24152d); }
+.stream-thumbnail.orange { background: linear-gradient(135deg, #8b4a2b, #291a22); }
+.stream-thumbnail.green { background: linear-gradient(135deg, #246b58, #152622); }
+
+.thumbnail-glow {
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.09);
+  filter: blur(22px);
+}
+
+.thumbnail-play {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 49px;
+  height: 49px;
+  padding-left: 3px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 50%;
+  color: white;
+  background: rgba(255,255,255,0.13);
+  backdrop-filter: blur(8px);
+  transition: transform 0.2s ease;
+}
+
+.vertical-stream-card:hover .thumbnail-play {
+  transform: scale(1.1);
+}
+
+.thumbnail-live {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: rgba(10,10,15,0.65);
+}
+
+.thumbnail-live > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff626f;
+}
+
+.demo-label {
+  color: #e5d7ff;
+}
+
+.thumbnail-number {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+.vertical-stream-info {
+  min-width: 0;
+}
+
+.stream-category-label {
+  color: #c0a3ff;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.vertical-stream-info h2 {
+  margin: 7px 0 3px;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.stream-channel-name {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.stream-description {
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  opacity: 0.78;
+}
+
+.stream-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  opacity: 0.62;
+}
+
+.stream-meta span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.vertical-stream-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vertical-watch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 11px;
+  color: white;
+  background: linear-gradient(135deg, #8a5cf6, #6840d6);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.vertical-watch-btn:hover {
+  filter: brightness(1.13);
+  transform: translateY(-1px);
+}
+
+.vertical-demo-tag {
+  padding: 9px 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 9px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+@media (max-width: 700px) {
+  .stream-page-heading {
+    margin-top: 30px;
+    margin-bottom: 25px;
+  }
+
+  .vertical-stream-card {
+    grid-template-columns: 115px minmax(0, 1fr);
+    gap: 13px;
+    padding: 11px;
+    border-radius: 15px;
+  }
+
+  .stream-thumbnail {
+    align-self: stretch;
+    min-height: 125px;
+    aspect-ratio: auto;
+  }
+
+  .thumbnail-play {
+    width: 38px;
+    height: 38px;
+  }
+
+  .thumbnail-play svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .thumbnail-live {
+    top: 7px;
+    left: 6px;
+    padding: 4px 5px;
+    font-size: 8px;
+  }
+
+  .vertical-stream-info h2 {
+    font-size: 16px;
+  }
+
+  .stream-description {
+    margin: 8px 0;
+    font-size: 11px;
+  }
+
+  .stream-meta {
+    gap: 5px;
+    font-size: 10px;
+  }
+
+  .vertical-stream-action {
+    grid-column: 2;
+    justify-content: flex-start;
+    margin-top: -3px;
+  }
+
+  .vertical-watch-btn {
+    padding: 10px 12px;
+  }
+
+  .vertical-demo-tag {
+    padding: 8px 9px;
+  }
+}
+
+@media (max-width: 370px) {
+  .vertical-stream-card {
+    grid-template-columns: 95px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .stream-thumbnail {
+    min-height: 115px;
+  }
+
+  .vertical-stream-info h2 {
+    font-size: 14px;
+  }
+
+  .stream-description {
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vertical-stream-card,
+  .thumbnail-play,
+  .vertical-watch-btn {
+    animation: none;
+    transition: none;
+  }
+}
+
