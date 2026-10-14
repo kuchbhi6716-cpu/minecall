@@ -553,7 +553,7 @@ function handleMessageChange(event) {
 
           <div className="privacy-note">
             <span>◇</span>
-            Be kind, protect your privacy, and never share sensitive details.
+            Be kind!
           </div>
         </section>
 
@@ -578,7 +578,7 @@ function handleMessageChange(event) {
               <div className="empty-chat">
                 <div className="chat-art">✉</div>
                 <h3>Your conversation starts here</h3>
-                <p>Say hello, share a laugh, or ask a fun question.</p>
+                
               </div>
             ) : (
               messages.map((item) => (
@@ -629,14 +629,13 @@ function handleMessageChange(event) {
           </form>
 
           <p className="chat-footnote">
-            <span>⌁</span> Keep it friendly. Keep it respectful.
           </p>
         </aside>
       </main>
 
       <footer className="footer">
         <span>OnlyStream © 2026</span>
-        <span>Made for spontaneous connections <b>✳</b></span>
+        <span>Made for spontaneous connections <b></b></span>
       </footer>
     </div>
   );
