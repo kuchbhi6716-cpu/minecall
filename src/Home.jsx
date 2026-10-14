@@ -46,7 +46,7 @@ function StreamCard({ stream }) {
         className="join-btn"
         onClick={() => openLive(stream.channel)}
       >
-        View <ArrowUpRight size={15} />
+        Watch <ArrowUpRight size={15} />
       </button>
     </article>
   );
@@ -147,7 +147,7 @@ export default function Home() {
 
       <footer>
         <a className="logo" href="/">
-          minebbe<span>.</span>
+          OnlyStream<span>.</span>
         </a>
         <p>Meet respectfully. Connect safely.</p>
       </footer>
