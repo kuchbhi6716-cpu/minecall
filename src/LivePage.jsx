@@ -52,7 +52,7 @@ export default function LivePage() {
         </a>
 
         <a className="live-brand" href="/">
-          minebbe<span>.</span>
+          OnlyStream<span>.</span>
         </a>
 
         <span className="live-status">
@@ -133,7 +133,7 @@ export default function LivePage() {
         </section>
 
         <footer className="live-footer">
-          Streams are provided by Twitch. Minebbe does not host these videos.
+          Fun of for by OnlyStream
         </footer>
       </section>
     </main>
