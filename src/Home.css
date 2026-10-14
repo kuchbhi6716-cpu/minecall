@@ -1138,3 +1138,53 @@ footer p {
   }
 }
 
+
+.model-card {
+  position: relative;
+  overflow: hidden;
+  min-width: 220px;
+}
+
+.model-card-click {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-thumbnail {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #20162d;
+}
+
+.model-online {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #e11d48;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.model-card .stream-info {
+  padding: 12px;
+}
+
+.model-card-click:focus-visible {
+  outline: 2px solid #b794ff;
+  outline-offset: -2px;
+}
+
+
+
