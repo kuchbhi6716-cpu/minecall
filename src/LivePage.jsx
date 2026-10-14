@@ -150,6 +150,7 @@ function AWLivePlayer({ username }) {
     const script = document.createElement("script");
     script.async = true;
     script.src = `${PLAYER_SCRIPT}?${params.toString()}`;
+    console.log("Player URL:", script.src);
 
     script.onerror = showError;
 
