@@ -19,6 +19,7 @@ function getUsername(item) {
     ""
   );
 }
+
 function getThumbnail(item) {
   const images = [
     item?.thumbnail,
