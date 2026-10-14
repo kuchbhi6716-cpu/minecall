@@ -10,62 +10,90 @@ const io = new Server(server);
 
 const distPath = path.join(__dirname, "dist");
 
-// Serve React application
+// ------------------------------------
+// SERVE REACT APPLICATION
+// ------------------------------------
 app.use(express.static(distPath));
 
-// Health check
+// ------------------------------------
+// HEALTH CHECK
+// ------------------------------------
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", app: "OnlyStream" });
+  res.json({
+    status: "ok",
+    app: "OnlyStream"
+  });
 });
 
 // ------------------------------------
-// CAM4PAYS: ONLINE MODELS
+// A.W. EMPIRE: MODEL FEED API
 // ------------------------------------
-app.get("/api/cam4-models", async (req, res) => {
+app.get("/api/aw-models", async (req, res) => {
+  const feedUrl = process.env.AW_MODEL_FEED_URL;
+
+  if (!feedUrl) {
+    return res.status(503).json({
+      error: "A.W. Empire Model Feed is not configured",
+      message:
+        "Set AW_MODEL_FEED_URL in Render Environment settings."
+    });
+  }
+
   try {
-    const apiUrl = new URL(
-      "https://api.cam4pays.com/api/v1/cams/online.json"
-    );
+    const parsedUrl = new URL(feedUrl);
 
-    apiUrl.searchParams.set(
-      "aff_id",
-      process.env.CAM4_AFF_ID || "66db08bf0f40da23bf28e055"
-    );
-    apiUrl.searchParams.set("prog", "rs");
-    apiUrl.searchParams.set("gender", "female");
-    apiUrl.searchParams.set("limit", "50");
-    apiUrl.searchParams.set("order_by", "viewers_desc");
+    if (parsedUrl.protocol !== "https:") {
+      return res.status(400).json({
+        error: "The Model Feed URL must use HTTPS"
+      });
+    }
 
-    const response = await fetch(apiUrl, {
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(10000)
+    // Request the official A.W. Empire JSON feed.
+    const response = await fetch(parsedUrl, {
+      headers: {
+        Accept: "application/json"
+      },
+      signal: AbortSignal.timeout(15000)
     });
 
     if (!response.ok) {
-      console.error("CAM4 API status:", response.status);
+      console.error(
+        "A.W. Empire feed status:",
+        response.status
+      );
 
       return res.status(502).json({
-        error: "CAM4 provider temporarily unavailable"
+        error: "A.W. Empire feed request failed",
+        status: response.status
+      });
+    }
+
+    const contentType =
+      response.headers.get("content-type") || "";
+
+    if (!contentType.toLowerCase().includes("json")) {
+      return res.status(502).json({
+        error: "The configured feed is not JSON",
+        message:
+          "Select JSON in the A.W. Empire Model Feed generator."
       });
     }
 
     const data = await response.json();
 
-    if (!Array.isArray(data)) {
-      console.error("Unexpected CAM4 API response format");
-
-      return res.status(502).json({
-        error: "Unexpected CAM4 API response"
-      });
-    }
-
+    // Keep the provider's response intact until
+    // its exact data structure is confirmed.
     res.set("Cache-Control", "public, max-age=30");
+
     return res.json(data);
   } catch (error) {
-    console.error("CAM4 models error:", error.message);
+    console.error(
+      "A.W. Empire models error:",
+      error.message
+    );
 
     return res.status(502).json({
-      error: "Could not load CAM4 models"
+      error: "Could not load A.W. Empire models"
     });
   }
 });
@@ -93,6 +121,7 @@ function removeFromQueue(id) {
 
 function disconnectPartner(id) {
   const partnerId = partners.get(id);
+
   if (!partnerId) return;
 
   partners.delete(id);
@@ -134,24 +163,36 @@ io.on("connection", (socket) => {
         initiator: partnerId < socket.id
       });
 
-      console.log("Matched:", socket.id, partnerId);
+      console.log(
+        "Matched:",
+        socket.id,
+        partnerId
+      );
+
       return;
     }
 
     waiting.push(socket.id);
     socket.emit("waiting");
+
     console.log("Waiting in queue:", socket.id);
   });
 
   socket.on("stop-chat", () => {
     stopSearching(socket);
+
     console.log("Chat stopped:", socket.id);
   });
 
   socket.on("typing", (isTyping) => {
     const partnerId = partners.get(socket.id);
 
-    if (!partnerId || typeof isTyping !== "boolean") return;
+    if (
+      !partnerId ||
+      typeof isTyping !== "boolean"
+    ) {
+      return;
+    }
 
     io.to(partnerId).emit("typing", isTyping);
   });
@@ -176,11 +217,19 @@ io.on("connection", (socket) => {
   socket.on("signal", (data) => {
     const partnerId = partners.get(socket.id);
 
-    if (!partnerId || !data || typeof data !== "object") {
+    if (
+      !partnerId ||
+      !data ||
+      typeof data !== "object"
+    ) {
       return;
     }
 
-    if (!["offer", "answer", "candidate"].includes(data.type)) {
+    if (
+      !["offer", "answer", "candidate"].includes(
+        data.type
+      )
+    ) {
       return;
     }
 
@@ -190,6 +239,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     removeFromQueue(socket.id);
     disconnectPartner(socket.id);
+
     console.log("User disconnected:", socket.id);
   });
 });
@@ -200,5 +250,9 @@ io.on("connection", (socket) => {
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log("OnlyStream server running on port", PORT);
+  console.log(
+    "OnlyStream server running on port",
+    PORT
+  );
 });
+
