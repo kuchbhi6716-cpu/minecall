@@ -13,28 +13,10 @@ import "./LivePage.css";
 const API_URL = "/api/aw-models";
 const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
 
-const PLAYER_CONFIG = {
-  site: "jasmin",
-  cobrandId: "",
-  psid: "kuchbhi6677",
-  pstool: "202_1",
-  psprogram: "revs",
-  campaign_id: "",
-  category: "girl",
-  "vp[showChat]": "true",
-  "vp[chatAutoHide]": "",
-  "vp[showCallToAction]": "",
-  "vp[showPerformerName]": "",
-  "vp[showPerformerStatus]": "",
-  ms_notrack: "1",
-  subAffId: "",
-};
-
 function getUsername(item) {
   return String(
     item?.username ||
       item?.nickname ||
-      item?.displayName ||
       item?.performerId ||
       item?.performer_id ||
       item?.id ||
@@ -60,8 +42,7 @@ function getThumbnail(item) {
   return (
     images.find(
       (image) =>
-        typeof image === "string" &&
-        image.trim().length > 0
+        typeof image === "string" && image.trim()
     ) || ""
   );
 }
@@ -103,20 +84,18 @@ function extractModels(response) {
 }
 
 function normalizeModel(item) {
-  const username = getUsername(item);
   const age = Number(
     item?.persons?.[0]?.age ?? item?.age ?? 0
   );
 
   return {
-    username,
+    username: getUsername(item),
     name:
       item?.displayName ||
       item?.nickname ||
       item?.username ||
       item?.performerId ||
       item?.name ||
-      username ||
       "Live Model",
     age: Number.isFinite(age) ? age : 0,
     thumbnail: getThumbnail(item),
@@ -132,104 +111,104 @@ function normalizeModel(item) {
 }
 
 function AWLivePlayer({ username }) {
-  const [attempt, setAttempt] = useState(0);
+  const [retry, setRetry] = useState(0);
   const [playerError, setPlayerError] = useState("");
-  const [loadingPlayer, setLoadingPlayer] = useState(true);
 
   useEffect(() => {
     if (!username) {
-      setPlayerError("No performer username was provided.");
-      setLoadingPlayer(false);
+      setPlayerError("Missing performer username.");
       return;
     }
 
     const container = document.getElementById(
-      "onlystream-player"
+      "object_container"
     );
 
     if (!container) {
-      setPlayerError("Player container was not found.");
-      setLoadingPlayer(false);
+      setPlayerError("Player container is missing.");
       return;
     }
 
     let cancelled = false;
     let timer;
 
-    setLoadingPlayer(true);
-    setPlayerError("");
     container.replaceChildren();
+    setPlayerError("");
 
-    const params = new URLSearchParams({
-      c: "onlystream-player",
-      ...PLAYER_CONFIG,
-      "forcedPerformers[]": username,
-    });
+    // Match the working A.W. Empire embed parameters.
+    const params = new URLSearchParams();
+    params.set("c", "object_container");
+    params.set("site", "jasmin");
+    params.set("cobrandId", "");
+    params.set("psid", "kuchbhi6677");
+    params.set("pstool", "202_1");
+    params.set("psprogram", "revs");
+    params.set("campaign_id", "");
+    params.set("category", "girl");
+    params.append("forcedPerformers[]", username);
+    params.set("vp[showChat]", "true");
+    params.set("vp[chatAutoHide]", "");
+    params.set("vp[showCallToAction]", "");
+    params.set("vp[showPerformerName]", "");
+    params.set("vp[showPerformerStatus]", "");
+    params.set("ms_notrack", "1");
+    params.set("subAffId", "");
 
     const script = document.createElement("script");
-    script.async = true;
     script.src = `${PLAYER_SCRIPT}?${params.toString()}`;
+    script.async = true;
 
+    // Do not delay script insertion; start loading immediately.
     script.onload = () => {
-      if (cancelled) return;
-
-      // The script loading does not necessarily mean
-      // the video stream has started playing.
       window.clearTimeout(timer);
-      setLoadingPlayer(false);
     };
 
     script.onerror = () => {
       if (cancelled) return;
 
       window.clearTimeout(timer);
-      setLoadingPlayer(false);
       setPlayerError(
-        "The provider player script could not load."
+        "The live player script could not load. Check your connection and retry."
       );
     };
 
     container.appendChild(script);
 
+    // This timer only reports a possible problem.
+    // It does not delay video startup.
     timer = window.setTimeout(() => {
-      if (cancelled) return;
-
-      setLoadingPlayer(false);
-      setPlayerError(
-        "The player is taking too long to load. Check the connection or try again."
-      );
-    }, 25000);
+      if (!cancelled && !container.querySelector("iframe, video")) {
+        setPlayerError(
+          "The player has not appeared yet. The provider may be slow or unavailable."
+        );
+      }
+    }, 15000);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
       container.replaceChildren();
     };
-  }, [username, attempt]);
+  }, [username, retry]);
 
   return (
     <div className="onlystream-embed-wrap">
       <div
-        id="onlystream-player"
+        id="object_container"
         className="onlystream-embed"
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "360px",
+        }}
       />
-
-      {loadingPlayer && (
-        <div className="player-error">
-          <p>Loading live stream...</p>
-        </div>
-      )}
 
       {playerError && (
         <div className="player-error">
           <p>{playerError}</p>
-          <p>
-            The stream may be unavailable or the provider
-            may have blocked the embed.
-          </p>
           <button
             type="button"
-            onClick={() => setAttempt((value) => value + 1)}
+            onClick={() => setRetry((value) => value + 1)}
           >
             <RefreshCw
               size={15}
@@ -248,17 +227,18 @@ function AWLivePlayer({ username }) {
 }
 
 export default function LivePage() {
-  const params = new URLSearchParams(window.location.search);
-  const requestedModel = (params.get("model") || "").trim();
+  const requestedModel = (
+    new URLSearchParams(window.location.search).get("model") || ""
+  ).trim();
 
   const [model, setModel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [retry, setRetry] = useState(0);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
     const controller = new AbortController();
+    let cancelled = false;
 
     async function loadModel() {
       setLoading(true);
@@ -272,9 +252,7 @@ export default function LivePage() {
         });
 
         if (!response.ok) {
-          throw new Error(
-            `Model feed request failed (${response.status}).`
-          );
+          throw new Error(`Model feed error (${response.status}).`);
         }
 
         const data = await response.json();
@@ -283,28 +261,24 @@ export default function LivePage() {
           .filter((item) => item.username);
 
         const selected = models.find((item) => {
-          const requested = requestedModel.toLowerCase();
+          const target = requestedModel.toLowerCase();
 
           return (
-            item.username.toLowerCase() === requested ||
-            item.name.toLowerCase() === requested
+            item.username.toLowerCase() === target ||
+            item.name.toLowerCase() === target
           );
         });
 
         if (!selected) {
           throw new Error(
-            "This model was not found in the current feed. Go back and select a model from the cards."
+            "Model not found in the current feed. Return home and select a model again."
           );
         }
 
-        if (!cancelled) {
-          setModel(selected);
-        }
+        if (!cancelled) setModel(selected);
       } catch (err) {
         if (!cancelled && err.name !== "AbortError") {
-          setError(
-            err.message || "Couldn't load this model."
-          );
+          setError(err.message || "Unable to load this model.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -322,7 +296,7 @@ export default function LivePage() {
       cancelled = true;
       controller.abort();
     };
-  }, [requestedModel, retry]);
+  }, [requestedModel, reload]);
 
   return (
     <main className="live-page">
@@ -346,11 +320,9 @@ export default function LivePage() {
           <span className="live-eyebrow">
             <Tv size={15} /> LIVE MODEL
           </span>
-
           <h1>
             Watch <span>live.</span>
           </h1>
-
           <p>Watch creators on OnlyStream.</p>
         </div>
 
@@ -361,25 +333,13 @@ export default function LivePage() {
         ) : error ? (
           <div className="live-player-message">
             <p>{error}</p>
-
             <button
               type="button"
-              onClick={() => setRetry((value) => value + 1)}
+              onClick={() => setReload((value) => value + 1)}
             >
-              <RefreshCw
-                size={15}
-                style={{
-                  display: "inline",
-                  verticalAlign: "middle",
-                  marginRight: 6,
-                }}
-              />
               Retry
             </button>
-
-            <p>
-              <a href="/">Back to live models</a>
-            </p>
+            <p><a href="/">Back to live models</a></p>
           </div>
         ) : model ? (
           <>
@@ -398,13 +358,11 @@ export default function LivePage() {
 
                 <div className="live-channel-info">
                   <h2>{model.name}</h2>
-
                   <p>
                     {model.age > 0
                       ? `Age ${model.age}+`
                       : "Live model"}
                   </p>
-
                   <span className="live-note">
                     <Eye
                       size={14}
