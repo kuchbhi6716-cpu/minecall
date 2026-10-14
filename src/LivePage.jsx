@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, Radio, Tv } from "lucide-react";
+import { ArrowLeft, ExternalLink, Radio, Tv, Eye } from "lucide-react";
 import "./LivePage.css";
 
 export default function LivePage() {
@@ -11,30 +11,53 @@ export default function LivePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Fetch the selected model from your API
   useEffect(() => {
     let cancelled = false;
 
     async function loadModel() {
       try {
-        const response = await fetch("/api/models-online");
+        const response = await fetch("/api/cam4-models");
 
         if (!response.ok) {
-          throw new Error("Could not load live models.");
+          throw new Error("Could not load CAM4 models.");
         }
 
         const data = await response.json();
 
-        const selected = (data.models || []).find(
-          (item) => item.username === username
+        const models = Array.isArray(data)
+          ? data
+          : Array.isArray(data.models)
+            ? data.models
+            : [];
+
+        const selected = models.find(
+          (item) =>
+            (item.nickname || item.username || item.name) === username
         );
 
         if (!selected) {
-          throw new Error("This model is not available right now.");
+          throw new Error(
+            "This model is no longer available. Please return home."
+          );
         }
 
         if (!cancelled) {
-          setModel(selected);
+          setModel({
+            username:
+              selected.nickname || selected.username || selected.name,
+            name:
+              selected.nickname || selected.name || selected.username,
+            age: selected.age || null,
+            thumbnail:
+              selected.thumb ||
+              selected.thumb_big ||
+              selected.profile_thumb_sfw ||
+              selected.profile_thumb ||
+              selected.thumb_error ||
+              "",
+            viewers: Number(selected.viewers) || 0,
+            profileUrl: selected.link || ""
+          });
         }
       } catch (err) {
         if (!cancelled) {
@@ -58,45 +81,6 @@ export default function LivePage() {
       cancelled = true;
     };
   }, [username]);
-
-  // Load BongaCash's embed script for the selected username
-  useEffect(() => {
-    if (loading || error || !model?.username) return;
-
-    const container = document.getElementById(
-      "bonga-player-container"
-    );
-
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    const message = document.createElement("p");
-    message.style.color = "white";
-    message.style.padding = "20px";
-    message.textContent = "Loading BongaCams live chat...";
-    container.appendChild(message);
-
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.id = "BC_EC";
-
-    const embedParams = new URLSearchParams();
-    embedParams.set("c", "844239");
-    embedParams.set("type", "embed_chat");
-    embedParams.append("models[]", model.username);
-    embedParams.set("model_offline", "homepage");
-
-    script.src =
-      "https://bngprm.com/promo.php?" + embedParams.toString();
-
-    script.async = true;
-    container.appendChild(script);
-
-    return () => {
-      container.innerHTML = "";
-    };
-  }, [loading, error, model]);
 
   return (
     <main className="live-page">
@@ -129,36 +113,97 @@ export default function LivePage() {
         </div>
 
         <article className="live-player-card">
-          <div className="live-player">
+          <div
+            className="live-player"
+            style={{
+              minHeight: "300px",
+              background: "#111"
+            }}
+          >
             {loading ? (
               <p>Loading model...</p>
             ) : error ? (
               <p>{error}</p>
-            ) : (
+            ) : model ? (
               <div
-                id="bonga-player-container"
                 style={{
                   width: "100%",
-                  minHeight: "500px",
-                  background: "#111",
+                  minHeight: "300px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "16px",
+                  padding: "24px",
+                  boxSizing: "border-box",
+                  textAlign: "center"
                 }}
-              />
-            )}
+              >
+                {model.thumbnail && (
+                  <img
+                    src={model.thumbnail}
+                    alt={`${model.name} thumbnail`}
+                    style={{
+                      width: "100%",
+                      maxWidth: "420px",
+                      maxHeight: "320px",
+                      objectFit: "contain",
+                      borderRadius: "12px"
+                    }}
+                  />
+                )}
+
+                <h2 style={{ color: "white", margin: 0 }}>
+                  {model.name}
+                </h2>
+
+                <p style={{ color: "#ccc", margin: 0 }}>
+                  <Eye
+                    size={15}
+                    style={{
+                      display: "inline",
+                      verticalAlign: "middle"
+                    }}
+                  />{" "}
+                  {model.viewers.toLocaleString()} watching
+                </p>
+
+                {model.profileUrl && (
+                  <a
+                    className="join-btn"
+                    href={model.profileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      textDecoration: "none"
+                    }}
+                  >
+                    WATCH ON CAM4
+                    <ExternalLink size={17} />
+                  </a>
+                )}
+
+                <p style={{ color: "#aaa", fontSize: "13px" }}>
+                  The live stream opens on CAM4.
+                </p>
+              </div>
+            ) : null}
           </div>
 
           {model && (
             <div className="live-details">
               <div className="live-avatar">
-                {(model.name || model.username)
-                  .charAt(0)
-                  .toUpperCase()}
+                {model.name.charAt(0).toUpperCase()}
               </div>
 
               <div className="live-channel-info">
-                <h2>{model.name || model.username}</h2>
+                <h2>{model.name}</h2>
 
                 <p>
-                  {model.age ? `Age ${model.age}` : "Live model"}
+                  {model.age ? `Age ${model.age}+` : "Live model"}
                 </p>
 
                 <span className="live-note">
@@ -171,8 +216,8 @@ export default function LivePage() {
                   className="live-open-twitch"
                   href={model.profileUrl}
                   target="_blank"
-                  rel="noreferrer"
-                  aria-label="Open model profile"
+                  rel="noopener noreferrer"
+                  aria-label="Open model profile on CAM4"
                 >
                   <ExternalLink size={18} />
                 </a>
