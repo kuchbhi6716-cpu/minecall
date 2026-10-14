@@ -16,6 +16,83 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", app: "RandomCall" });
 });
 
+
+app.get("/api/models-online", async (req, res) => {
+  try {
+    const campaignId = process.env.BONGACAMS_CAMPAIGN_ID;
+
+    if (!campaignId) {
+      return res.status(500).json({
+        error: "BongaCams campaign ID is not configured"
+      });
+    }
+
+    // The API requires the visitor's IPv4 address.
+    const forwardedFor = req.headers["x-forwarded-for"];
+    const visitorIp = (
+      typeof forwardedFor === "string"
+        ? forwardedFor.split(",")[0].trim()
+        : req.socket.remoteAddress || ""
+    ).replace(/^::ffff:/, "");
+
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(visitorIp)) {
+      return res.status(400).json({
+        error: "A valid visitor IPv4 address is required"
+      });
+    }
+
+    const apiUrl = new URL(
+      "https://bngprm.com/api/v2/models-online"
+    );
+
+    apiUrl.searchParams.set("c", campaignId);
+    apiUrl.searchParams.set("client_ip", visitorIp);
+    apiUrl.searchParams.set("limit", "30");
+    apiUrl.searchParams.set("offset", "0");
+
+    const response = await fetch(apiUrl, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (!response.ok) {
+      console.error("BongaCams API status:", response.status);
+      return res.status(502).json({
+        error: "Model provider temporarily unavailable"
+      });
+    }
+
+    const data = await response.json();
+    const models = Array.isArray(data.models)
+      ? data.models
+      : Array.isArray(data.online_models)
+        ? data.online_models
+        : [];
+
+    const result = models.map((model) => ({
+      username: model.username || "",
+      name: model.display_name || model.username || "Live model",
+      age: model.display_age ?? null,
+      profileUrl: model.profile_page_url || "",
+      thumbnail:
+        model.live_images?.thumbnail_image_medium ||
+        model.profile_images?.thumbnail_image_medium ||
+        model.live_images?.thumbnail_image_big ||
+        "",
+      online: true
+    }));
+
+    res.set("Cache-Control", "public, max-age=15");
+    return res.json({ models: result });
+  } catch (error) {
+    console.error("BongaCams models error:", error.message);
+    return res.status(502).json({
+      error: "Could not load models right now"
+    });
+  }
+});
+
+
 // React client-side fallback. Keep API and Socket.IO paths untouched.
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
