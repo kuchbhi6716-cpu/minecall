@@ -35,7 +35,7 @@ export default function CategoryPage() {
     <main className="minebbe category-page">
       <nav className="navbar">
         <a className="logo" href="/">
-          minebbe<span>.</span>
+          OnlyStream<span>.</span>
         </a>
 
         <a className="view-more-btn" href="/">
@@ -50,7 +50,7 @@ export default function CategoryPage() {
         </div>
 
         <div>
-          <p className="eyebrow">MINEBBE DISCOVERY</p>
+          <p className="eyebrow">OnlyStream DISCOVERY</p>
           <h1>{category.title}</h1>
           <p>{category.subtitle}</p>
         </div>
@@ -123,24 +123,18 @@ export default function CategoryPage() {
             </div>
 
             <div className="vertical-stream-action">
-              {card.live ? (
-                <button
-                  className="vertical-watch-btn"
-                  onClick={() => {
-                    window.location.href =
-                      "/live?channel=" +
-                      encodeURIComponent(card.channel);
-                  }}
-                >
-                  Watch live
-                  <ArrowUpRight size={17} />
-                </button>
-              ) : (
-                <span className="vertical-demo-tag">
-                  Demo listing
-                </span>
-              )}
-            </div>
+  <button
+    className="vertical-watch-btn"
+    onClick={() => {
+      window.location.href =
+        "/live?channel=" +
+        encodeURIComponent(card.channel);
+    }}
+  >
+    {card.live ? "Watch live" : "View"}
+    <ArrowUpRight size={17} />
+  </button>
+</div>
           </article>
         ))}
       </section>
