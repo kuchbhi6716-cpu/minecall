@@ -1,3 +1,4 @@
+
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -9,46 +10,31 @@ const io = new Server(server);
 
 const distPath = path.join(__dirname, "dist");
 
-// Serve the compiled React application.
+// Serve React application
 app.use(express.static(distPath));
 
+// Health check
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", app: "RandomCall" });
+  res.json({ status: "ok", app: "OnlyStream" });
 });
 
-
-app.get("/api/models-online", async (req, res) => {
+// ------------------------------------
+// CAM4PAYS: ONLINE MODELS
+// ------------------------------------
+app.get("/api/cam4-models", async (req, res) => {
   try {
-    const campaignId = process.env.BONGACAMS_CAMPAIGN_ID;
-
-    if (!campaignId) {
-      return res.status(500).json({
-        error: "BongaCams campaign ID is not configured"
-      });
-    }
-
-    // The API requires the visitor's IPv4 address.
-    const forwardedFor = req.headers["x-forwarded-for"];
-    const visitorIp = (
-      typeof forwardedFor === "string"
-        ? forwardedFor.split(",")[0].trim()
-        : req.socket.remoteAddress || ""
-    ).replace(/^::ffff:/, "");
-
-    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(visitorIp)) {
-      return res.status(400).json({
-        error: "A valid visitor IPv4 address is required"
-      });
-    }
-
     const apiUrl = new URL(
-      "https://bngprm.com/api/v2/models-online"
+      "https://api.cam4pays.com/api/v1/cams/online.json"
     );
 
-    apiUrl.searchParams.set("c", campaignId);
-    apiUrl.searchParams.set("client_ip", visitorIp);
-    apiUrl.searchParams.set("limit", "30");
-    apiUrl.searchParams.set("offset", "0");
+    apiUrl.searchParams.set(
+      "aff_id",
+      process.env.CAM4_AFF_ID || "66db08bf0f40da23bf28e055"
+    );
+    apiUrl.searchParams.set("prog", "rs");
+    apiUrl.searchParams.set("gender", "female");
+    apiUrl.searchParams.set("limit", "50");
+    apiUrl.searchParams.set("order_by", "viewers_desc");
 
     const response = await fetch(apiUrl, {
       headers: { Accept: "application/json" },
@@ -56,48 +42,44 @@ app.get("/api/models-online", async (req, res) => {
     });
 
     if (!response.ok) {
-      console.error("BongaCams API status:", response.status);
+      console.error("CAM4 API status:", response.status);
+
       return res.status(502).json({
-        error: "Model provider temporarily unavailable"
+        error: "CAM4 provider temporarily unavailable"
       });
     }
 
     const data = await response.json();
-    const models = Array.isArray(data.models)
-      ? data.models
-      : Array.isArray(data.online_models)
-        ? data.online_models
-        : [];
 
-    const result = models.map((model) => ({
-      username: model.username || "",
-      name: model.display_name || model.username || "Live model",
-      age: model.display_age ?? null,
-      profileUrl: model.profile_page_url || "",
-      thumbnail:
-        model.live_images?.thumbnail_image_medium ||
-        model.profile_images?.thumbnail_image_medium ||
-        model.live_images?.thumbnail_image_big ||
-        "",
-      online: true
-    }));
+    if (!Array.isArray(data)) {
+      console.error("Unexpected CAM4 API response format");
 
-    res.set("Cache-Control", "public, max-age=15");
-    return res.json({ models: result });
+      return res.status(502).json({
+        error: "Unexpected CAM4 API response"
+      });
+    }
+
+    res.set("Cache-Control", "public, max-age=30");
+    return res.json(data);
   } catch (error) {
-    console.error("BongaCams models error:", error.message);
+    console.error("CAM4 models error:", error.message);
+
     return res.status(502).json({
-      error: "Could not load models right now"
+      error: "Could not load CAM4 models"
     });
   }
 });
 
-
-// React client-side fallback. Keep API and Socket.IO paths untouched.
+// ------------------------------------
+// REACT CLIENT-SIDE FALLBACK
+// ------------------------------------
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
+// ------------------------------------
+// RANDOM VIDEO CHAT: SOCKET.IO
+// ------------------------------------
 const waiting = [];
 const partners = new Map();
 
@@ -128,7 +110,6 @@ io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
   socket.on("find-stranger", () => {
-    // Remove this user from any previous queue or match first.
     stopSearching(socket);
 
     while (waiting.length > 0) {
@@ -167,7 +148,6 @@ io.on("connection", (socket) => {
     console.log("Chat stopped:", socket.id);
   });
 
-  
   socket.on("typing", (isTyping) => {
     const partnerId = partners.get(socket.id);
 
@@ -214,8 +194,11 @@ io.on("connection", (socket) => {
   });
 });
 
+// ------------------------------------
+// START SERVER
+// ------------------------------------
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log("RandomCall server running on port", PORT);
+  console.log("OnlyStream server running on port", PORT);
 });
