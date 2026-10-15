@@ -1262,5 +1262,37 @@ footer p {
   }
 }
 
+/* Horizontal scrolling for cards in all sections */
+
+.live-models-grid {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  gap: 16px;
+  width: 100%;
+  padding-bottom: 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+
+.live-models-grid > * {
+  flex: 0 0 220px;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+/* Hide scrollbar but keep swipe working */
+
+.live-models-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.live-models-grid {
+  scrollbar-width: none;
+}
+
+
 
 
