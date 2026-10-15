@@ -6,6 +6,7 @@ import {
   Sparkles,
   Radio,
   Eye,
+  ChevronDown,
 } from "lucide-react";
 import "./Home.css";
 
@@ -205,6 +206,7 @@ export default function Home() {
   const [viewerCounts, setViewerCounts] = useState({});
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
+  const [showMoreSections, setShowMoreSections] = useState(false);
 
   function randomizeViewerCounts(modelList) {
     const nextCounts = {};
@@ -329,6 +331,46 @@ export default function Home() {
     window.location.href = "/call";
   }
 
+  function renderSection(section) {
+    return (
+      <section
+        className="category-section"
+        key={section.title}
+      >
+        <div className="category-heading">
+          <div className="category-title-wrap">
+            <span className={`category-icon ${section.color}`}>
+              <Radio size={19} />
+            </span>
+
+            <div>
+              <h2>{section.title}</h2>
+              <p>{section.subtitle}</p>
+            </div>
+          </div>
+
+          <span className="online-status">
+            ● {section.models.length} models
+          </span>
+        </div>
+
+        {section.models.length === 0 ? (
+          <p>No more models in this section.</p>
+        ) : (
+          <div className="category-track">
+            {section.models.map((model) => (
+              <ModelCard
+                key={model.username}
+                model={model}
+                viewers={viewerCounts[model.username] ?? 80}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return (
     <main className="minebbe">
       <nav className="navbar">
@@ -389,47 +431,41 @@ export default function Home() {
         ) : models.length === 0 ? (
           <p>No models available right now.</p>
         ) : (
-          liveSections.map((section) => (
-            <section
-              className="category-section"
-              key={section.title}
+          <>
+            {liveSections.slice(0, 2).map(renderSection)}
+
+            <div
+              className={`extra-sections ${
+                showMoreSections ? "expanded" : ""
+              }`}
+              aria-hidden={!showMoreSections}
+              inert={!showMoreSections}
             >
-              <div className="category-heading">
-                <div className="category-title-wrap">
-                  <span
-                    className={`category-icon ${section.color}`}
-                  >
-                    <Radio size={19} />
-                  </span>
-
-                  <div>
-                    <h2>{section.title}</h2>
-                    <p>{section.subtitle}</p>
-                  </div>
-                </div>
-
-                <span className="online-status">
-                  ● {section.models.length} models
-                </span>
+              <div className="extra-sections-inner">
+                {liveSections.slice(2).map(renderSection)}
               </div>
+            </div>
 
-              {section.models.length === 0 ? (
-                <p>No more models in this section.</p>
-              ) : (
-                <div className="category-track">
-                  {section.models.map((model) => (
-                    <ModelCard
-                      key={model.username}
-                      model={model}
-                      viewers={
-                        viewerCounts[model.username] ?? 80
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-          ))
+            <button
+              type="button"
+              className="view-more-btn"
+              onClick={() =>
+                setShowMoreSections((previous) => !previous)
+              }
+              aria-expanded={showMoreSections}
+            >
+              <span>
+                {showMoreSections ? "View Less" : "View More"}
+              </span>
+
+              <ChevronDown
+                size={19}
+                className={`view-more-arrow ${
+                  showMoreSections ? "arrow-up" : ""
+                }`}
+              />
+            </button>
+          </>
         )}
       </section>
 
