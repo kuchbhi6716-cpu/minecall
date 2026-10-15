@@ -1293,6 +1293,29 @@ footer p {
   scrollbar-width: none;
 }
 
+/* Horizontal scrolling for model cards */
+.category-track {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 16px;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 14px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.category-track::-webkit-scrollbar {
+  display: none;
+}
+/* Keep cards side-by-side */
+.category-track > .model-card {
+  flex: 0 0 220px;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
 
 
 
