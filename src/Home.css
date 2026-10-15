@@ -1187,4 +1187,80 @@ footer p {
 }
 
 
+/* View More / View Less animation */
+
+.extra-sections {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-12px);
+  transition:
+    grid-template-rows 450ms ease,
+    opacity 350ms ease,
+    transform 450ms ease;
+}
+
+.extra-sections-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.extra-sections.expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.extra-sections.expanded .extra-sections-inner {
+  overflow: visible;
+}
+
+/* Button styling */
+
+.view-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 28px auto 12px;
+  padding: 12px 24px;
+  border: 1px solid rgba(180, 140, 255, 0.4);
+  border-radius: 14px;
+  background: rgba(120, 70, 220, 0.12);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    transform 200ms ease;
+}
+
+.view-more-btn:hover {
+  background: rgba(120, 70, 220, 0.24);
+  border-color: rgba(180, 140, 255, 0.7);
+}
+
+.view-more-btn:active {
+  transform: scale(0.97);
+}
+
+.view-more-arrow {
+  transition: transform 350ms ease;
+}
+
+.view-more-arrow.arrow-up {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .extra-sections,
+  .view-more-btn,
+  .view-more-arrow {
+    transition: none;
+  }
+}
+
+
 
