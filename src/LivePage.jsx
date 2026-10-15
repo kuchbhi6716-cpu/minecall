@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -10,7 +11,11 @@ import "./LivePage.css";
 
 const API_URL = "/api/aw-models";
 const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
+const VIDEO_DETAILS_API = "/api/aw-video-details";
 
+// ------------------------------------
+// LIVE MODEL HELPERS
+// ------------------------------------
 function getUsername(item) {
   return String(
     item?.username ||
@@ -110,6 +115,9 @@ function normalizeModel(item) {
   };
 }
 
+// ------------------------------------
+// EXISTING LIVE MODEL PLAYER
+// ------------------------------------
 function AWLivePlayer({ username }) {
   const [retry, setRetry] = useState(0);
   const [playerError, setPlayerError] = useState("");
@@ -164,8 +172,6 @@ function AWLivePlayer({ username }) {
       const video = container.querySelector("video");
       const embed = container.querySelector("object, embed");
 
-      // A provider iframe can load its video internally.
-      // Its playback state may not be accessible to this page.
       if (
         iframe ||
         embed ||
@@ -278,12 +284,229 @@ function AWLivePlayer({ username }) {
   );
 }
 
+// ------------------------------------
+// RECORDED VIDEO PLAYER
+// ------------------------------------
+function AWRecordedVideoPlayer({ videoId, title }) {
+  const [details, setDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    async function loadDetails() {
+      setLoading(true);
+      setError("");
+      setDetails(null);
+
+      try {
+        const response = await fetch(
+          `${VIDEO_DETAILS_API}?video=${encodeURIComponent(videoId)}`,
+          {
+            headers: {
+              Accept: "application/json",
+            },
+            signal: controller.signal,
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || `Video details error (${response.status})`
+          );
+        }
+
+        if (
+          !data ||
+          typeof data.playerEmbedUrl !== "string"
+        ) {
+          throw new Error(
+            "Provider response mein playerEmbedUrl nahi mila."
+          );
+        }
+
+        if (!cancelled) {
+          setDetails(data);
+        }
+      } catch (err) {
+        if (
+          !cancelled &&
+          err.name !== "AbortError"
+        ) {
+          setError(
+            err.message || "Video load nahi ho paya."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    if (videoId) {
+      loadDetails();
+    } else {
+      setError("Video ID missing hai.");
+      setLoading(false);
+    }
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [videoId, retry]);
+
+  useEffect(() => {
+    if (!details?.playerEmbedUrl) return undefined;
+
+    const container = document.getElementById(
+      "aw_recorded_video_container"
+    );
+
+    if (!container) return undefined;
+
+    let cancelled = false;
+    container.replaceChildren();
+
+    try {
+      const playerUrl = new URL(details.playerEmbedUrl);
+
+      if (playerUrl.protocol !== "https:") {
+        throw new Error("Player URL HTTPS hona chahiye.");
+      }
+
+      // Provider instructions: replace c={CONTAINER}
+      // with the actual container DIV ID.
+      playerUrl.searchParams.set(
+        "c",
+        "aw_recorded_video_container"
+      );
+
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = playerUrl.toString();
+
+      script.onerror = () => {
+        if (!cancelled) {
+          setError(
+            "Video player script load nahi hua. Retry karke dekho."
+          );
+        }
+      };
+
+      container.appendChild(script);
+    } catch (err) {
+      setError(
+        err.message || "Invalid player URL."
+      );
+    }
+
+    return () => {
+      cancelled = true;
+      container.replaceChildren();
+    };
+  }, [details]);
+
+  if (loading) {
+    return (
+      <div className="live-player-message">
+        Loading recorded video...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="live-player-message">
+        <p>{error}</p>
+
+        <button
+          type="button"
+          onClick={() =>
+            setRetry((current) => current + 1)
+          }
+        >
+          Retry video
+        </button>
+
+        <p>
+          <a href="/">Back to homepage</a>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <article className="live-player-card">
+        <div className="live-player">
+          <div className="onlystream-embed-wrap">
+            <div
+              id="aw_recorded_video_container"
+              className="onlystream-embed recorded-video-container"
+            />
+          </div>
+        </div>
+
+        <div className="live-details">
+          <div className="live-avatar">
+            ▶
+          </div>
+
+          <div className="live-channel-info">
+            <h2>{details?.title || title || "Recorded video"}</h2>
+
+            <p>Recorded video</p>
+
+            {details?.duration != null && (
+              <span className="live-note">
+                Duration: {String(details.duration)}
+              </span>
+            )}
+          </div>
+
+          <span className="live-status">
+            <Tv size={15} /> VIDEO
+          </span>
+        </div>
+      </article>
+
+      <section className="more-live">
+        <h3>Explore more videos</h3>
+        <p>Discover more content.</p>
+        <a href="/">Back to homepage →</a>
+      </section>
+    </>
+  );
+}
+
+// ------------------------------------
+// PAGE
+// ------------------------------------
 export default function LivePage() {
+  const params = new URLSearchParams(
+    window.location.search
+  );
+
   const requestedModel = (
-    new URLSearchParams(window.location.search).get(
-      "model"
-    ) || ""
+    params.get("model") || ""
   ).trim();
+
+  const requestedVideo = (
+    params.get("video") || ""
+  ).trim();
+
+  const requestedTitle = (
+    params.get("title") || ""
+  ).trim();
+
+  const isVideoPage = Boolean(requestedVideo);
 
   const [model, setModel] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -291,6 +514,14 @@ export default function LivePage() {
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    // Recorded-video pages use their own API and player.
+    if (isVideoPage) {
+      setLoading(false);
+      setError("");
+      setModel(null);
+      return undefined;
+    }
+
     const controller = new AbortController();
     let cancelled = false;
 
@@ -369,7 +600,7 @@ export default function LivePage() {
       cancelled = true;
       controller.abort();
     };
-  }, [requestedModel, reload]);
+  }, [requestedModel, reload, isVideoPage]);
 
   return (
     <main className="live-page">
@@ -384,24 +615,58 @@ export default function LivePage() {
         </a>
 
         <span className="live-status">
-          <Radio size={15} /> LIVE
+          {isVideoPage ? (
+            <>
+              <Tv size={15} /> VIDEO
+            </>
+          ) : (
+            <>
+              <Radio size={15} /> LIVE
+            </>
+          )}
         </span>
       </header>
 
       <section className="live-content">
         <div className="live-heading">
           <span className="live-eyebrow">
-            <Tv size={15} /> LIVE MODEL
+            {isVideoPage ? (
+              <>
+                <Tv size={15} /> RECORDED VIDEO
+              </>
+            ) : (
+              <>
+                <Tv size={15} /> LIVE MODEL
+              </>
+            )}
           </span>
 
           <h1>
-            Watch <span>live.</span>
+            {isVideoPage ? (
+              <>
+                Watch <span>video.</span>
+              </>
+            ) : (
+              <>
+                Watch <span>live.</span>
+              </>
+            )}
           </h1>
 
-          <p>Watch creators on OnlyStream.</p>
+          <p>
+            {isVideoPage
+              ? requestedTitle || "Watch the selected video."
+              : "Watch creators on OnlyStream."}
+          </p>
         </div>
 
-        {loading ? (
+        {isVideoPage ? (
+          <AWRecordedVideoPlayer
+            key={requestedVideo}
+            videoId={requestedVideo}
+            title={requestedTitle}
+          />
+        ) : loading ? (
           <div className="live-player-message">
             Loading model...
           </div>
