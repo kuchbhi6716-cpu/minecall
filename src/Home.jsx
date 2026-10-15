@@ -7,12 +7,13 @@ import {
   Radio,
   Eye,
   ChevronDown,
+  Play,
+  Clapperboard,
 } from "lucide-react";
 import "./Home.css";
-
 const API_URL = "/api/aw-models";
+const VIDEOS_API_URL = "/api/aw-videos";
 const REFRESH_INTERVAL = 45000;
-
 function getModelUsername(model) {
   return String(
     model?.performerId ||
@@ -24,7 +25,6 @@ function getModelUsername(model) {
       ""
   ).trim();
 }
-
 function getModelName(model) {
   return (
     model?.displayName ||
@@ -35,7 +35,6 @@ function getModelName(model) {
     "Live Model"
   );
 }
-
 function getModelThumbnail(model) {
   const images = [
     model?.profilePictureUrl?.size320x180,
@@ -55,21 +54,16 @@ function getModelThumbnail(model) {
     model?.imageSizes?.["320x180"],
     model?.imageSizes?.["800x600"],
   ];
-
   return (
     images.find(
-      (image) =>
-        typeof image === "string" &&
-        image.trim().length > 0
+      (image) => typeof image === "string" && image.trim()
     ) || ""
   );
 }
-
 function extractModels(response) {
   if (Array.isArray(response)) return response;
   if (!response || typeof response !== "object") return [];
-
-  const possibleLists = [
+  const candidates = [
     response.data?.models,
     response.models,
     response.data?.performers,
@@ -80,31 +74,97 @@ function extractModels(response) {
     response.items,
     response.data,
   ];
-
-  for (const list of possibleLists) {
+  for (const list of candidates) {
     if (Array.isArray(list)) return list;
-
     if (list && typeof list === "object") {
-      const nestedLists = [
-        list.models,
-        list.performers,
-        list.results,
-        list.items,
-      ];
-
-      for (const nested of nestedLists) {
-        if (Array.isArray(nested)) return nested;
+      for (const key of ["models", "performers", "results", "items"]) {
+        if (Array.isArray(list[key])) return list[key];
       }
     }
   }
-
   return [];
 }
-
-function getRandomViewerCount() {
-  return Math.floor(Math.random() * (200 - 80 + 1)) + 80;
+function extractVideos(response) {
+  if (Array.isArray(response)) return response;
+  if (!response || typeof response !== "object") return [];
+  for (const container of [
+    response,
+    response.data,
+    response.result,
+    response.results,
+  ]) {
+    if (Array.isArray(container)) return container;
+    if (!container || typeof container !== "object") continue;
+    for (const key of [
+      "videos",
+      "items",
+      "results",
+      "data",
+      "videoList",
+      "video_list",
+    ]) {
+      if (Array.isArray(container[key])) return container[key];
+    }
+  }
+  return [];
 }
-
+function getVideoId(video) {
+  return String(
+    video?.id ||
+      video?.videoId ||
+      video?.video_id ||
+      video?.clipId ||
+      video?.clip_id ||
+      video?.uuid ||
+      ""
+  ).trim();
+}
+function getVideoTitle(video, index) {
+  return (
+    video?.title ||
+    video?.name ||
+    video?.videoTitle ||
+    video?.video_title ||
+    video?.performerName ||
+    video?.performer_name ||
+    `Recorded Video ${index + 1}`
+  );
+}
+function getVideoThumbnail(video) {
+  const candidates = [
+    video?.thumbnail,
+    video?.thumbnailUrl,
+    video?.thumbnail_url,
+    video?.thumb,
+    video?.image,
+    video?.imageUrl,
+    video?.image_url,
+    video?.preview,
+    video?.previewUrl,
+    video?.preview_url,
+    video?.poster,
+  ];
+  return (
+    candidates.find(
+      (value) =>
+        typeof value === "string" &&
+        /^https?:\/\//i.test(value)
+    ) || ""
+  );
+}
+function getVideoViews(video) {
+  const value =
+    video?.views ??
+    video?.viewCount ??
+    video?.view_count ??
+    video?.viewsCount ??
+    video?.views_count;
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
 function normalizeModels(list) {
   const normalized = list
     .filter(
@@ -117,7 +177,6 @@ function normalizeModels(list) {
       const age = Number(
         model?.persons?.[0]?.age ?? model?.age ?? 0
       );
-
       return {
         ...model,
         username: getModelUsername(model),
@@ -126,7 +185,6 @@ function normalizeModels(list) {
         age: Number.isFinite(age) ? age : 0,
       };
     });
-
   return Array.from(
     new Map(
       normalized.map((model) => [
@@ -136,40 +194,42 @@ function normalizeModels(list) {
     ).values()
   );
 }
-
+function normalizeVideos(list) {
+  return list
+    .filter((video) => video && typeof video === "object")
+    .map((video, index) => ({
+      ...video,
+      _videoId: getVideoId(video),
+      _title: getVideoTitle(video, index),
+      _thumbnail: getVideoThumbnail(video),
+      _views: getVideoViews(video),
+    }));
+}
+function getRandomViewerCount() {
+  return Math.floor(Math.random() * 121) + 80;
+}
 function ModelCard({ model, viewers }) {
   const [imageError, setImageError] = useState(false);
-
-  const username = model.username;
-  const thumbnail = model.thumbnail;
-  const name = model.name || "Live Model";
-  const age = model.age || 0;
-
   useEffect(() => {
     setImageError(false);
-  }, [thumbnail]);
-
+  }, [model.thumbnail]);
   function openModel() {
-    if (!username) return;
-
     window.location.href =
-      "/live?model=" + encodeURIComponent(username);
+      "/live?model=" + encodeURIComponent(model.username);
   }
-
   return (
     <article className="stream-card model-card">
       <button
         type="button"
         className="model-card-click"
         onClick={openModel}
-        aria-label={`View ${name}`}
-        disabled={!username}
+        aria-label={`View ${model.name}`}
       >
-        {!imageError && thumbnail ? (
+        {!imageError && model.thumbnail ? (
           <img
             className="model-thumbnail"
-            src={thumbnail}
-            alt={`${name} thumbnail`}
+            src={model.thumbnail}
+            alt={`${model.name} thumbnail`}
             loading="lazy"
             onError={() => setImageError(true)}
           />
@@ -178,20 +238,14 @@ function ModelCard({ model, viewers }) {
             <Radio size={32} />
           </div>
         )}
-
         <span className="model-online">● LIVE</span>
-
         <div className="stream-info">
-          <h3>{name}</h3>
-
+          <h3>{model.name}</h3>
           <p>
-            {age > 0 ? `${age}+ · ` : ""}
+            {model.age > 0 ? `${model.age}+ · ` : ""}
             <Eye
               size={14}
-              style={{
-                display: "inline",
-                verticalAlign: "middle",
-              }}
+              style={{ display: "inline", verticalAlign: "middle" }}
             />{" "}
             {viewers.toLocaleString()}
           </p>
@@ -200,100 +254,144 @@ function ModelCard({ model, viewers }) {
     </article>
   );
 }
-
+function VideoCard({ video, index }) {
+  const [imageError, setImageError] = useState(false);
+  function openVideo() {
+    const params = new URLSearchParams();
+    if (video._videoId) {
+      params.set("video", video._videoId);
+    }
+    params.set("title", video._title);
+    window.location.href = "/live?" + params.toString();
+  }
+  return (
+    <article className="recorded-card">
+      <button
+        type="button"
+        className="recorded-card-click"
+        onClick={openVideo}
+        aria-label={`Open ${video._title}`}
+      >
+        <div className="recorded-thumbnail-wrap">
+          {!imageError && video._thumbnail ? (
+            <img
+              className="recorded-thumbnail"
+              src={video._thumbnail}
+              alt={video._title}
+              loading="lazy"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="recorded-thumbnail recorded-thumbnail-fallback">
+              <Clapperboard size={30} />
+            </div>
+          )}
+          <span className="recorded-play">
+            <Play size={20} fill="currentColor" />
+          </span>
+          <span className="recorded-badge">VIDEO</span>
+        </div>
+        <div className="recorded-info">
+          <h3>{video._title || `Recorded Video ${index + 1}`}</h3>
+          <p>
+            <Eye size={13} />
+            {video._views !== null
+              ? `${video._views.toLocaleString()} views`
+              : "Recorded video"}
+          </p>
+        </div>
+      </button>
+    </article>
+  );
+}
 export default function Home() {
   const [models, setModels] = useState([]);
   const [viewerCounts, setViewerCounts] = useState({});
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
+  const [videos, setVideos] = useState([]);
+  const [videosLoading, setVideosLoading] = useState(true);
+  const [videosError, setVideosError] = useState("");
   const [showMoreSections, setShowMoreSections] = useState(false);
-
-  function randomizeViewerCounts(modelList) {
-    const nextCounts = {};
-
-    modelList.forEach((model) => {
-      nextCounts[model.username] = getRandomViewerCount();
-    });
-
-    setViewerCounts(nextCounts);
-  }
-
+  const [showMoreVideoSections, setShowMoreVideoSections] = useState(false);
   useEffect(() => {
     let active = true;
-    let requestInProgress = false;
-
     async function loadModels() {
-      if (requestInProgress) return;
-
-      requestInProgress = true;
-
       try {
         const response = await fetch(API_URL, {
-          headers: {
-            Accept: "application/json",
-          },
+          headers: { Accept: "application/json" },
           cache: "no-store",
         });
-
         if (!response.ok) {
           throw new Error(`API returned ${response.status}`);
         }
-
         const data = await response.json();
         const normalized = normalizeModels(extractModels(data));
-
         if (!active) return;
-
-        if (normalized.length === 0) {
-          setModelsError("No models found in the API response.");
-        } else {
-          setModels(normalized);
-          setModelsError("");
-        }
+        setModels(normalized);
+        setModelsError(
+          normalized.length ? "" : "No models found in the API response."
+        );
       } catch (error) {
         if (active) {
-          setModelsError(
-            error.message || "Could not load live models."
-          );
+          setModelsError(error.message || "Could not load live models.");
         }
       } finally {
-        requestInProgress = false;
-
-        if (active) {
-          setModelsLoading(false);
-        }
+        if (active) setModelsLoading(false);
       }
     }
-
     loadModels();
-
-    const interval = window.setInterval(
-      loadModels,
-      REFRESH_INTERVAL
-    );
-
+    const interval = window.setInterval(loadModels, REFRESH_INTERVAL);
     return () => {
       active = false;
       window.clearInterval(interval);
     };
   }, []);
-
   useEffect(() => {
-    if (models.length === 0) return;
-
-    randomizeViewerCounts(models);
-
-    const interval = window.setInterval(() => {
-      randomizeViewerCounts(models);
-    }, REFRESH_INTERVAL);
-
+    let active = true;
+    async function loadVideos() {
+      try {
+        const response = await fetch(VIDEOS_API_URL, {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
+        const data = await response.json();
+        const normalized = normalizeVideos(extractVideos(data));
+        if (!active) return;
+        setVideos(normalized);
+        setVideosError(
+          normalized.length ? "" : "The API returned no recognized videos."
+        );
+      } catch (error) {
+        if (active) {
+          setVideosError(error.message || "Could not load recorded videos.");
+        }
+      } finally {
+        if (active) setVideosLoading(false);
+      }
+    }
+    loadVideos();
     return () => {
-      window.clearInterval(interval);
+      active = false;
     };
+  }, []);
+  useEffect(() => {
+    if (!models.length) return;
+    function updateCounts() {
+      const counts = {};
+      models.forEach((model) => {
+        counts[model.username] = getRandomViewerCount();
+      });
+      setViewerCounts(counts);
+    }
+    updateCounts();
+    const interval = window.setInterval(updateCounts, REFRESH_INTERVAL);
+    return () => window.clearInterval(interval);
   }, [models]);
-
   const sectionSize = Math.ceil(models.length / 5);
-
   const liveSections = [
     {
       title: "Models Live Now",
@@ -326,34 +424,54 @@ export default function Home() {
       models: models.slice(sectionSize * 4),
     },
   ];
-
+  const videoSectionSize = Math.max(1, Math.ceil(videos.length / 5));
+  const videoSections = [
+    {
+      title: "Recorded Videos",
+      subtitle: "Explore recorded content",
+      videos: videos.slice(0, videoSectionSize),
+    },
+    {
+      title: "Trending Videos",
+      subtitle: "More videos to discover",
+      videos: videos.slice(videoSectionSize, videoSectionSize * 2),
+    },
+    {
+      title: "Most Watched",
+      subtitle: "Popular recorded videos",
+      videos: videos.slice(videoSectionSize * 2, videoSectionSize * 3),
+    },
+    {
+      title: "Recently Added",
+      subtitle: "Discover more videos",
+      videos: videos.slice(videoSectionSize * 3, videoSectionSize * 4),
+    },
+    {
+      title: "Explore Videos",
+      subtitle: "Keep exploring",
+      videos: videos.slice(videoSectionSize * 4),
+    },
+  ];
   function startChatting() {
     window.location.href = "/call";
   }
-
-  function renderSection(section) {
+  function renderLiveSection(section) {
     return (
-      <section
-        className="category-section"
-        key={section.title}
-      >
+      <section className="category-section" key={section.title}>
         <div className="category-heading">
           <div className="category-title-wrap">
             <span className={`category-icon ${section.color}`}>
               <Radio size={19} />
             </span>
-
             <div>
               <h2>{section.title}</h2>
               <p>{section.subtitle}</p>
             </div>
           </div>
-
           <span className="online-status">
             ● {section.models.length} models
           </span>
         </div>
-
         {section.models.length === 0 ? (
           <p>No more models in this section.</p>
         ) : (
@@ -370,34 +488,55 @@ export default function Home() {
       </section>
     );
   }
-
+  function renderVideoSection(section) {
+    return (
+      <section className="category-section" key={section.title}>
+        <div className="category-heading">
+          <div className="category-title-wrap">
+            <span className="category-icon pink">
+              <Clapperboard size={19} />
+            </span>
+            <div>
+              <h2>{section.title}</h2>
+              <p>{section.subtitle}</p>
+            </div>
+          </div>
+          <span className="online-status">
+            ● {section.videos.length} videos
+          </span>
+        </div>
+        <div className="recorded-track">
+          {section.videos.map((video, index) => (
+            <VideoCard
+              key={video._videoId || `${section.title}-${index}`}
+              video={video}
+              index={index}
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
   return (
     <main className="minebbe">
       <nav className="navbar">
         <a className="logo" href="/">
           OnlyStream<span>.</span>
         </a>
-
-        <span className="online-status">
-          ● We're online
-        </span>
+        <span className="online-status">● We're online</span>
       </nav>
-
       <section className="hero">
         <span className="eyebrow">
           YOUR NEXT CONVERSATION STARTS HERE
         </span>
-
         <h1>
           Meet someone
           <br />
           <span>unexpected.</span>
         </h1>
-
         <p>
           Real conversations. New connections. One click away.
         </p>
-
         <button
           type="button"
           className="start-btn"
@@ -405,22 +544,13 @@ export default function Home() {
         >
           <span className="start-icon">
             <Video size={23} />
-            <Sparkles
-              size={13}
-              className="icon-sparkle"
-            />
+            <Sparkles size={13} className="icon-sparkle" />
           </span>
-
           <span>START CHATTING</span>
-
           <ArrowUpRight size={21} />
         </button>
-
-        <small>
-          No complicated setup. Just start chatting.
-        </small>
+        <small>No complicated setup. Just start chatting.</small>
       </section>
-
       <section className="discovery">
         {modelsLoading ? (
           <p>Loading live models...</p>
@@ -432,8 +562,7 @@ export default function Home() {
           <p>No models available right now.</p>
         ) : (
           <>
-            {liveSections.slice(0, 2).map(renderSection)}
-
+            {liveSections.slice(0, 2).map(renderLiveSection)}
             <div
               className={`extra-sections ${
                 showMoreSections ? "expanded" : ""
@@ -442,22 +571,16 @@ export default function Home() {
               inert={!showMoreSections}
             >
               <div className="extra-sections-inner">
-                {liveSections.slice(2).map(renderSection)}
+                {liveSections.slice(2).map(renderLiveSection)}
               </div>
             </div>
-
             <button
               type="button"
               className="view-more-btn"
-              onClick={() =>
-                setShowMoreSections((previous) => !previous)
-              }
+              onClick={() => setShowMoreSections((value) => !value)}
               aria-expanded={showMoreSections}
             >
-              <span>
-                {showMoreSections ? "View Less" : "View More"}
-              </span>
-
+              <span>{showMoreSections ? "View Less" : "View More"}</span>
               <ChevronDown
                 size={19}
                 className={`view-more-arrow ${
@@ -467,13 +590,63 @@ export default function Home() {
             </button>
           </>
         )}
+        <div className="recorded-discovery">
+          <div className="recorded-main-heading">
+            <span className="category-icon pink">
+              <Clapperboard size={20} />
+            </span>
+            <div>
+              <h2>Recorded Videos</h2>
+              <p>Watch and discover recorded videos</p>
+            </div>
+          </div>
+          {videosLoading ? (
+            <p>Loading recorded videos...</p>
+          ) : videos.length === 0 ? (
+            <p>
+              No recorded videos could be displayed.
+              {videosError ? ` ${videosError}` : ""}
+            </p>
+          ) : (
+            <>
+              {videoSections.slice(0, 2).map(renderVideoSection)}
+              <div
+                className={`extra-sections ${
+                  showMoreVideoSections ? "expanded" : ""
+                }`}
+                aria-hidden={!showMoreVideoSections}
+                inert={!showMoreVideoSections}
+              >
+                <div className="extra-sections-inner">
+                  {videoSections.slice(2).map(renderVideoSection)}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="view-more-btn"
+                onClick={() =>
+                  setShowMoreVideoSections((value) => !value)
+                }
+                aria-expanded={showMoreVideoSections}
+              >
+                <span>
+                  {showMoreVideoSections ? "View Less" : "View More"}
+                </span>
+                <ChevronDown
+                  size={19}
+                  className={`view-more-arrow ${
+                    showMoreVideoSections ? "arrow-up" : ""
+                  }`}
+                />
+              </button>
+            </>
+          )}
+        </div>
       </section>
-
       <footer>
         <a className="logo" href="/">
           OnlyStream<span>.</span>
         </a>
-
         <p>Meet respectfully. Connect safely.</p>
       </footer>
     </main>
