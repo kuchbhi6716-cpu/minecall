@@ -11,9 +11,17 @@ import {
   Clapperboard,
 } from "lucide-react";
 import "./Home.css";
+
 const API_URL = "/api/aw-models";
 const VIDEOS_API_URL = "/api/aw-videos";
 const REFRESH_INTERVAL = 45000;
+
+function normalizeImageUrl(url) {
+  if (typeof url !== "string") return "";
+  const value = url.trim();
+  return value.startsWith("//") ? `https:${value}` : value;
+}
+
 function getModelUsername(model) {
   return String(
     model?.performerId ||
@@ -25,6 +33,7 @@ function getModelUsername(model) {
       ""
   ).trim();
 }
+
 function getModelName(model) {
   return (
     model?.displayName ||
@@ -35,6 +44,7 @@ function getModelName(model) {
     "Live Model"
   );
 }
+
 function getModelThumbnail(model) {
   const images = [
     model?.profilePictureUrl?.size320x180,
@@ -54,15 +64,18 @@ function getModelThumbnail(model) {
     model?.imageSizes?.["320x180"],
     model?.imageSizes?.["800x600"],
   ];
-  return (
-    images.find(
-      (image) => typeof image === "string" && image.trim()
-    ) || ""
+
+  const image = images.find(
+    (value) => typeof value === "string" && value.trim()
   );
+
+  return image ? normalizeImageUrl(image) : "";
 }
+
 function extractModels(response) {
   if (Array.isArray(response)) return response;
   if (!response || typeof response !== "object") return [];
+
   const candidates = [
     response.data?.models,
     response.models,
@@ -74,19 +87,24 @@ function extractModels(response) {
     response.items,
     response.data,
   ];
+
   for (const list of candidates) {
     if (Array.isArray(list)) return list;
+
     if (list && typeof list === "object") {
       for (const key of ["models", "performers", "results", "items"]) {
         if (Array.isArray(list[key])) return list[key];
       }
     }
   }
+
   return [];
 }
+
 function extractVideos(response) {
   if (Array.isArray(response)) return response;
   if (!response || typeof response !== "object") return [];
+
   for (const container of [
     response,
     response.data,
@@ -95,6 +113,7 @@ function extractVideos(response) {
   ]) {
     if (Array.isArray(container)) return container;
     if (!container || typeof container !== "object") continue;
+
     for (const key of [
       "videos",
       "items",
@@ -106,8 +125,10 @@ function extractVideos(response) {
       if (Array.isArray(container[key])) return container[key];
     }
   }
+
   return [];
 }
+
 function getVideoId(video) {
   return String(
     video?.id ||
@@ -119,6 +140,7 @@ function getVideoId(video) {
       ""
   ).trim();
 }
+
 function getVideoTitle(video, index) {
   return (
     video?.title ||
@@ -127,31 +149,44 @@ function getVideoTitle(video, index) {
     video?.video_title ||
     video?.performerName ||
     video?.performer_name ||
-    `Recorded Video ${index + 1}`
+    `Video ${index + 1}`
   );
 }
+
 function getVideoThumbnail(video) {
+  const preview = Array.isArray(video?.previewImages)
+    ? video.previewImages.find(
+        (item) => typeof item === "string" && item.trim()
+      )
+    : "";
+
   const candidates = [
+    video?.thumbImage,
     video?.thumbnail,
     video?.thumbnailUrl,
     video?.thumbnail_url,
     video?.thumb,
+    video?.coverImage,
+    video?.cover_image,
     video?.image,
     video?.imageUrl,
     video?.image_url,
+    preview,
     video?.preview,
     video?.previewUrl,
     video?.preview_url,
     video?.poster,
   ];
-  return (
-    candidates.find(
-      (value) =>
-        typeof value === "string" &&
-        /^https?:\/\//i.test(value)
-    ) || ""
+
+  const image = candidates.find(
+    (value) =>
+      typeof value === "string" &&
+      /^(https?:)?\/\//i.test(value.trim())
   );
+
+  return image ? normalizeImageUrl(image) : "";
 }
+
 function getVideoViews(video) {
   const value =
     video?.views ??
@@ -159,12 +194,15 @@ function getVideoViews(video) {
     video?.view_count ??
     video?.viewsCount ??
     video?.views_count;
+
   if (value === undefined || value === null || value === "") {
     return null;
   }
+
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
+
 function normalizeModels(list) {
   const normalized = list
     .filter(
@@ -177,6 +215,7 @@ function normalizeModels(list) {
       const age = Number(
         model?.persons?.[0]?.age ?? model?.age ?? 0
       );
+
       return {
         ...model,
         username: getModelUsername(model),
@@ -185,6 +224,7 @@ function normalizeModels(list) {
         age: Number.isFinite(age) ? age : 0,
       };
     });
+
   return Array.from(
     new Map(
       normalized.map((model) => [
@@ -194,6 +234,7 @@ function normalizeModels(list) {
     ).values()
   );
 }
+
 function normalizeVideos(list) {
   return list
     .filter((video) => video && typeof video === "object")
@@ -205,18 +246,23 @@ function normalizeVideos(list) {
       _views: getVideoViews(video),
     }));
 }
+
 function getRandomViewerCount() {
   return Math.floor(Math.random() * 121) + 80;
 }
+
 function ModelCard({ model, viewers }) {
   const [imageError, setImageError] = useState(false);
+
   useEffect(() => {
     setImageError(false);
   }, [model.thumbnail]);
+
   function openModel() {
     window.location.href =
       "/live?model=" + encodeURIComponent(model.username);
   }
+
   return (
     <article className="stream-card model-card">
       <button
@@ -238,14 +284,19 @@ function ModelCard({ model, viewers }) {
             <Radio size={32} />
           </div>
         )}
+
         <span className="model-online">● LIVE</span>
+
         <div className="stream-info">
           <h3>{model.name}</h3>
           <p>
             {model.age > 0 ? `${model.age}+ · ` : ""}
             <Eye
               size={14}
-              style={{ display: "inline", verticalAlign: "middle" }}
+              style={{
+                display: "inline",
+                verticalAlign: "middle",
+              }}
             />{" "}
             {viewers.toLocaleString()}
           </p>
@@ -254,23 +305,35 @@ function ModelCard({ model, viewers }) {
     </article>
   );
 }
+
 function VideoCard({ video, index }) {
   const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [video._thumbnail]);
+
   function openVideo() {
-    const params = new URLSearchParams();
-    if (video._videoId) {
-      params.set("video", video._videoId);
+    if (!video._videoId) {
+      console.error("This video has no ID:", video);
+      return;
     }
-    params.set("title", video._title);
-    window.location.href = "/live?" + params.toString();
+
+    const params = new URLSearchParams({
+      video: video._videoId,
+      title: video._title,
+    });
+
+    window.location.href = `/live?${params.toString()}`;
   }
+
   return (
     <article className="recorded-card">
       <button
         type="button"
         className="recorded-card-click"
         onClick={openVideo}
-        aria-label={`Open ${video._title}`}
+        aria-label={`Play ${video._title || `Video ${index + 1}`}`}
       >
         <div className="recorded-thumbnail-wrap">
           {!imageError && video._thumbnail ? (
@@ -286,48 +349,58 @@ function VideoCard({ video, index }) {
               <Clapperboard size={30} />
             </div>
           )}
+
           <span className="recorded-play">
             <Play size={20} fill="currentColor" />
           </span>
-          <span className="recorded-badge">VIDEO</span>
         </div>
+
         <div className="recorded-info">
-          <h3>{video._title || `Recorded Video ${index + 1}`}</h3>
-          <p>
-            <Eye size={13} />
-            {video._views !== null
-              ? `${video._views.toLocaleString()} views`
-              : "Recorded video"}
-          </p>
+          <h3>{video._title || `Video ${index + 1}`}</h3>
+          {video._views !== null && (
+            <p>
+              <Eye size={13} />
+              {video._views.toLocaleString()} views
+            </p>
+          )}
         </div>
       </button>
     </article>
   );
 }
+
 export default function Home() {
   const [models, setModels] = useState([]);
   const [viewerCounts, setViewerCounts] = useState({});
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
+
   const [videos, setVideos] = useState([]);
   const [videosLoading, setVideosLoading] = useState(true);
   const [videosError, setVideosError] = useState("");
+
   const [showMoreSections, setShowMoreSections] = useState(false);
   const [showMoreVideoSections, setShowMoreVideoSections] = useState(false);
+
   useEffect(() => {
     let active = true;
+
     async function loadModels() {
       try {
         const response = await fetch(API_URL, {
           headers: { Accept: "application/json" },
           cache: "no-store",
         });
+
         if (!response.ok) {
           throw new Error(`API returned ${response.status}`);
         }
+
         const data = await response.json();
         const normalized = normalizeModels(extractModels(data));
+
         if (!active) return;
+
         setModels(normalized);
         setModelsError(
           normalized.length ? "" : "No models found in the API response."
@@ -340,58 +413,78 @@ export default function Home() {
         if (active) setModelsLoading(false);
       }
     }
+
     loadModels();
+
     const interval = window.setInterval(loadModels, REFRESH_INTERVAL);
+
     return () => {
       active = false;
       window.clearInterval(interval);
     };
   }, []);
+
   useEffect(() => {
     let active = true;
+
     async function loadVideos() {
       try {
         const response = await fetch(VIDEOS_API_URL, {
           headers: { Accept: "application/json" },
           cache: "no-store",
         });
+
         if (!response.ok) {
           throw new Error(`API returned ${response.status}`);
         }
+
         const data = await response.json();
         const normalized = normalizeVideos(extractVideos(data));
+
         if (!active) return;
+
         setVideos(normalized);
         setVideosError(
           normalized.length ? "" : "The API returned no recognized videos."
         );
       } catch (error) {
         if (active) {
-          setVideosError(error.message || "Could not load recorded videos.");
+          setVideosError(error.message || "Could not load videos.");
         }
       } finally {
         if (active) setVideosLoading(false);
       }
     }
+
     loadVideos();
+
     return () => {
       active = false;
     };
   }, []);
+
   useEffect(() => {
     if (!models.length) return;
+
     function updateCounts() {
       const counts = {};
+
       models.forEach((model) => {
         counts[model.username] = getRandomViewerCount();
       });
+
       setViewerCounts(counts);
     }
+
     updateCounts();
+
     const interval = window.setInterval(updateCounts, REFRESH_INTERVAL);
+
     return () => window.clearInterval(interval);
   }, [models]);
+
   const sectionSize = Math.ceil(models.length / 5);
+
   const liveSections = [
     {
       title: "Models Live Now",
@@ -424,7 +517,9 @@ export default function Home() {
       models: models.slice(sectionSize * 4),
     },
   ];
+
   const videoSectionSize = Math.max(1, Math.ceil(videos.length / 5));
+
   const videoSections = [
     {
       title: "Recorded Videos",
@@ -438,7 +533,7 @@ export default function Home() {
     },
     {
       title: "Most Watched",
-      subtitle: "Popular recorded videos",
+      subtitle: "Popular videos",
       videos: videos.slice(videoSectionSize * 2, videoSectionSize * 3),
     },
     {
@@ -452,9 +547,11 @@ export default function Home() {
       videos: videos.slice(videoSectionSize * 4),
     },
   ];
+
   function startChatting() {
     window.location.href = "/call";
   }
+
   function renderLiveSection(section) {
     return (
       <section className="category-section" key={section.title}>
@@ -468,10 +565,12 @@ export default function Home() {
               <p>{section.subtitle}</p>
             </div>
           </div>
+
           <span className="online-status">
             ● {section.models.length} models
           </span>
         </div>
+
         {section.models.length === 0 ? (
           <p>No more models in this section.</p>
         ) : (
@@ -488,7 +587,10 @@ export default function Home() {
       </section>
     );
   }
+
   function renderVideoSection(section) {
+    if (!section.videos.length) return null;
+
     return (
       <section className="category-section" key={section.title}>
         <div className="category-heading">
@@ -501,10 +603,12 @@ export default function Home() {
               <p>{section.subtitle}</p>
             </div>
           </div>
+
           <span className="online-status">
             ● {section.videos.length} videos
           </span>
         </div>
+
         <div className="recorded-track">
           {section.videos.map((video, index) => (
             <VideoCard
@@ -517,6 +621,7 @@ export default function Home() {
       </section>
     );
   }
+
   return (
     <main className="minebbe">
       <nav className="navbar">
@@ -525,18 +630,20 @@ export default function Home() {
         </a>
         <span className="online-status">● We're online</span>
       </nav>
+
       <section className="hero">
         <span className="eyebrow">
           YOUR NEXT CONVERSATION STARTS HERE
         </span>
+
         <h1>
           Meet someone
           <br />
           <span>unexpected.</span>
         </h1>
-        <p>
-          Real conversations. New connections. One click away.
-        </p>
+
+        <p>Real conversations. New connections. One click away.</p>
+
         <button
           type="button"
           className="start-btn"
@@ -549,8 +656,10 @@ export default function Home() {
           <span>START CHATTING</span>
           <ArrowUpRight size={21} />
         </button>
+
         <small>No complicated setup. Just start chatting.</small>
       </section>
+
       <section className="discovery">
         {modelsLoading ? (
           <p>Loading live models...</p>
@@ -563,6 +672,7 @@ export default function Home() {
         ) : (
           <>
             {liveSections.slice(0, 2).map(renderLiveSection)}
+
             <div
               className={`extra-sections ${
                 showMoreSections ? "expanded" : ""
@@ -574,6 +684,7 @@ export default function Home() {
                 {liveSections.slice(2).map(renderLiveSection)}
               </div>
             </div>
+
             <button
               type="button"
               className="view-more-btn"
@@ -590,26 +701,19 @@ export default function Home() {
             </button>
           </>
         )}
+
         <div className="recorded-discovery">
-          <div className="recorded-main-heading">
-            <span className="category-icon pink">
-              <Clapperboard size={20} />
-            </span>
-            <div>
-              <h2>Recorded Videos</h2>
-              <p>Watch and discover recorded videos</p>
-            </div>
-          </div>
           {videosLoading ? (
-            <p>Loading recorded videos...</p>
+            <p>Loading videos...</p>
           ) : videos.length === 0 ? (
             <p>
-              No recorded videos could be displayed.
+              No videos could be displayed.
               {videosError ? ` ${videosError}` : ""}
             </p>
           ) : (
             <>
               {videoSections.slice(0, 2).map(renderVideoSection)}
+
               <div
                 className={`extra-sections ${
                   showMoreVideoSections ? "expanded" : ""
@@ -621,6 +725,7 @@ export default function Home() {
                   {videoSections.slice(2).map(renderVideoSection)}
                 </div>
               </div>
+
               <button
                 type="button"
                 className="view-more-btn"
@@ -643,6 +748,7 @@ export default function Home() {
           )}
         </div>
       </section>
+
       <footer>
         <a className="logo" href="/">
           OnlyStream<span>.</span>
@@ -652,3 +758,4 @@ export default function Home() {
     </main>
   );
 }
+
