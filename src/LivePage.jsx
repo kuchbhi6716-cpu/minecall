@@ -14,10 +14,6 @@ const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
 const VIDEO_DETAILS_API = "/api/aw-video-details";
 const RECORDED_CONTAINER_ID = "aw_recorded_video_container";
 
-// ------------------------------------
-// SHARED HELPERS
-// ------------------------------------
-
 function getUsername(item) {
   return String(
     item?.username ||
@@ -127,10 +123,7 @@ function validateProviderPlayerUrl(rawUrl) {
   return url;
 }
 
-// ------------------------------------
-// LIVE MODEL PLAYER
-// ------------------------------------
-
+// LIVE PLAYER
 function AWLivePlayer({ username }) {
   const [retry, setRetry] = useState(0);
   const [playerError, setPlayerError] = useState("");
@@ -148,12 +141,13 @@ function AWLivePlayer({ username }) {
     let timeoutId;
     let observer;
 
-    container.replaceChildren();
     setPlayerError("");
     setPlayerReady(false);
 
-    const params = new URLSearchParams();
+    // Only clear the container when initializing a new player.
+    container.replaceChildren();
 
+    const params = new URLSearchParams();
     params.set("c", "object_container");
     params.set("site", "jasmin");
     params.set("cobrandId", "");
@@ -162,21 +156,13 @@ function AWLivePlayer({ username }) {
     params.set("psprogram", "revs");
     params.set("campaign_id", "");
     params.set("category", "girl");
-
-    // Keep the provider's normal controls enabled.
     params.set("vp[showChat]", "true");
     params.set("vp[chatAutoHide]", "");
     params.set("vp[showCallToAction]", "");
     params.set("vp[showPerformerName]", "");
     params.set("vp[showPerformerStatus]", "");
-
-    // Do not add a transparent overlay over the player.
     params.set("ms_notrack", "1");
     params.set("subAffId", "");
-
-    // IMPORTANT:
-    // Do not guess undocumented click-blocking parameters here.
-    // Use AW Empire's documented embed option if available.
     params.append("forcedPerformers[]", username);
 
     const script = document.createElement("script");
@@ -209,10 +195,7 @@ function AWLivePlayer({ username }) {
     script.onload = () => {
       if (cancelled || checkPlayer()) return;
 
-      observer = new MutationObserver(() => {
-        checkPlayer();
-      });
-
+      observer = new MutationObserver(checkPlayer);
       observer.observe(container, {
         childList: true,
         subtree: true,
@@ -242,7 +225,10 @@ function AWLivePlayer({ username }) {
     return () => {
       cancelled = true;
       cleanup();
-      container.replaceChildren();
+
+      // Don't clear the provider DOM in cleanup.
+      // React may run cleanup during development effect checks.
+      // The next initialization clears the container itself.
     };
   }, [username, retry]);
 
@@ -281,10 +267,7 @@ function AWLivePlayer({ username }) {
   );
 }
 
-// ------------------------------------
 // RECORDED VIDEO PLAYER
-// ------------------------------------
-
 function AWRecordedVideoPlayer({ videoId, title }) {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -329,9 +312,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
             : "";
 
         if (!rawPlayerUrl) {
-          throw new Error(
-            "Player URL nahi mila. API response mein playerEmbedUrl missing hai."
-          );
+          throw new Error("Player URL missing hai.");
         }
 
         const playerUrl = validateProviderPlayerUrl(rawPlayerUrl);
@@ -384,19 +365,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
 
     function cleanup() {
       window.clearTimeout(timeoutId);
-
-      if (observer) {
-        observer.disconnect();
-        observer = null;
-      }
-    }
-
-    function fail(message) {
-      if (cancelled) return;
-
-      cleanup();
-      setPlayerLoading(false);
-      setError(message);
+      if (observer) observer.disconnect();
     }
 
     function checkPlayer() {
@@ -413,11 +382,17 @@ function AWRecordedVideoPlayer({ videoId, title }) {
       return true;
     }
 
+    function fail(message) {
+      if (cancelled) return;
+      cleanup();
+      setPlayerLoading(false);
+      setError(message);
+    }
+
     try {
       const playerUrl = validateProviderPlayerUrl(
         details.playerEmbedUrl
       );
-
       playerUrl.searchParams.set("c", RECORDED_CONTAINER_ID);
 
       const script = document.createElement("script");
@@ -435,9 +410,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
 
         timeoutId = window.setTimeout(() => {
           if (!cancelled && !checkPlayer()) {
-            fail(
-              "Provider script load hua, lekin player nahi bana. Browser console aur provider embed permissions check karo."
-            );
+            fail("Provider player nahi bana. Embed URL check karo.");
           }
         }, 20000);
 
@@ -445,9 +418,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
       };
 
       script.onerror = () => {
-        fail(
-          "Video player script load nahi hua. Provider access ya embed URL check karo."
-        );
+        fail("Video player script load nahi hua.");
       };
 
       container.appendChild(script);
@@ -496,7 +467,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
             />
 
             {playerLoading && !error && (
-              <div className="recorded-video-loading" aria-live="polite">
+              <div className="recorded-video-loading">
                 <div className="video-spinner" />
                 <p>Connecting to video player...</p>
                 <span>This may take a few seconds.</span>
@@ -543,10 +514,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
   );
 }
 
-// ------------------------------------
 // PAGE
-// ------------------------------------
-
 export default function LivePage() {
   const params = new URLSearchParams(window.location.search);
 
@@ -630,6 +598,19 @@ export default function LivePage() {
       controller.abort();
     };
   }, [requestedModel, reload, isVideoPage]);
+
+  // Restore the page when the browser returns to it.
+  // Do not reload the provider player on every tab switch.
+  useEffect(() => {
+    const handlePageShow = () => {
+      // Intentionally do not reload the player here.
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, []);
 
   return (
     <main className="live-page">
@@ -759,4 +740,3 @@ export default function LivePage() {
     </main>
   );
 }
-
