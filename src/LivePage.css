@@ -590,3 +590,83 @@
   }
 }
 
+/* Minebbe — show the full live video without cropping */
+
+.live-player-card {
+  overflow: hidden;
+}
+
+.live-player {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: auto;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onlystream-embed-wrap,
+.onlystream-embed {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #000;
+}
+
+.onlystream-embed iframe,
+.onlystream-embed video,
+.onlystream-embed object,
+.onlystream-embed embed {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  border: 0 !important;
+}
+
+/* Recorded video */
+.recorded-video-wrap,
+.recorded-video-container {
+  width: 100%;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+
+.recorded-video-container iframe,
+.recorded-video-container video,
+.recorded-video-container object,
+.recorded-video-container embed {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0;
+  max-width: 100% !important;
+  border: 0;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .live-player,
+  .onlystream-embed-wrap,
+  .onlystream-embed {
+    width: 100%;
+    min-height: 0;
+  }
+
+  .onlystream-embed-wrap,
+  .onlystream-embed {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+
+
+
