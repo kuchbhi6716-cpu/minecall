@@ -12,7 +12,12 @@ import "./LivePage.css";
 const API_URL = "/api/aw-models";
 const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
 const VIDEO_DETAILS_API = "/api/aw-video-details";
+
 const RECORDED_CONTAINER_ID = "aw_recorded_video_container";
+
+// ------------------------------------
+// SHARED HELPERS
+// ------------------------------------
 
 function getUsername(item) {
   return String(
@@ -42,7 +47,8 @@ function getThumbnail(item) {
 
   return (
     images.find(
-      (image) => typeof image === "string" && image.trim()
+      (image) =>
+        typeof image === "string" && image.trim()
     ) || ""
   );
 }
@@ -73,7 +79,9 @@ function extractModels(response) {
         "results",
         "items",
       ]) {
-        if (Array.isArray(candidate[key])) return candidate[key];
+        if (Array.isArray(candidate[key])) {
+          return candidate[key];
+        }
       }
     }
   }
@@ -105,7 +113,8 @@ function normalizeModel(item) {
           item?.numViewers ??
           0
       ) || 0,
-    profileUrl: item?.chatRoomUrl || item?.profileUrl || "",
+    profileUrl:
+      item?.chatRoomUrl || item?.profileUrl || "",
   };
 }
 
@@ -114,7 +123,9 @@ function validateProviderPlayerUrl(rawUrl) {
 
   if (
     url.protocol !== "https:" ||
-    !["atwmcd.com", "www.atwmcd.com"].includes(url.hostname) ||
+    !["atwmcd.com", "www.atwmcd.com"].includes(
+      url.hostname
+    ) ||
     !url.pathname.startsWith("/embed/")
   ) {
     throw new Error("Provider returned an invalid player URL.");
@@ -123,7 +134,10 @@ function validateProviderPlayerUrl(rawUrl) {
   return url;
 }
 
-// LIVE PLAYER
+// ------------------------------------
+// LIVE MODEL PLAYER
+// ------------------------------------
+
 function AWLivePlayer({ username }) {
   const [retry, setRetry] = useState(0);
   const [playerError, setPlayerError] = useState("");
@@ -141,11 +155,9 @@ function AWLivePlayer({ username }) {
     let timeoutId;
     let observer;
 
+    container.replaceChildren();
     setPlayerError("");
     setPlayerReady(false);
-
-    // Only clear the container when initializing a new player.
-    container.replaceChildren();
 
     const params = new URLSearchParams();
     params.set("c", "object_container");
@@ -171,7 +183,6 @@ function AWLivePlayer({ username }) {
 
     function cleanup() {
       window.clearTimeout(timeoutId);
-
       if (observer) {
         observer.disconnect();
         observer = null;
@@ -225,10 +236,7 @@ function AWLivePlayer({ username }) {
     return () => {
       cancelled = true;
       cleanup();
-
-      // Don't clear the provider DOM in cleanup.
-      // React may run cleanup during development effect checks.
-      // The next initialization clears the container itself.
+      container.replaceChildren();
     };
   }, [username, retry]);
 
@@ -267,7 +275,10 @@ function AWLivePlayer({ username }) {
   );
 }
 
+// ------------------------------------
 // RECORDED VIDEO PLAYER
+// ------------------------------------
+
 function AWRecordedVideoPlayer({ videoId, title }) {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -275,6 +286,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
 
+  // Fetch provider video details.
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
@@ -306,16 +318,21 @@ function AWRecordedVideoPlayer({ videoId, title }) {
         }
 
         const videoDetails = result?.data ?? result;
+
         const rawPlayerUrl =
           typeof videoDetails?.playerEmbedUrl === "string"
             ? videoDetails.playerEmbedUrl.trim()
             : "";
 
         if (!rawPlayerUrl) {
-          throw new Error("Player URL missing hai.");
+          throw new Error(
+            "Player URL nahi mila. API response mein playerEmbedUrl missing hai."
+          );
         }
 
         const playerUrl = validateProviderPlayerUrl(rawPlayerUrl);
+
+        // Replace the provider placeholder with our actual container ID.
         playerUrl.searchParams.set("c", RECORDED_CONTAINER_ID);
 
         if (!cancelled) {
@@ -326,10 +343,14 @@ function AWRecordedVideoPlayer({ videoId, title }) {
         }
       } catch (err) {
         if (!cancelled && err.name !== "AbortError") {
-          setError(err.message || "Video details load nahi hue.");
+          setError(
+            err.message || "Video details load nahi hue."
+          );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
@@ -346,6 +367,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
     };
   }, [videoId, retry]);
 
+  // Load the provider's official embed script.
   useEffect(() => {
     if (!details?.playerEmbedUrl) return undefined;
 
@@ -358,6 +380,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
     let cancelled = false;
     let timeoutId;
     let observer;
+    let script;
 
     container.replaceChildren();
     setError("");
@@ -365,7 +388,19 @@ function AWRecordedVideoPlayer({ videoId, title }) {
 
     function cleanup() {
       window.clearTimeout(timeoutId);
-      if (observer) observer.disconnect();
+
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
+    }
+
+    function fail(message) {
+      if (cancelled) return;
+
+      cleanup();
+      setPlayerLoading(false);
+      setError(message);
     }
 
     function checkPlayer() {
@@ -382,27 +417,24 @@ function AWRecordedVideoPlayer({ videoId, title }) {
       return true;
     }
 
-    function fail(message) {
-      if (cancelled) return;
-      cleanup();
-      setPlayerLoading(false);
-      setError(message);
-    }
-
     try {
       const playerUrl = validateProviderPlayerUrl(
         details.playerEmbedUrl
       );
+
       playerUrl.searchParams.set("c", RECORDED_CONTAINER_ID);
 
-      const script = document.createElement("script");
+      script = document.createElement("script");
       script.async = true;
       script.src = playerUrl.toString();
 
       script.onload = () => {
         if (cancelled || checkPlayer()) return;
 
-        observer = new MutationObserver(checkPlayer);
+        observer = new MutationObserver(() => {
+          checkPlayer();
+        });
+
         observer.observe(container, {
           childList: true,
           subtree: true,
@@ -410,7 +442,9 @@ function AWRecordedVideoPlayer({ videoId, title }) {
 
         timeoutId = window.setTimeout(() => {
           if (!cancelled && !checkPlayer()) {
-            fail("Provider player nahi bana. Embed URL check karo.");
+            fail(
+              "Provider script load hua, lekin player nahi bana. Browser console aur provider embed permissions check karo."
+            );
           }
         }, 20000);
 
@@ -418,7 +452,9 @@ function AWRecordedVideoPlayer({ videoId, title }) {
       };
 
       script.onerror = () => {
-        fail("Video player script load nahi hua.");
+        fail(
+          "Video player script load nahi hua. Provider access ya embed URL check karo."
+        );
       };
 
       container.appendChild(script);
@@ -451,7 +487,9 @@ function AWRecordedVideoPlayer({ videoId, title }) {
         >
           Retry video
         </button>
-        <p><a href="/">Back to homepage</a></p>
+        <p>
+          <a href="/">Back to homepage</a>
+        </p>
       </div>
     );
   }
@@ -467,7 +505,10 @@ function AWRecordedVideoPlayer({ videoId, title }) {
             />
 
             {playerLoading && !error && (
-              <div className="recorded-video-loading">
+              <div
+                className="recorded-video-loading"
+                aria-live="polite"
+              >
                 <div className="video-spinner" />
                 <p>Connecting to video player...</p>
                 <span>This may take a few seconds.</span>
@@ -514,13 +555,17 @@ function AWRecordedVideoPlayer({ videoId, title }) {
   );
 }
 
+// ------------------------------------
 // PAGE
+// ------------------------------------
+
 export default function LivePage() {
   const params = new URLSearchParams(window.location.search);
 
   const requestedModel = (params.get("model") || "").trim();
   const requestedVideo = (params.get("video") || "").trim();
   const requestedTitle = (params.get("title") || "").trim();
+
   const isVideoPage = Boolean(requestedVideo);
 
   const [model, setModel] = useState(null);
@@ -576,13 +621,17 @@ export default function LivePage() {
           );
         }
 
-        if (!cancelled) setModel(selected);
+        if (!cancelled) {
+          setModel(selected);
+        }
       } catch (err) {
         if (!cancelled && err.name !== "AbortError") {
           setError(err.message || "Unable to load this model.");
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
@@ -599,19 +648,6 @@ export default function LivePage() {
     };
   }, [requestedModel, reload, isVideoPage]);
 
-  // Restore the page when the browser returns to it.
-  // Do not reload the provider player on every tab switch.
-  useEffect(() => {
-    const handlePageShow = () => {
-      // Intentionally do not reload the player here.
-    };
-
-    window.addEventListener("pageshow", handlePageShow);
-    return () => {
-      window.removeEventListener("pageshow", handlePageShow);
-    };
-  }, []);
-
   return (
     <main className="live-page">
       <header className="live-topbar">
@@ -626,9 +662,13 @@ export default function LivePage() {
 
         <span className="live-status">
           {isVideoPage ? (
-            <><Tv size={15} /> VIDEO</>
+            <>
+              <Tv size={15} /> VIDEO
+            </>
           ) : (
-            <><Radio size={15} /> LIVE</>
+            <>
+              <Radio size={15} /> LIVE
+            </>
           )}
         </span>
       </header>
@@ -637,17 +677,25 @@ export default function LivePage() {
         <div className="live-heading">
           <span className="live-eyebrow">
             {isVideoPage ? (
-              <><Tv size={15} /> RECORDED VIDEO</>
+              <>
+                <Tv size={15} /> RECORDED VIDEO
+              </>
             ) : (
-              <><Tv size={15} /> LIVE MODEL</>
+              <>
+                <Tv size={15} /> LIVE MODEL
+              </>
             )}
           </span>
 
           <h1>
             {isVideoPage ? (
-              <>Watch <span>video.</span></>
+              <>
+                Watch <span>video.</span>
+              </>
             ) : (
-              <>Watch <span>live.</span></>
+              <>
+                Watch <span>live.</span>
+              </>
             )}
           </h1>
 
@@ -665,7 +713,9 @@ export default function LivePage() {
             title={requestedTitle}
           />
         ) : loading ? (
-          <div className="live-player-message">Loading model...</div>
+          <div className="live-player-message">
+            Loading model...
+          </div>
         ) : error ? (
           <div className="live-player-message">
             <p>{error}</p>
@@ -675,7 +725,9 @@ export default function LivePage() {
             >
               Retry
             </button>
-            <p><a href="/">Back to live models</a></p>
+            <p>
+              <a href="/">Back to live models</a>
+            </p>
           </div>
         ) : model ? (
           <>
