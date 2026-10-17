@@ -1,17 +1,17 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Video,
   ArrowUpRight,
   Sparkles,
   Radio,
-  Eye,
   ChevronDown,
 } from "lucide-react";
 import "./Home.css";
 
 const API_URL = "/api/aw-models";
 const REFRESH_INTERVAL = 45000;
+const MISSING_REFRESH_LIMIT = 2;
 
 function normalizeImageUrl(url) {
   if (typeof url !== "string") return "";
@@ -98,16 +98,45 @@ function extractModels(response) {
   return [];
 }
 
+function isExplicitlyOffline(model) {
+  const status = String(
+    model?.status ??
+      model?.availability ??
+      model?.streamStatus ??
+      model?.stream_status ??
+      ""
+  ).toLowerCase();
+
+  if (
+    model?.isOnline === false ||
+    model?.is_online === false ||
+    model?.online === false ||
+    model?.isLive === false ||
+    model?.is_live === false
+  ) {
+    return true;
+  }
+
+  return [
+    "offline",
+    "away",
+    "disconnected",
+    "not_live",
+    "not-live",
+  ].includes(status);
+}
+
 function normalizeModels(list) {
   const normalized = list
     .filter(
       (model) =>
         model &&
         typeof model === "object" &&
-        getModelUsername(model)
+        getModelUsername(model) &&
+        !isExplicitlyOffline(model)
     )
     .map((model) => {
-      const age = Number(
+      const rawAge = Number(
         model?.persons?.[0]?.age ?? model?.age ?? 0
       );
 
@@ -116,7 +145,10 @@ function normalizeModels(list) {
         username: getModelUsername(model),
         name: getModelName(model),
         thumbnail: getModelThumbnail(model),
-        age: Number.isFinite(age) ? age : 0,
+        age:
+          Number.isFinite(rawAge) && rawAge > 0
+            ? rawAge
+            : 0,
       };
     });
 
@@ -130,11 +162,70 @@ function normalizeModels(list) {
   );
 }
 
-function getRandomViewerCount() {
-  return Math.floor(Math.random() * 121) + 80;
+/*
+ * Merge strategy:
+ * 1. Existing cards keep their order.
+ * 2. Existing creators stay if missing from one refresh.
+ * 3. Remove a missing creator after two consecutive successful
+ *    API responses without that creator.
+ * 4. Append newly discovered creators at the end.
+ *
+ * Failed API requests never count as evidence that a creator
+ * has gone offline.
+ */
+function mergeModels(previous, incoming, missingCounts) {
+  const incomingMap = new Map(
+    incoming.map((model) => [
+      model.username.toLowerCase(),
+      model,
+    ])
+  );
+
+  const previousKeys = new Set(
+    previous.map((model) => model.username.toLowerCase())
+  );
+
+  const next = [];
+
+  for (const oldModel of previous) {
+    const key = oldModel.username.toLowerCase();
+    const freshModel = incomingMap.get(key);
+
+    if (freshModel) {
+      missingCounts.delete(key);
+
+      // Update details while preserving the creator's card position.
+      next.push({
+        ...oldModel,
+        ...freshModel,
+        username: oldModel.username,
+      });
+    } else {
+      const misses = (missingCounts.get(key) || 0) + 1;
+      missingCounts.set(key, misses);
+
+      if (misses < MISSING_REFRESH_LIMIT) {
+        next.push(oldModel);
+      } else {
+        missingCounts.delete(key);
+      }
+    }
+  }
+
+  // New creators appear at the end instead of reshuffling existing cards.
+  for (const model of incoming) {
+    const key = model.username.toLowerCase();
+
+    if (!previousKeys.has(key)) {
+      next.push(model);
+      missingCounts.delete(key);
+    }
+  }
+
+  return next;
 }
 
-function ModelCard({ model, viewers }) {
+function ModelCard({ model }) {
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -174,14 +265,7 @@ function ModelCard({ model, viewers }) {
           <h3>{model.name}</h3>
           <p>
             {model.age > 0 ? `${model.age}+ · ` : ""}
-            <Eye
-              size={14}
-              style={{
-                display: "inline",
-                verticalAlign: "middle",
-              }}
-            />{" "}
-            {viewers.toLocaleString()}
+            LIVE NOW
           </p>
         </div>
       </button>
@@ -191,15 +275,21 @@ function ModelCard({ model, viewers }) {
 
 export default function Home() {
   const [models, setModels] = useState([]);
-  const [viewerCounts, setViewerCounts] = useState({});
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
   const [showMoreSections, setShowMoreSections] = useState(false);
 
+  const missingCountsRef = useRef(new Map());
+
   useEffect(() => {
     let active = true;
+    let requestInProgress = false;
 
     async function loadModels() {
+      if (requestInProgress) return;
+
+      requestInProgress = true;
+
       try {
         const response = await fetch(API_URL, {
           headers: { Accept: "application/json" },
@@ -215,18 +305,32 @@ export default function Home() {
 
         if (!active) return;
 
-        setModels(normalized);
+        setModels((previous) =>
+          mergeModels(
+            previous,
+            normalized,
+            missingCountsRef.current
+          )
+        );
+
         setModelsError(
-          normalized.length ? "" : "No models found in the API response."
+          normalized.length
+            ? ""
+            : "No models found in the API response."
         );
       } catch (error) {
         if (active) {
+          // Keep the current cards if the request fails.
           setModelsError(
-            error.message || "Could not load live models."
+            error.message || "Could not refresh live models."
           );
         }
       } finally {
-        if (active) setModelsLoading(false);
+        requestInProgress = false;
+
+        if (active) {
+          setModelsLoading(false);
+        }
       }
     }
 
@@ -242,29 +346,6 @@ export default function Home() {
       window.clearInterval(interval);
     };
   }, []);
-
-  useEffect(() => {
-    if (!models.length) return;
-
-    function updateCounts() {
-      const counts = {};
-
-      models.forEach((model) => {
-        counts[model.username] = getRandomViewerCount();
-      });
-
-      setViewerCounts(counts);
-    }
-
-    updateCounts();
-
-    const interval = window.setInterval(
-      updateCounts,
-      REFRESH_INTERVAL
-    );
-
-    return () => window.clearInterval(interval);
-  }, [models]);
 
   const sectionSize = Math.ceil(models.length / 9);
 
@@ -356,9 +437,8 @@ export default function Home() {
           <div className="category-track">
             {section.models.map((model) => (
               <ModelCard
-                key={model.username}
+                key={model.username.toLowerCase()}
                 model={model}
-                viewers={viewerCounts[model.username] ?? 80}
               />
             ))}
           </div>
@@ -469,4 +549,3 @@ export default function Home() {
     </main>
   );
 }
-
