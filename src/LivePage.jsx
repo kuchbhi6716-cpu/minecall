@@ -1,12 +1,15 @@
-
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import { io } from "socket.io-client";
 import {
   ArrowLeft,
   ExternalLink,
   Radio,
   Tv,
-  Eye,
   Send,
 } from "lucide-react";
 import "./LivePage.css";
@@ -50,25 +53,6 @@ function getUsername(item) {
   ).trim();
 }
 
-function getThumbnail(item) {
-  const images = [
-    item?.profilePictureUrl?.size800x600,
-    item?.profilePictureUrl?.size320x180,
-    item?.thumbnail,
-    item?.thumb,
-    item?.thumb_big,
-    item?.profile_thumb_sfw,
-    item?.profile_thumb,
-    item?.image,
-    item?.imageUrl,
-    item?.image_url,
-  ];
-
-  return (
-    images.find((image) => typeof image === "string" && image.trim()) || ""
-  );
-}
-
 function extractModels(response) {
   if (Array.isArray(response)) return response;
   if (!response || typeof response !== "object") return [];
@@ -99,8 +83,6 @@ function extractModels(response) {
 }
 
 function normalizeModel(item) {
-  const rawAge = Number(item?.persons?.[0]?.age ?? item?.age ?? 0);
-
   return {
     username: getUsername(item),
     name:
@@ -110,16 +92,6 @@ function normalizeModel(item) {
       item?.performerId ||
       item?.name ||
       "Live Model",
-    age: Number.isFinite(rawAge) ? rawAge : 0,
-    thumbnail: getThumbnail(item),
-    viewers:
-      Number(
-        item?.viewers ??
-          item?.viewerCount ??
-          item?.viewer_count ??
-          item?.numViewers ??
-          0
-      ) || 0,
     profileUrl: item?.chatRoomUrl || item?.profileUrl || "",
   };
 }
@@ -165,8 +137,8 @@ function AWLivePlayer({ username }) {
     params.set("vp[showChat]", "");
     params.set("vp[chatAutoHide]", "");
     params.set("vp[showCallToAction]", "");
-    params.set("vp[showPerformerName]", "true");
-    params.set("vp[showPerformerStatus]", "true");
+    params.set("vp[showPerformerName]", "false");
+    params.set("vp[showPerformerStatus]", "false");
     params.set("ms_notrack", "1");
     params.set("subAffId", "");
     params.set("forcedPerformers[]", username);
@@ -184,7 +156,9 @@ function AWLivePlayer({ username }) {
     function checkPlayer() {
       if (cancelled) return false;
 
-      const player = container.querySelector("iframe, video, object, embed");
+      const player = container.querySelector(
+        "iframe, video, object, embed"
+      );
 
       if (!player) return false;
 
@@ -198,6 +172,7 @@ function AWLivePlayer({ username }) {
       if (cancelled) return;
 
       observer = new MutationObserver(checkPlayer);
+
       observer.observe(container, {
         childList: true,
         subtree: true,
@@ -216,7 +191,9 @@ function AWLivePlayer({ username }) {
 
     script.onerror = () => {
       if (!cancelled) {
-        setPlayerError("Player script load nahi hua. Retry karke dekho.");
+        setPlayerError(
+          "Player script load nahi hua. Retry karke dekho."
+        );
       }
     };
 
@@ -233,6 +210,7 @@ function AWLivePlayer({ username }) {
     <div className="onlystream-embed-wrap">
       <div
         ref={containerRef}
+        id="object_container"
         className="onlystream-embed"
         style={{
           width: "100%",
@@ -264,6 +242,7 @@ function AWLivePlayer({ username }) {
       {playerError && (
         <div className="player-error">
           <p>{playerError}</p>
+
           <button
             type="button"
             onClick={() => setRetry((value) => value + 1)}
@@ -277,12 +256,10 @@ function AWLivePlayer({ username }) {
 }
 
 // ------------------------------------
-// LIVE COMMENTS
-// Input stays in the video corner.
-// Only sent comments float over the video.
+// LIVE CHAT STATE
 // ------------------------------------
 
-function LiveComments({ username }) {
+function useLiveComments(username) {
   const [guestName, setGuestName] = useState(() => {
     try {
       return localStorage.getItem("onlystream-guest-name") || "";
@@ -303,6 +280,7 @@ function LiveComments({ username }) {
 
   const showNotice = useCallback((text) => {
     setNotice(text);
+
     window.clearTimeout(noticeTimerRef.current);
 
     noticeTimerRef.current = window.setTimeout(() => {
@@ -314,7 +292,10 @@ function LiveComments({ username }) {
     window.clearTimeout(timersRef.current.get(id));
     timersRef.current.delete(id);
 
-    const next = commentsRef.current.filter((item) => item.id !== id);
+    const next = commentsRef.current.filter(
+      (comment) => comment.id !== id
+    );
+
     commentsRef.current = next;
     setComments(next);
   }, []);
@@ -334,20 +315,27 @@ function LiveComments({ username }) {
       socket.emit("live-join", username);
     }
 
-    socket.on("connect", joinLiveRoom);
-    socket.on("disconnect", () => setChatStatus("Reconnecting..."));
-    socket.on("connect_error", () => setChatStatus("Chat unavailable"));
-    socket.on("live-joined", () => setChatStatus("Live chat connected"));
+    function handleDisconnect() {
+      setChatStatus("Reconnecting...");
+    }
 
-    socket.on("live-error", (payload) => {
+    function handleConnectError() {
+      setChatStatus("Chat unavailable");
+    }
+
+    function handleJoined() {
+      setChatStatus("Live chat connected");
+    }
+
+    function handleError(payload) {
       showNotice(
         typeof payload === "string"
           ? payload
           : payload?.message || "Unable to send comment."
       );
-    });
+    }
 
-    socket.on("live-comment", (comment) => {
+    function handleComment(comment) {
       if (
         !comment ||
         typeof comment.id !== "string" ||
@@ -356,7 +344,11 @@ function LiveComments({ username }) {
         return;
       }
 
-      if (commentsRef.current.some((item) => item.id === comment.id)) {
+      if (
+        commentsRef.current.some(
+          (item) => item.id === comment.id
+        )
+      ) {
         return;
       }
 
@@ -385,11 +377,22 @@ function LiveComments({ username }) {
 
       timersRef.current.set(
         comment.id,
-        window.setTimeout(() => removeComment(comment.id), COMMENT_DURATION)
+        window.setTimeout(() => {
+          removeComment(comment.id);
+        }, COMMENT_DURATION)
       );
-    });
+    }
 
-    if (socket.connected) joinLiveRoom();
+    socket.on("connect", joinLiveRoom);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("connect_error", handleConnectError);
+    socket.on("live-joined", handleJoined);
+    socket.on("live-error", handleError);
+    socket.on("live-comment", handleComment);
+
+    if (socket.connected) {
+      joinLiveRoom();
+    }
 
     return () => {
       socket.removeAllListeners();
@@ -402,107 +405,170 @@ function LiveComments({ username }) {
       timersRef.current.clear();
       commentsRef.current = [];
       socketRef.current = null;
+
       window.clearTimeout(noticeTimerRef.current);
     };
   }, [username, removeComment, showNotice]);
 
-  function sendComment(event) {
-    event.preventDefault();
+  const sendComment = useCallback(
+    (event) => {
+      event.preventDefault();
 
-    const name = guestName.trim().replace(/\s+/g, " ");
-    const text = message.trim().replace(/\s+/g, " ");
+      const name = guestName.trim().replace(/\s+/g, " ");
+      const text = message.trim().replace(/\s+/g, " ");
 
-    if (!name) {
-      showNotice("Pehle guest name enter karo.");
-      return;
-    }
+      if (!name) {
+        showNotice("Pehle guest name enter karo.");
+        return;
+      }
 
-    if (!text) return;
+      if (!text) return;
 
-    if (name.length > 24 || text.length > 180) {
-      showNotice("Name ya comment bahut lamba hai.");
-      return;
-    }
+      if (name.length > 24 || text.length > 180) {
+        showNotice("Name ya comment bahut lamba hai.");
+        return;
+      }
 
-    if (!socketRef.current?.connected) {
-      showNotice("Chat reconnect ho raha hai. Dobara try karo.");
-      return;
-    }
+      if (!socketRef.current?.connected) {
+        showNotice("Chat reconnect ho raha hai. Dobara try karo.");
+        return;
+      }
 
-    try {
-      localStorage.setItem("onlystream-guest-name", name);
-    } catch {
-      // Continue if browser storage is unavailable.
-    }
+      try {
+        localStorage.setItem("onlystream-guest-name", name);
+      } catch {
+        // Continue if browser storage is unavailable.
+      }
 
-    socketRef.current.emit("live-comment", {
-      name,
-      message: text,
-    });
+      socketRef.current.emit("live-comment", {
+        name,
+        message: text,
+      });
 
-    setMessage("");
-    setNotice("");
-  }
+      setMessage("");
+      setNotice("");
+    },
+    [guestName, message, showNotice]
+  );
 
+  return {
+    guestName,
+    setGuestName,
+    message,
+    setMessage,
+    comments,
+    chatStatus,
+    notice,
+    sendComment,
+  };
+}
+
+// ------------------------------------
+// FLOATING COMMENTS
+// Rendered INSIDE the video.
+// Transparent text only, no background.
+// ------------------------------------
+
+function LiveCommentOverlay({ comments }) {
   return (
-    <>
-      {/* Guest name and input stay at the top of the video */}
-      <div className="live-comments-card">
-        <div className="live-comment-composer">
-          <form className="live-comment-form" onSubmit={sendComment}>
+    <div
+      className="live-comment-overlay"
+      aria-live="polite"
+      aria-relevant="additions"
+    >
+      {comments.map((comment) => (
+        <div
+          className="live-floating-comment"
+          key={comment.id}
+        >
+          <span className="live-comment-name">
+            {comment.name}
+          </span>{" "}
+          <span className="live-comment-message">
+            {comment.message}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ------------------------------------
+// COMMENT COMPOSER
+// Rendered BELOW the video, inside card.
+// ------------------------------------
+
+function LiveCommentComposer({ chat }) {
+  return (
+    <div className="live-comments-card">
+      <div
+        className="live-comment-composer"
+        style={{
+          position: "relative",
+          inset: "auto",
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
+          zIndex: 1,
+        }}
+      >
+        <form
+          className="live-comment-form"
+          onSubmit={chat.sendComment}
+        >
+          <input
+            type="text"
+            value={chat.guestName}
+            onChange={(event) =>
+              chat.setGuestName(event.target.value)
+            }
+            placeholder="Your guest name"
+            aria-label="Guest name"
+            maxLength={24}
+            autoComplete="nickname"
+          />
+
+          <div className="live-comment-input-row">
             <input
               type="text"
-              value={guestName}
-              onChange={(event) => setGuestName(event.target.value)}
-              placeholder="Your guest name"
-              aria-label="Guest name"
-              maxLength={24}
+              value={chat.message}
+              onChange={(event) =>
+                chat.setMessage(event.target.value)
+              }
+              placeholder="Write a comment..."
+              aria-label="Write a live comment"
+              maxLength={180}
             />
 
-            <div className="live-comment-input-row">
-              <input
-                type="text"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Write a comment..."
-                aria-label="Write a live comment"
-                maxLength={180}
-              />
-
-              <button
-                type="submit"
-                aria-label="Send comment"
-                disabled={!message.trim()}
-              >
-                <Send size={16} />
-              </button>
-            </div>
-          </form>
-
-          <div className="live-comment-status">
-            <span
-              className={`live-status-dot ${
-                chatStatus === "Live chat connected" ? "is-online" : ""
-              }`}
-            />
-            <span>{chatStatus}</span>
-            {notice && (
-              <span className="live-comment-notice">{notice}</span>
-            )}
+            <button
+              type="submit"
+              aria-label="Send comment"
+              disabled={!chat.message.trim()}
+            >
+              <Send size={16} />
+            </button>
           </div>
+        </form>
+
+        <div className="live-comment-status">
+          <span
+            className={`live-status-dot ${
+              chat.chatStatus === "Live chat connected"
+                ? "is-online"
+                : ""
+            }`}
+          />
+
+          <span>{chat.chatStatus}</span>
+
+          {chat.notice && (
+            <span className="live-comment-notice">
+              {chat.notice}
+            </span>
+          )}
         </div>
       </div>
-
-      {/* Floating output only — transparent text, no background */}
-      <div className="live-floating-comments" aria-live="polite">
-        {comments.map((comment) => (
-          <div className="live-floating-comment" key={comment.id}>
-            <span className="live-comment-name">{comment.name}</span>{" "}
-            <span className="live-comment-message">{comment.message}</span>
-          </div>
-        ))}
-      </div>
-    </>
+    </div>
   );
 }
 
@@ -530,19 +596,25 @@ export default function LivePage() {
 
       try {
         const response = await fetch(API_URL, {
-          headers: { Accept: "application/json" },
+          headers: {
+            Accept: "application/json",
+          },
           signal: controller.signal,
           cache: "no-store",
         });
 
         if (!response.ok) {
-          throw new Error(`Model feed error (${response.status}).`);
+          throw new Error(
+            `Model feed error (${response.status}).`
+          );
         }
 
         const data = await response.json();
 
         const models = extractModels(data)
-          .filter((item) => item && typeof item === "object")
+          .filter(
+            (item) => item && typeof item === "object"
+          )
           .map(normalizeModel)
           .filter((item) => item.username);
 
@@ -560,20 +632,31 @@ export default function LivePage() {
           );
         }
 
-        if (!cancelled) setModel(selected);
+        if (!cancelled) {
+          setModel(selected);
+        }
       } catch (err) {
-        if (!cancelled && err.name !== "AbortError") {
-          setError(err.message || "Unable to load this model.");
+        if (
+          !cancelled &&
+          err.name !== "AbortError"
+        ) {
+          setError(
+            err.message || "Unable to load this model."
+          );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     if (requestedModel) {
       loadModel();
     } else {
-      setError("No model selected. Return to the homepage.");
+      setError(
+        "No model selected. Return to the homepage."
+      );
       setLoading(false);
     }
 
@@ -582,6 +665,8 @@ export default function LivePage() {
       controller.abort();
     };
   }, [requestedModel, reload]);
+
+  const chat = useLiveComments(model?.username || "");
 
   return (
     <main className="live-page">
@@ -596,14 +681,16 @@ export default function LivePage() {
         </a>
 
         <span className="live-status">
-          <Radio size={15} /> LIVE
+          <Radio size={15} />
+          LIVE
         </span>
       </header>
 
       <section className="live-content">
         <div className="live-heading">
           <span className="live-eyebrow">
-            <Tv size={15} /> LIVE MODEL
+            <Tv size={15} />
+            LIVE MODEL
           </span>
 
           <h1>
@@ -614,14 +701,18 @@ export default function LivePage() {
         </div>
 
         {loading ? (
-          <div className="live-player-message">Loading model...</div>
+          <div className="live-player-message">
+            Loading model...
+          </div>
         ) : error ? (
           <div className="live-player-message">
             <p>{error}</p>
 
             <button
               type="button"
-              onClick={() => setReload((value) => value + 1)}
+              onClick={() =>
+                setReload((value) => value + 1)
+              }
             >
               Retry
             </button>
@@ -633,42 +724,22 @@ export default function LivePage() {
         ) : model ? (
           <>
             <article className="live-player-card">
+              {/* VIDEO AREA */}
               <div className="live-player">
                 <AWLivePlayer
                   key={model.username}
                   username={model.username}
                 />
 
-                <LiveComments
-                  key={`comments-${model.username}`}
-                  username={model.username}
+                {/* Only the outgoing chat display floats over video */}
+                <LiveCommentOverlay
+                  comments={chat.comments}
                 />
               </div>
 
-              {/* Model details remain below the video */}
-              <div className="live-details">
-                <div className="live-avatar">
-                  {model.name.charAt(0).toUpperCase()}
-                </div>
-
-                <div className="live-channel-info">
-                  <h2>{model.name}</h2>
-
-                  <p>
-                    {model.age > 0 ? `Age ${model.age}+` : "Live model"}
-                  </p>
-
-                  <span className="live-note">
-                    <Eye
-                      size={14}
-                      style={{
-                        display: "inline",
-                        verticalAlign: "middle",
-                      }}
-                    />{" "}
-                    {model.viewers.toLocaleString()} watching
-                  </span>
-                </div>
+              {/* CARD AREA: composer stays below video */}
+              <div className="live-details live-details-chat">
+                <LiveCommentComposer chat={chat} />
 
                 {model.profileUrl && (
                   <a
@@ -692,7 +763,9 @@ export default function LivePage() {
           </>
         ) : null}
 
-        <footer className="live-footer">Powered by OnlyStream</footer>
+        <footer className="live-footer">
+          Powered by OnlyStream
+        </footer>
       </section>
     </main>
   );
