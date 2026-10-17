@@ -975,3 +975,64 @@
   }
 }
 
+/* Comments-only details card: no model identity section */
+.live-details-comments-only {
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+}
+
+.live-details-comments-only .live-comments-card {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+}
+
+.live-details-comments-only .live-comment-form {
+  position: static;
+  width: 100%;
+  padding: 8px;
+}
+
+.live-details-comments-only .live-card-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 10px;
+  max-height: 180px;
+  overflow: hidden;
+}
+
+.live-details-comments-only .live-card-comment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.live-details-comments-only .live-comment-status {
+  text-shadow: none;
+}
+
+.live-details-comments-only .live-open-twitch {
+  flex: 0 0 38px;
+}
+
+@media (max-width: 600px) {
+  .live-details-comments-only {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .live-details-comments-only .live-comment-form input {
+    font-size: 12px;
+  }
+}
+
+
+
+
