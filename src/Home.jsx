@@ -6,12 +6,15 @@ import {
   Sparkles,
   Radio,
   ChevronDown,
+  ShieldCheck,
+  LockKeyhole,
 } from "lucide-react";
 import "./Home.css";
 
 const API_URL = "/api/aw-models";
 const REFRESH_INTERVAL = 45000;
 const MISSING_REFRESH_LIMIT = 2;
+const AGE_CONFIRMATION_KEY = "onlystream-age-confirmed-v1";
 
 function normalizeImageUrl(url) {
   if (typeof url !== "string") return "";
@@ -105,7 +108,10 @@ function isExplicitlyOffline(model) {
       model?.streamStatus ??
       model?.stream_status ??
       ""
-  ).toLowerCase();
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
 
   if (
     model?.isOnline === false ||
@@ -163,15 +169,13 @@ function normalizeModels(list) {
 }
 
 /*
- * Merge strategy:
- * 1. Existing cards keep their order.
- * 2. Existing creators stay if missing from one refresh.
- * 3. Remove a missing creator after two consecutive successful
- *    API responses without that creator.
- * 4. Append newly discovered creators at the end.
- *
- * Failed API requests never count as evidence that a creator
- * has gone offline.
+ * Stable card behaviour:
+ * - Existing cards never shuffle.
+ * - Updated model details retain the existing card position.
+ * - New models are appended at the end.
+ * - A missing model is removed after two successful API refreshes.
+ * - Explicitly offline models are filtered immediately.
+ * - Failed API requests do not count as missing refreshes.
  */
 function mergeModels(previous, incoming, missingCounts) {
   const incomingMap = new Map(
@@ -194,7 +198,6 @@ function mergeModels(previous, incoming, missingCounts) {
     if (freshModel) {
       missingCounts.delete(key);
 
-      // Update details while preserving the creator's card position.
       next.push({
         ...oldModel,
         ...freshModel,
@@ -212,7 +215,6 @@ function mergeModels(previous, incoming, missingCounts) {
     }
   }
 
-  // New creators appear at the end instead of reshuffling existing cards.
   for (const model of incoming) {
     const key = model.username.toLowerCase();
 
@@ -223,6 +225,86 @@ function mergeModels(previous, incoming, missingCounts) {
   }
 
   return next;
+}
+
+function AgeDisclaimer({ onConfirm }) {
+  function leaveSite() {
+    window.location.replace(
+      "https://www.google.com/search?tbm=isch&q=cute+cat+pictures"
+    );
+  }
+
+  return (
+    <div className="age-gate-backdrop">
+      <section
+        className="age-gate"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="age-gate-title"
+        aria-describedby="age-gate-description"
+      >
+        <div className="age-gate-brand">
+          <span className="age-gate-brand-icon">
+            <ShieldCheck size={24} />
+          </span>
+
+          <span>
+            OnlyStream<span className="age-gate-dot">.</span>
+          </span>
+        </div>
+
+        <div className="age-gate-symbol">
+          <LockKeyhole size={31} />
+        </div>
+
+        <span className="age-gate-eyebrow">
+          AGE VERIFICATION
+        </span>
+
+        <h2 id="age-gate-title">
+          Before you
+          <br />
+          <span>step inside.</span>
+        </h2>
+
+        <p id="age-gate-description">
+          This website may contain adult-oriented material.
+          Please confirm that you are at least 18 years old
+          and legally permitted to access this content in
+          your location.
+        </p>
+
+        <div className="age-gate-notice">
+          <ShieldCheck size={18} />
+          <span>
+            By continuing, you confirm that you meet the
+            applicable age requirement.
+          </span>
+        </div>
+
+        <button
+          type="button"
+          className="age-gate-confirm"
+          onClick={onConfirm}
+        >
+          I AM 18 OR OLDER
+          <ArrowUpRight size={19} />
+        </button>
+
+        <button
+          type="button"
+          className="age-gate-leave"
+          onClick={leaveSite}
+        >
+          I'm under 18 — leave site
+        </button>
+
+        <small className="age-gate-footer">
+          Please browse responsibly.
+        </small>
+      </section>
+    </div>
+  );
 }
 
 function ModelCard({ model }) {
@@ -279,7 +361,38 @@ export default function Home() {
   const [modelsError, setModelsError] = useState("");
   const [showMoreSections, setShowMoreSections] = useState(false);
 
+  const [ageConfirmed, setAgeConfirmed] = useState(() => {
+    try {
+      return (
+        window.localStorage.getItem(AGE_CONFIRMATION_KEY) === "true"
+      );
+    } catch {
+      return false;
+    }
+  });
+
   const missingCountsRef = useRef(new Map());
+
+  function confirmAge() {
+    try {
+      window.localStorage.setItem(AGE_CONFIRMATION_KEY, "true");
+    } catch {
+      // The current session can continue if storage is unavailable.
+    }
+
+    setAgeConfirmed(true);
+  }
+
+  useEffect(() => {
+    if (ageConfirmed) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [ageConfirmed]);
 
   useEffect(() => {
     let active = true;
@@ -320,7 +433,7 @@ export default function Home() {
         );
       } catch (error) {
         if (active) {
-          // Keep the current cards if the request fails.
+          // Preserve the current cards on temporary API errors.
           setModelsError(
             error.message || "Could not refresh live models."
           );
@@ -449,6 +562,10 @@ export default function Home() {
 
   return (
     <main className="minebbe">
+      {!ageConfirmed && (
+        <AgeDisclaimer onConfirm={confirmAge} />
+      )}
+
       <nav className="navbar">
         <a className="logo" href="/">
           OnlyStream<span>.</span>
@@ -496,7 +613,9 @@ export default function Home() {
           <p>Loading live models...</p>
         ) : modelsError && models.length === 0 ? (
           <div className="models-error">
-            <p>Couldn't load live models. {modelsError}</p>
+            <p>
+              Couldn't load live models. {modelsError}
+            </p>
           </div>
         ) : models.length === 0 ? (
           <p>No models available right now.</p>
