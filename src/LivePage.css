@@ -706,3 +706,81 @@
     scroll-behavior: auto !important;
   }
 }
+
+
+/* ONLYSTREAM — EDGE-TO-EDGE PLAYER CARD FIX */
+
+/* Card ke andar player aur details ke beech zero gap */
+.live-player-card {
+  overflow: hidden !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+/* Player ko card ke poore width tak stretch karo */
+.live-player-card .live-player {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 0;
+  aspect-ratio: 5 / 3;
+  overflow: hidden !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Embed wrapper — no inner margin or gap */
+.live-player-card .onlystream-embed-wrap,
+.live-player-card .onlystream-embed {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  background: #000 !important;
+}
+
+/* Provider ka player poora area fill kare */
+.live-player-card .onlystream-embed iframe,
+.live-player-card .onlystream-embed video,
+.live-player-card .onlystream-embed object,
+.live-player-card .onlystream-embed embed {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Model details directly below the video */
+.live-player-card .live-details {
+  margin: 0 !important;
+  gap: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .live-player-card .live-player {
+    aspect-ratio: 5 / 3;
+  }
+
+  .live-player-card .live-details {
+    margin: 0 !important;
+  }
+}
+
