@@ -1511,5 +1511,201 @@ footer p {
 
 
 
+/* ================================
+   OnlyStream age verification popup
+================================ */
+
+.age-gate-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(5, 4, 14, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.age-gate {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  padding: 30px;
+  overflow: hidden;
+  color: #fff;
+  text-align: center;
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(139, 92, 246, 0.2),
+      transparent 48%
+    ),
+    #12101d;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 25px;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.55);
+  animation: ageGateAppear 0.3s ease-out;
+}
+
+@keyframes ageGateAppear {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.age-gate-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 25px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+
+.age-gate-brand-icon {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  place-items: center;
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  border-radius: 13px;
+}
+
+.age-gate-dot {
+  color: #a78bfa;
+}
+
+.age-gate-symbol {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  margin: 0 auto 17px;
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.13);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: 22px;
+}
+
+.age-gate-eyebrow {
+  color: #b9a6ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.age-gate h2 {
+  margin: 12px 0;
+  font-size: clamp(30px, 7vw, 39px);
+  line-height: 1.12;
+  letter-spacing: -1.6px;
+}
+
+.age-gate h2 span {
+  color: #b9a6ff;
+}
+
+.age-gate p {
+  margin: 15px 0 20px;
+  color: #b9b5c8;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.age-gate-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px;
+  margin-bottom: 20px;
+  color: #d7d0ed;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 13px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.age-gate-notice svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #a78bfa;
+}
+
+.age-gate-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 53px;
+  padding: 14px 18px;
+  color: white;
+  background: linear-gradient(110deg, #7c3aed, #a855f7);
+  border: 0;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
+}
+
+.age-gate-confirm:hover {
+  filter: brightness(1.12);
+  transform: translateY(-2px);
+}
+
+.age-gate-leave {
+  display: block;
+  width: 100%;
+  padding: 14px 10px 8px;
+  color: #bcb7ca;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.age-gate-leave:hover {
+  color: white;
+}
+
+.age-gate-footer {
+  display: block;
+  margin-top: 13px;
+  color: #777186;
+  font-size: 11px;
+}
+
+@media (max-width: 480px) {
+  .age-gate-backdrop {
+    padding: 14px;
+  }
+
+  .age-gate {
+    padding: 24px 20px;
+    border-radius: 22px;
+  }
+}
+
 
 
