@@ -131,7 +131,7 @@ function normalizeModel(item) {
 }
 
 // ------------------------------------
-// LIVE MODEL PLAYER — ORIGINAL CONFIG
+// LIVE MODEL PLAYER
 // ------------------------------------
 
 function AWLivePlayer({ username }) {
@@ -176,7 +176,6 @@ function AWLivePlayer({ username }) {
 
     params.set("ms_notrack", "1");
     params.set("subAffId", "");
-
     params.set("forcedPerformers[]", username);
 
     const script = document.createElement("script");
@@ -295,6 +294,7 @@ function AWLivePlayer({ username }) {
 
 // ------------------------------------
 // REAL-TIME VIEWER COMMENTS
+// Comments and composer live inside the details card.
 // ------------------------------------
 
 function LiveComments({ username }) {
@@ -478,22 +478,7 @@ function LiveComments({ username }) {
   }
 
   return (
-    <>
-      {/* Transparent comments over the video */}
-      <div className="live-comment-overlay" aria-live="polite">
-        {comments.map((comment) => (
-          <div className="live-floating-comment" key={comment.id}>
-            <span className="live-comment-name">
-              {comment.name}
-            </span>
-            <span className="live-comment-message">
-              {comment.message}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Input appears in the details card above model name */}
+    <div className="live-comments-card">
       <div className="live-comment-composer">
         <form className="live-comment-form" onSubmit={sendComment}>
           <input
@@ -537,7 +522,22 @@ function LiveComments({ username }) {
           )}
         </div>
       </div>
-    </>
+
+      {comments.length > 0 && (
+        <div className="live-card-comments" aria-live="polite">
+          {comments.map((comment) => (
+            <div className="live-card-comment" key={comment.id}>
+              <span className="live-comment-name">
+                {comment.name}
+              </span>
+              <span className="live-comment-message">
+                {comment.message}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -670,24 +670,26 @@ export default function LivePage() {
         ) : model ? (
           <>
             <article className="live-player-card">
+              {/* Video remains completely separate from comments */}
               <div className="live-player">
                 <AWLivePlayer
                   key={model.username}
                   username={model.username}
                 />
-
-                <LiveComments
-                  key={`comments-${model.username}`}
-                  username={model.username}
-                />
               </div>
 
+              {/* Comments now appear inside the model details card */}
               <div className="live-details">
                 <div className="live-avatar">
                   {model.name.charAt(0).toUpperCase()}
                 </div>
 
                 <div className="live-channel-info">
+                  <LiveComments
+                    key={`comments-${model.username}`}
+                    username={model.username}
+                  />
+
                   <h2>{model.name}</h2>
 
                   <p>
