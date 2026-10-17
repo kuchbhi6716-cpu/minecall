@@ -697,7 +697,6 @@ export default function LivePage() {
             Watch <span>live.</span>
           </h1>
 
-          <p>Watch creators on OnlyStream.</p>
         </div>
 
         {loading ? (
@@ -757,8 +756,7 @@ export default function LivePage() {
 
             <section className="more-live">
               <h3>Explore more models</h3>
-              <p>Discover other creators.</p>
-              <a href="/">Browse live models →</a>
+              <a href="/">More live models →</a>
             </section>
           </>
         ) : null}
