@@ -868,3 +868,110 @@
     transition: none;
   }
 }
+
+
+/* ========================================
+   FIX: COMMENTS INSIDE MODEL DETAILS CARD
+======================================== */
+
+/* Video ke upar comments aur input hide karo */
+.live-player > .live-comment-overlay,
+.live-player > .live-comment-composer {
+  display: none !important;
+}
+
+/* Details card ko vertical layout do */
+.live-player-card > .live-details {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Comment input ko details card ke andar full-width row banao */
+.live-details > .live-comment-composer {
+  position: relative !important;
+  inset: auto !important;
+  order: 0;
+  flex: 0 0 100%;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 0 4px !important;
+  line-height: normal;
+}
+
+/* Form card ke width ke andar rahe */
+.live-details .live-comment-form {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid rgba(177, 137, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Status text par black shadow nahi */
+.live-details .live-comment-status {
+  margin: 7px 2px 0;
+  text-shadow: none;
+}
+
+/* Comments video par nahi, card ke andar dikhen */
+.live-details > .live-comment-overlay {
+  position: relative !important;
+  inset: auto !important;
+  order: 3;
+  flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  max-height: 180px;
+  padding: 10px 0 0;
+  overflow-y: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: auto;
+}
+
+/* Transparent-looking messages, within card */
+.live-details .live-floating-comment {
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.45;
+  text-shadow: 0 1px 3px #000;
+}
+
+/* Keep comment names distinct */
+.live-details .live-comment-name {
+  color: #c9a8ff;
+  font-weight: 800;
+}
+
+/* Mobile spacing */
+@media (max-width: 600px) {
+  .live-player-card > .live-details {
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .live-details > .live-comment-composer {
+    margin-bottom: 2px !important;
+  }
+
+  .live-details .live-comment-form {
+    padding: 8px;
+  }
+
+  .live-details .live-floating-comment {
+    font-size: 12px;
+  }
+}
+
