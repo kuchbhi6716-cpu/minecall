@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -164,12 +165,15 @@ function AWLivePlayer({ username }) {
     let cancelled = false;
     let timeoutId;
     let observer;
+    let script;
 
     container.replaceChildren();
     setPlayerError("");
     setPlayerReady(false);
 
+    // Parameters from the new provider embed.
     const params = new URLSearchParams();
+
     params.set("c", "object_container");
     params.set("site", "jasmin");
     params.set("cobrandId", "");
@@ -178,16 +182,21 @@ function AWLivePlayer({ username }) {
     params.set("psprogram", "revs");
     params.set("campaign_id", "");
     params.set("category", "girl");
-    params.set("vp[showChat]", "true");
+
+    // Preserve the new embed's blank settings.
+    params.set("vp[showChat]", "");
     params.set("vp[chatAutoHide]", "");
     params.set("vp[showCallToAction]", "");
     params.set("vp[showPerformerName]", "");
     params.set("vp[showPerformerStatus]", "");
+
     params.set("ms_notrack", "1");
     params.set("subAffId", "");
+
+    // Force the model selected on the website.
     params.append("forcedPerformers[]", username);
 
-    const script = document.createElement("script");
+    script = document.createElement("script");
     script.async = true;
     script.src = `${PLAYER_SCRIPT}?${params.toString()}`;
 
@@ -210,18 +219,24 @@ function AWLivePlayer({ username }) {
       if (!player) return false;
 
       setPlayerReady(true);
+      setPlayerError("");
       cleanup();
       return true;
     }
 
     script.onload = () => {
-      if (cancelled || checkPlayer()) return;
+      if (cancelled) return;
 
-      observer = new MutationObserver(checkPlayer);
+      observer = new MutationObserver(() => {
+        checkPlayer();
+      });
+
       observer.observe(container, {
         childList: true,
         subtree: true,
       });
+
+      if (checkPlayer()) return;
 
       timeoutId = window.setTimeout(() => {
         if (!cancelled && !checkPlayer()) {
@@ -230,8 +245,6 @@ function AWLivePlayer({ username }) {
           );
         }
       }, 20000);
-
-      checkPlayer();
     };
 
     script.onerror = () => {
@@ -253,11 +266,16 @@ function AWLivePlayer({ username }) {
 
   return (
     <div className="onlystream-embed-wrap">
-      <div id="object_container" className="onlystream-embed" />
+      <div
+        id="object_container"
+        className="onlystream-embed"
+        style={{ width: "100%", height: "100%" }}
+      />
 
       {!playerReady && !playerError && (
         <div className="video-skeleton" aria-live="polite">
           <div className="skeleton-glow" />
+
           <div className="skeleton-content">
             <div className="skeleton-orb">▶</div>
             <div className="skeleton-line" />
@@ -265,6 +283,7 @@ function AWLivePlayer({ username }) {
               Connecting to live stream...
             </div>
           </div>
+
           <div className="skeleton-progress">
             <div />
           </div>
@@ -274,6 +293,7 @@ function AWLivePlayer({ username }) {
       {playerError && (
         <div className="player-error">
           <p>{playerError}</p>
+
           <button
             type="button"
             onClick={() => setRetry((value) => value + 1)}
@@ -483,12 +503,14 @@ function AWRecordedVideoPlayer({ videoId, title }) {
     return (
       <div className="live-player-message">
         <p>{error}</p>
+
         <button
           type="button"
           onClick={() => setRetry((value) => value + 1)}
         >
           Retry video
         </button>
+
         <p>
           <a href="/">Back to homepage</a>
         </p>
@@ -520,6 +542,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
             {error && (
               <div className="recorded-video-loading">
                 <p>{error}</p>
+
                 <button
                   type="button"
                   onClick={() => setRetry((value) => value + 1)}
@@ -718,12 +741,14 @@ export default function LivePage() {
         ) : error ? (
           <div className="live-player-message">
             <p>{error}</p>
+
             <button
               type="button"
               onClick={() => setReload((value) => value + 1)}
             >
               Retry
             </button>
+
             <p>
               <a href="/">Back to live models</a>
             </p>
@@ -745,6 +770,7 @@ export default function LivePage() {
 
                 <div className="live-channel-info">
                   <h2>{model.name}</h2>
+
                   <p>
                     {model.age > 0 ? `Age ${model.age}+` : "Live model"}
                   </p>
