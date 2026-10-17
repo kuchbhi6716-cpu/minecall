@@ -32,34 +32,32 @@
 
 /* ========================================
    HEADER
-   Matches: live-header, live-back-link,
-   live-brand, live-header-status
 ======================================== */
 
-.live-header {
+.live-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
   max-width: 1120px;
   margin: 0 auto;
   padding: 20px 0;
 }
 
-.live-back-link {
+.live-back {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   color: #f5efff;
   text-decoration: none;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 750;
   white-space: nowrap;
 }
 
-.live-back-link:hover {
+.live-back:hover {
   color: #c8a7ff;
 }
 
@@ -78,24 +76,24 @@
   color: #b79aff;
 }
 
-.live-header-status {
+.live-status {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 7px;
-  padding: 7px 11px;
+  gap: 6px;
+  padding: 7px 10px;
   border: 1px solid rgba(255, 93, 125, 0.22);
   border-radius: 999px;
   background: rgba(255, 61, 102, 0.08);
   color: #ff718c;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.7px;
   white-space: nowrap;
 }
 
 /* ========================================
-   MAIN CONTENT & HEADING
+   PAGE HEADING
 ======================================== */
 
 .live-content {
@@ -108,7 +106,6 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: flex-start;
   gap: 8px;
   margin: 18px 0 24px;
 }
@@ -137,14 +134,14 @@
   color: #b79aff;
 }
 
-.live-subtitle {
-  margin: 0;
-  color: #a69bb8;
-  font-size: 13px;
+.live-heading p {
+  margin: 8px 0 0;
+  color: #d6cfe1;
+  font-size: clamp(14px, 2vw, 17px);
   line-height: 1.6;
 }
 
-.live-page-message {
+.live-player-message {
   padding: 35px 18px;
   border: 1px solid rgba(192, 162, 255, 0.12);
   border-radius: 16px;
@@ -153,7 +150,7 @@
   text-align: center;
 }
 
-.live-page-message button {
+.live-player-message button {
   padding: 10px 16px;
   border: 0;
   border-radius: 10px;
@@ -163,23 +160,23 @@
   cursor: pointer;
 }
 
-.live-page-message a {
+.live-player-message a {
   color: #c8a7ff;
 }
 
 /* ========================================
-   PLAYER CARD — NO INNER GAP
+   PLAYER CARD
 ======================================== */
 
 .live-player-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0 !important;
+  gap: 0;
   width: 100%;
   max-width: 760px;
   margin: 0 auto;
-  padding: 0 !important;
+  padding: 0;
   overflow: hidden;
   border: 1px solid rgba(177, 137, 255, 0.25);
   border-radius: 20px;
@@ -187,49 +184,51 @@
   box-shadow: 0 18px 55px rgba(0, 0, 0, 0.4);
 }
 
+/* ========================================
+   VIDEO — FLOATING COMMENTS ONLY
+======================================== */
+
 .live-player {
   position: relative;
   isolation: isolate;
-  display: block !important;
-  width: 100% !important;
+  display: block;
+  width: 100%;
   aspect-ratio: 5 / 3;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   background: #000;
-  line-height: 0;
+  line-height: normal;
 }
-
-/* Provider embed fills player area */
 
 .live-player .onlystream-embed-wrap {
   position: absolute;
   inset: 0;
   z-index: 1;
   display: block;
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: #000 !important;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #000;
 }
 
 .live-player .onlystream-embed {
   position: absolute;
   inset: 0;
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  background: #000 !important;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #000;
 }
 
 .live-player .onlystream-embed iframe,
@@ -237,18 +236,18 @@
 .live-player .onlystream-embed object,
 .live-player .onlystream-embed embed {
   display: block;
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 /* ========================================
-   LOADING STATE
+   PLAYER LOADING
 ======================================== */
 
 .live-player .video-skeleton {
@@ -263,22 +262,74 @@
   background: #08060c;
   color: #b8a9d2;
   font-size: 12px;
-  line-height: normal;
   pointer-events: none;
 }
 
-.video-skeleton-spinner {
-  width: 30px;
-  height: 30px;
-  border: 3px solid rgba(185, 146, 255, 0.2);
-  border-top-color: #b18aff;
-  border-radius: 50%;
-  animation: onlystream-spin 0.8s linear infinite;
+.skeleton-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(139, 92, 246, 0.15),
+    transparent 65%
+  );
 }
 
-@keyframes onlystream-spin {
+.skeleton-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.skeleton-orb {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid rgba(183, 154, 255, 0.3);
+  border-radius: 50%;
+  background: rgba(139, 92, 246, 0.2);
+  color: #d8c3ff;
+}
+
+.skeleton-line {
+  width: 100px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(183, 154, 255, 0.18);
+}
+
+.skeleton-caption {
+  color: #b8a9d2;
+}
+
+.skeleton-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(183, 154, 255, 0.12);
+}
+
+.skeleton-progress div {
+  width: 40%;
+  height: 100%;
+  background: #a879ff;
+  animation: onlystream-progress 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes onlystream-progress {
+  from {
+    transform: translateX(-30%);
+  }
   to {
-    transform: rotate(360deg);
+    transform: translateX(180%);
   }
 }
 
@@ -295,7 +346,6 @@
   background: rgba(8, 6, 12, 0.96);
   color: #f5efff;
   font-size: 13px;
-  line-height: normal;
   text-align: center;
 }
 
@@ -310,7 +360,8 @@
 }
 
 /* ========================================
-   FLOATING LIVE COMMENTS
+   FLOATING COMMENTS OVER VIDEO
+   No background, no input in this layer
 ======================================== */
 
 .live-comment-overlay {
@@ -325,28 +376,32 @@
   padding: 16px 12px 18px;
   overflow: hidden;
   pointer-events: none;
+  background: transparent;
 }
 
 .live-floating-comment {
   display: block;
-  max-width: 94%;
-  padding: 0;
+  width: fit-content;
+  max-width: 96%;
   margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #fff;
-  font-size: clamp(11px, 1.6vw, 14px);
-  font-weight: 650;
+  font-size: clamp(12px, 1.7vw, 15px);
+  font-weight: 600;
   line-height: 1.45;
   overflow-wrap: anywhere;
   text-shadow:
-    0 1px 3px rgba(0, 0, 0, 1),
-    1px 1px 3px rgba(0, 0, 0, 0.95),
-    -1px -1px 3px rgba(0, 0, 0, 0.85);
+    0 1px 3px #000,
+    1px 1px 4px #000,
+    -1px -1px 3px #000;
   animation: onlystream-comment-in 0.22s ease-out both;
 }
 
 .live-comment-name {
-  margin-right: 6px;
-  color: #d9baff;
+  color: #dfc7ff;
   font-weight: 800;
 }
 
@@ -360,7 +415,6 @@
     opacity: 0;
     transform: translateY(8px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -368,42 +422,82 @@
 }
 
 /* ========================================
-   COMMENT INPUT
+   DETAILS CARD — CHAT INPUT BELOW VIDEO
 ======================================== */
 
-.live-comment-composer {
-  position: absolute;
-  z-index: 10;
-  top: 10px;
-  left: 10px;
-  width: min(280px, calc(100% - 20px));
+.live-details,
+.live-details-chat,
+.live-details-comments-only {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: linear-gradient(110deg, #191225, #100d18);
+  line-height: normal;
+}
+
+/* This wrapper lives below the video, not on top of it */
+.live-details .live-comments-card {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  pointer-events: auto;
+  background: transparent;
+}
+
+/* Guest name and message fields */
+.live-details .live-comment-composer {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
   line-height: normal;
 }
 
 .live-comment-form {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
+  margin: 0;
   padding: 9px;
   border: 1px solid rgba(207, 183, 255, 0.22);
-  border-radius: 13px;
-  background: rgba(13, 10, 21, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-.live-comment-form input {
+.live-comment-form > input,
+.live-comment-input-row > input {
+  display: block;
   width: 100%;
   min-width: 0;
-  height: 34px;
-  padding: 0 10px;
-  border: 1px solid rgba(205, 183, 255, 0.12);
-  border-radius: 8px;
+  height: 38px;
+  padding: 0 11px;
+  border: 1px solid rgba(205, 183, 255, 0.15);
+  border-radius: 9px;
   outline: none;
   background: rgba(255, 255, 255, 0.045);
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   line-height: normal;
 }
 
@@ -418,22 +512,24 @@
 .live-comment-input-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
 }
 
-.live-comment-input-row input {
-  flex: 1;
+.live-comment-input-row > input {
+  flex: 1 1 auto;
 }
 
 .live-comment-input-row button {
   display: grid;
-  flex: 0 0 34px;
+  flex: 0 0 38px;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border: 0;
-  border-radius: 9px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #a879ff, #7543e8);
   color: #fff;
   cursor: pointer;
@@ -442,7 +538,7 @@
     opacity 0.15s ease;
 }
 
-.live-comment-input-row button:hover {
+.live-comment-input-row button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
@@ -451,16 +547,18 @@
   cursor: not-allowed;
 }
 
+/* Connection status remains below the form */
 .live-comment-status {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  min-height: 22px;
-  margin: 5px 3px 0;
-  color: #d4c7e8;
+  min-height: 18px;
+  margin: 8px 2px 0;
+  color: #bdb0ce;
   font-size: 10px;
-  text-shadow: 0 1px 3px #000;
+  line-height: 1.4;
+  text-shadow: none;
 }
 
 .live-status-dot {
@@ -477,70 +575,11 @@
 }
 
 .live-comment-notice {
+  flex-basis: 100%;
   color: #ffd29c;
 }
 
-/* ========================================
-   CHANNEL DETAILS
-======================================== */
-
-.live-details {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  width: 100%;
-  min-width: 0;
-  margin: 0 !important;
-  padding: 16px 18px;
-  border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0;
-  background: linear-gradient(110deg, #191225, #100d18);
-  line-height: normal;
-}
-
-.live-avatar {
-  display: grid;
-  flex: 0 0 43px;
-  place-items: center;
-  width: 43px;
-  height: 43px;
-  border: 1px solid rgba(196, 181, 253, 0.22);
-  border-radius: 14px;
-  background: linear-gradient(135deg, #9d64ff, #4c3a9e);
-  color: #fff;
-  font-weight: 800;
-  font-size: 17px;
-}
-
-.live-channel-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.live-channel-info h2 {
-  margin: 0 0 5px;
-  color: #f7f3ff;
-  font-size: 18px;
-  font-weight: 750;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-
-.live-channel-info p {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 0 0 5px;
-  color: #b7a6e6;
-  font-size: 12px;
-}
-
-.live-note {
-  color: #aaa2ba;
-  font-size: 11px;
-}
-
+/* Optional external provider link */
 .live-open-twitch {
   display: grid;
   flex: 0 0 38px;
@@ -549,27 +588,79 @@
   height: 38px;
   border: 1px solid rgba(196, 181, 253, 0.2);
   border-radius: 12px;
-  color: #d7c5ff;
   background: rgba(139, 92, 246, 0.1);
+  color: #d7c5ff;
   text-decoration: none;
+}
+
+/* If older markup renders output in the details card,
+   keep it readable but transparent. */
+.live-details .live-comment-overlay,
+.live-details .live-floating-comments,
+.live-details .live-card-comments {
+  position: relative;
+  inset: auto;
+  display: flex;
+  flex: 0 0 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  max-height: 180px;
+  margin: 0;
+  padding: 10px 0 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  pointer-events: auto;
+}
+
+.live-details .live-card-comment {
+  max-width: 100%;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 /* ========================================
    EXPLORE MORE
 ======================================== */
 
+.more-live,
 .live-explore {
+  width: 100%;
   max-width: 760px;
   margin: 36px auto 0;
 }
 
+.more-live h3,
 .live-explore > h2 {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   color: #f7f3ff;
   font-size: 19px;
   font-weight: 750;
 }
 
+.more-live p {
+  margin: 0 0 14px;
+  color: #a69bb8;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.more-live a,
+.live-page-message a {
+  color: #c8a7ff;
+  text-decoration: none;
+}
+
+.more-live a:hover {
+  color: #e4d5ff;
+}
+
+/* Optional explore grid */
 .live-explore-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -601,8 +692,8 @@
   display: grid;
   width: 100%;
   aspect-ratio: 16 / 10;
-  object-fit: cover;
   place-items: center;
+  object-fit: cover;
   background: #1b1428;
   color: #b79aff;
 }
@@ -625,110 +716,6 @@
 }
 
 /* ========================================
-   COMPATIBILITY WITH CURRENT JSX
-   Your earlier JSX uses these class names.
-======================================== */
-
-.live-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 20px 0;
-}
-
-.live-back {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  color: #f5efff;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 750;
-  white-space: nowrap;
-}
-
-.live-back:hover {
-  color: #c8a7ff;
-}
-
-.live-topbar .live-brand {
-  flex: 1;
-  min-width: 0;
-  text-align: center;
-}
-
-.live-status {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
-  border: 1px solid rgba(255, 93, 125, 0.22);
-  border-radius: 999px;
-  background: rgba(255, 61, 102, 0.08);
-  color: #ff718c;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.7px;
-  white-space: nowrap;
-}
-
-.live-player-message {
-  padding: 35px 18px;
-  border: 1px solid rgba(192, 162, 255, 0.12);
-  border-radius: 16px;
-  background: #100d17;
-  color: #c8bed8;
-  text-align: center;
-}
-
-.live-player-message button {
-  padding: 10px 16px;
-  border: 0;
-  border-radius: 10px;
-  background: #8c5cf6;
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.live-player-message a {
-  color: #c8a7ff;
-}
-
-.more-live {
-  max-width: 760px;
-  margin: 36px auto 0;
-}
-
-.more-live h3 {
-  margin: 0 0 12px;
-  color: #f7f3ff;
-  font-size: 19px;
-  font-weight: 750;
-}
-
-.more-live p {
-  margin: 0 0 14px;
-  color: #a69bb8;
-  font-size: 13px;
-}
-
-.more-live a {
-  color: #c8a7ff;
-  text-decoration: none;
-}
-
-.more-live a:hover {
-  color: #e4d5ff;
-}
-
-/* ========================================
    MOBILE
 ======================================== */
 
@@ -737,13 +724,11 @@
     padding: 0 10px 28px;
   }
 
-  .live-header,
   .live-topbar {
     gap: 8px;
     padding: 15px 0;
   }
 
-  .live-back-link,
   .live-back {
     gap: 5px;
     font-size: 12px;
@@ -753,7 +738,6 @@
     font-size: 18px;
   }
 
-  .live-header-status,
   .live-status {
     gap: 5px;
     padding: 7px 8px;
@@ -780,50 +764,35 @@
 
   .live-floating-comment {
     max-width: 98%;
-    font-size: 11px;
+    font-size: 12px;
   }
 
-  .live-comment-composer {
-    top: 7px;
-    left: 7px;
-    width: min(230px, calc(100% - 14px));
+  .live-details,
+  .live-details-chat,
+  .live-details-comments-only {
+    gap: 8px;
+    padding: 10px;
   }
 
   .live-comment-form {
-    gap: 5px;
-    padding: 7px;
-    border-radius: 11px;
+    gap: 6px;
+    padding: 8px;
   }
 
-  .live-comment-form input {
-    height: 31px;
-    font-size: 11px;
+  .live-comment-form > input,
+  .live-comment-input-row > input {
+    height: 35px;
+    font-size: 12px;
   }
 
   .live-comment-input-row button {
-    flex-basis: 31px;
-    width: 31px;
-    height: 31px;
+    flex-basis: 35px;
+    width: 35px;
+    height: 35px;
   }
 
   .live-comment-status {
     font-size: 9px;
-  }
-
-  .live-details {
-    gap: 10px;
-    padding: 13px;
-  }
-
-  .live-avatar {
-    flex-basis: 38px;
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-  }
-
-  .live-channel-info h2 {
-    font-size: 16px;
   }
 
   .live-explore-grid {
@@ -859,7 +828,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .live-floating-comment,
-  .video-skeleton-spinner {
+  .skeleton-progress div {
     animation: none;
   }
 
@@ -868,420 +837,3 @@
     transition: none;
   }
 }
-
-
-/* ========================================
-   FIX: COMMENTS INSIDE MODEL DETAILS CARD
-======================================== */
-
-/* Video ke upar comments aur input hide karo */
-.live-player > .live-comment-overlay,
-.live-player > .live-comment-composer {
-  display: none !important;
-}
-
-/* Details card ko vertical layout do */
-.live-player-card > .live-details {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-/* Comment input ko details card ke andar full-width row banao */
-.live-details > .live-comment-composer {
-  position: relative !important;
-  inset: auto !important;
-  order: 0;
-  flex: 0 0 100%;
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 0 4px !important;
-  line-height: normal;
-}
-
-/* Form card ke width ke andar rahe */
-.live-details .live-comment-form {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid rgba(177, 137, 255, 0.2);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.025);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-/* Status text par black shadow nahi */
-.live-details .live-comment-status {
-  margin: 7px 2px 0;
-  text-shadow: none;
-}
-
-/* Comments video par nahi, card ke andar dikhen */
-.live-details > .live-comment-overlay {
-  position: relative !important;
-  inset: auto !important;
-  order: 3;
-  flex: 0 0 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 8px;
-  width: 100%;
-  max-height: 180px;
-  padding: 10px 0 0;
-  overflow-y: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  pointer-events: auto;
-}
-
-/* Transparent-looking messages, within card */
-.live-details .live-floating-comment {
-  max-width: 100%;
-  padding: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: #fff;
-  font-size: 13px;
-  line-height: 1.45;
-  text-shadow: 0 1px 3px #000;
-}
-
-/* Keep comment names distinct */
-.live-details .live-comment-name {
-  color: #c9a8ff;
-  font-weight: 800;
-}
-
-/* Mobile spacing */
-@media (max-width: 600px) {
-  .live-player-card > .live-details {
-    gap: 10px;
-    padding: 13px;
-  }
-
-  .live-details > .live-comment-composer {
-    margin-bottom: 2px !important;
-  }
-
-  .live-details .live-comment-form {
-    padding: 8px;
-  }
-
-  .live-details .live-floating-comment {
-    font-size: 12px;
-  }
-}
-
-/* Comments-only details card: no model identity section */
-.live-details-comments-only {
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
-}
-
-.live-details-comments-only .live-comments-card {
-  position: relative;
-  flex: 1;
-  width: 100%;
-  min-width: 0;
-}
-
-.live-details-comments-only .live-comment-form {
-  position: static;
-  width: 100%;
-  padding: 8px;
-}
-
-.live-details-comments-only .live-card-comments {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin-top: 10px;
-  max-height: 180px;
-  overflow: hidden;
-}
-
-.live-details-comments-only .live-card-comment {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  color: #fff;
-  font-size: 12px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.live-details-comments-only .live-comment-status {
-  text-shadow: none;
-}
-
-.live-details-comments-only .live-open-twitch {
-  flex: 0 0 38px;
-}
-
-@media (max-width: 600px) {
-  .live-details-comments-only {
-    gap: 8px;
-    padding: 10px;
-  }
-
-  .live-details-comments-only .live-comment-form input {
-    font-size: 12px;
-  }
-}
-
-/* Video overlay comments and composer */
-.live-player {
-  position: relative !important;
-  isolation: isolate;
-  overflow: hidden !important;
-}
-
-.live-player .live-comments-card {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 12px;
-  overflow: hidden;
-  pointer-events: none;
-  background: transparent;
-}
-
-.live-player .live-comment-composer {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 12;
-  width: min(280px, calc(100% - 24px));
-  pointer-events: auto;
-}
-
-.live-player .live-comment-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 9px;
-  border: 1px solid rgba(207, 183, 255, 0.25);
-  border-radius: 13px;
-  background: rgba(13, 10, 21, 0.78);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.live-player .live-comment-form input {
-  width: 100%;
-  min-width: 0;
-  height: 36px;
-  padding: 0 10px;
-  border: 1px solid rgba(205, 183, 255, 0.18);
-  border-radius: 9px;
-  outline: none;
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-  font-size: 13px;
-}
-
-.live-player .live-comment-input-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.live-player .live-comment-input-row input {
-  flex: 1;
-}
-
-.live-player .live-comment-input-row button {
-  display: grid;
-  flex: 0 0 36px;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #a879ff, #7543e8);
-  color: white;
-}
-
-.live-player .live-comment-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 5px;
-  color: white;
-  font-size: 10px;
-  text-shadow: 0 1px 4px #000;
-}
-
-.live-player .live-card-comments {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 7px;
-  max-height: 55%;
-  overflow: hidden;
-}
-
-.live-player .live-card-comment {
-  max-width: 95%;
-  color: #fff;
-  font-size: 13px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  text-shadow:
-    0 1px 3px #000,
-    1px 1px 4px #000;
-  animation: onlystream-comment-in 0.22s ease-out both;
-}
-
-.live-player .live-comment-name {
-  margin-right: 6px;
-  color: #dfc7ff;
-  font-weight: 800;
-}
-
-.live-player .live-comment-message {
-  color: #fff;
-  font-weight: 600;
-}
-
-@media (max-width: 480px) {
-  .live-player .live-comment-composer {
-    top: 10px;
-    left: 10px;
-    width: min(250px, calc(100% - 20px));
-  }
-
-  .live-player .live-comment-form {
-    padding: 7px;
-  }
-
-  .live-player .live-comment-form input {
-    height: 33px;
-    font-size: 12px;
-  }
-
-  .live-player .live-comment-input-row button {
-    flex-basis: 33px;
-    width: 33px;
-    height: 33px;
-  }
-
-  .live-player .live-card-comment {
-    font-size: 12px;
-  }
-}
-
-/* Input remains over the video */
-.live-player {
-  position: relative !important;
-  isolation: isolate;
-}
-
-.live-player .onlystream-embed-wrap {
-  position: absolute !important;
-  inset: 0;
-  z-index: 1;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.live-player .onlystream-embed {
-  position: absolute !important;
-  inset: 0;
-  z-index: 1;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* Input card: top-left, clickable */
-.live-player .live-comments-card {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 12;
-  width: min(230px, calc(100% - 20px));
-  pointer-events: auto;
-}
-
-/* Floating comments: bottom of video, no background */
-.live-player .live-floating-comments {
-  position: absolute;
-  left: 12px;
-  bottom: 14px;
-  z-index: 9;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  width: calc(100% - 24px);
-  max-height: 55%;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.live-player .live-floating-comment {
-  display: block;
-  width: fit-content;
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  color: #fff;
-  font-size: clamp(12px, 1.7vw, 15px);
-  font-weight: 600;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-  text-shadow: 0 1px 3px #000, 1px 1px 4px #000;
-  animation: onlystream-float-in 0.25s ease-out both;
-}
-
-.live-player .live-comment-name {
-  color: #d9baff;
-  font-weight: 800;
-}
-
-.live-player .live-comment-message {
-  color: #fff;
-  font-weight: 600;
-}
-
-@keyframes onlystream-float-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (max-width: 600px) {
-  .live-player .live-comments-card {
-    top: 8px;
-    left: 8px;
-    width: min(220px, calc(100% - 16px));
-  }
-
-  .live-player .live-floating-comments {
-    left: 9px;
-    bottom: 10px;
-    width: calc(100% - 18px);
-    gap: 6px;
-    max-height: 52%;
-  }
-
-  .live-player .live-floating-comment {
-    font-size: 12px;
-  }
-}
-
