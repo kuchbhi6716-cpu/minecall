@@ -1,17 +1,22 @@
 
-/* =========================================
-   ONLYSTREAM — CLEAN LIVE PAGE DESIGN
-   ========================================= */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+/* ========================================
+   ONLYSTREAM — LIVE PAGE
+======================================== */
 
 .live-page {
   min-height: 100vh;
-  padding-bottom: 32px;
-  color: #f8f7fc;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  padding: 0 18px 40px;
+  color: #f7f4ff;
   background:
-    radial-gradient(ellipse at 50% 0%, #24133d 0%, transparent 48%),
-    #08080d;
-  box-sizing: border-box;
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(111, 57, 190, 0.18),
+      transparent 48%
+    ),
+    #09070e;
+  font-family: Inter, system-ui, sans-serif;
 }
 
 .live-page *,
@@ -20,742 +25,165 @@
   box-sizing: border-box;
 }
 
-/* =========================================
-   TOP NAVIGATION
-   ========================================= */
+.live-page button,
+.live-page input {
+  font: inherit;
+}
 
-.live-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+.live-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 66px;
-  padding: 12px 5%;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(9, 9, 13, 0.88);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 0;
 }
 
-.live-back,
-.live-brand,
-.live-status {
+.live-back-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-}
-
-.live-back {
-  flex-shrink: 0;
-  color: #d5d0e0;
-  font-size: 14px;
+  gap: 9px;
+  color: #f5efff;
   text-decoration: none;
-  transition: color 0.2s ease;
+  font-size: 15px;
+  font-weight: 750;
 }
 
-.live-back:hover {
-  color: #c4a5ff;
+.live-back-link:hover {
+  color: #c8a7ff;
 }
 
-.live-brand {
-  color: #fff;
-  font-size: clamp(18px, 3vw, 24px);
-  font-weight: 850;
-  letter-spacing: -1px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.live-brand span {
-  color: #b38aff;
-}
-
-.live-topbar > .live-status {
-  flex-shrink: 0;
-  color: #ff6683;
+.live-header-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 93, 125, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 61, 102, 0.08);
+  color: #ff718c;
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
 }
-
-.live-topbar > .live-status svg {
-  fill: rgba(255, 91, 120, 0.15);
-}
-
-/* =========================================
-   MAIN CONTENT
-   ========================================= */
 
 .live-content {
-  width: min(calc(100% - 32px), 900px);
+  width: 100%;
+  max-width: 1120px;
   margin: 0 auto;
 }
 
 .live-heading {
-  padding: 30px 0 20px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin: 18px 0 24px;
 }
 
 .live-eyebrow {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 7px;
-  color: #c4a5ff;
+  margin: 0 0 9px;
+  color: #b79aff;
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 1.6px;
+  letter-spacing: 1.5px;
 }
 
 .live-heading h1 {
-  margin: 12px 0 7px;
-  font-size: clamp(34px, 7vw, 52px);
-  line-height: 1.08;
-  letter-spacing: -2px;
+  margin: 0;
+  color: #fbf8ff;
+  font-size: clamp(27px, 4vw, 39px);
+  font-weight: 800;
+  letter-spacing: -1.2px;
 }
 
-.live-heading h1 span {
-  color: #b38aff;
-}
-
-.live-heading p {
-  margin: 8px 0 0;
-  color: #a7a0b8;
-  font-size: 14px;
+.live-subtitle {
+  margin: 9px 0 0;
+  color: #a69bb8;
+  font-size: 13px;
   line-height: 1.6;
 }
 
-/* =========================================
-   PREMIUM VIDEO CARD
-   ========================================= */
+.live-page-message {
+  padding: 35px 18px;
+  border: 1px solid rgba(192, 162, 255, 0.12);
+  border-radius: 16px;
+  background: #100d17;
+  color: #c8bed8;
+  text-align: center;
+}
+
+/* ========================================
+   PLAYER CARD — ZERO INNER GAP
+======================================== */
 
 .live-player-card {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0 !important;
   width: 100%;
-  max-width: 720px;
+  max-width: 760px;
   margin: 0 auto;
+  padding: 0 !important;
   overflow: hidden;
-  border: 1px solid rgba(177, 137, 255, 0.24);
-  border-radius: 22px;
-  background: linear-gradient(145deg, #171321, #0c0a12);
-  box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.38),
-    0 0 28px rgba(139, 92, 246, 0.08);
-  transition:
-    border-color 0.25s ease,
-    box-shadow 0.25s ease;
+  border: 1px solid rgba(177, 137, 255, 0.25);
+  border-radius: 20px;
+  background: #100d18;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.4);
 }
 
-.live-player-card:hover {
-  border-color: rgba(177, 137, 255, 0.4);
-  box-shadow:
-    0 22px 55px rgba(0, 0, 0, 0.42),
-    0 0 30px rgba(139, 92, 246, 0.12);
-}
-
-/* Video stage */
 .live-player {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  padding: 12px;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse at center, #21132d 0%, #08070c 75%);
-}
-
-/* =========================================
-   PROVIDER EMBED
-   Native dimensions: 350 × 210
-   ========================================= */
-
-.onlystream-embed-wrap {
-  position: relative;
-  flex: 0 1 350px;
-  width: 350px;
-  max-width: 100%;
-  height: 210px;
-  min-height: 0;
-  margin: 0 auto;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 13px;
-  background: #000;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.3);
-}
-
-.onlystream-embed {
-  position: relative;
-  width: 100%;
-  max-width: 100%;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  background: #000;
-}
-
-/*
-  Size the provider-created player to its container.
-  This does not crop or zoom the video inside a
-  cross-origin iframe.
-*/
-.onlystream-embed iframe,
-.onlystream-embed video,
-.onlystream-embed object,
-.onlystream-embed embed {
-  display: block;
-  width: 100%;
-  height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  border: 0;
-}
-
-/* =========================================
-   LOADING ANIMATION
-   ========================================= */
-
-.video-skeleton {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  overflow: hidden;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse at 50% 40%, #32144f 0%, transparent 65%),
-    #08070d;
-}
-
-.skeleton-glow {
-  position: absolute;
-  inset: -50%;
-  background: linear-gradient(
-    110deg,
-    transparent 40%,
-    rgba(168, 85, 247, 0.2) 50%,
-    transparent 60%
-  );
-  animation: onlystream-shimmer 2.2s ease-in-out infinite alternate;
-}
-
-.skeleton-content {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-}
-
-.skeleton-orb {
-  display: grid;
-  place-items: center;
-  width: 54px;
-  height: 54px;
-  padding-left: 3px;
-  border-radius: 50%;
-  color: white;
-  font-size: 21px;
-  background: linear-gradient(135deg, #a855f7, #6d28d9);
-  box-shadow: 0 0 35px rgba(168, 85, 247, 0.3);
-  animation: onlystream-pulse 1.5s ease-in-out infinite;
-}
-
-.skeleton-line {
-  width: 130px;
-  height: 4px;
-  overflow: hidden;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.skeleton-line::after {
-  content: "";
-  display: block;
-  width: 40%;
-  height: 100%;
-  border-radius: inherit;
-  background: #c084fc;
-  animation: onlystream-progress 1.5s ease-in-out infinite;
-}
-
-.skeleton-caption {
-  color: #d8c9e8;
-  font-size: 12px;
-  text-align: center;
-}
-
-.skeleton-progress {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.skeleton-progress div {
-  width: 35%;
-  height: 100%;
-  background: #a855f7;
-  animation: onlystream-progress 1.8s ease-in-out infinite;
-}
-
-@keyframes onlystream-shimmer {
-  from { transform: translateX(-15%); }
-  to { transform: translateX(15%); }
-}
-
-@keyframes onlystream-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.88; }
-  50% { transform: scale(1.06); opacity: 1; }
-}
-
-@keyframes onlystream-progress {
-  from { transform: translateX(-110%); }
-  to { transform: translateX(280%); }
-}
-
-/* =========================================
-   PLAYER ERROR
-   ========================================= */
-
-.player-error {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 18px;
-  color: #f5f0ff;
-  background: rgba(12, 10, 18, 0.97);
-  text-align: center;
-}
-
-.player-error p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.player-error button,
-.live-player-message button {
-  padding: 10px 16px;
-  border: 1px solid rgba(196, 181, 253, 0.25);
-  border-radius: 11px;
-  color: #fff;
-  background: linear-gradient(135deg, #7c3aed, #6d28d9);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: filter 0.2s ease, transform 0.2s ease;
-}
-
-.player-error button:hover,
-.live-player-message button:hover {
-  filter: brightness(1.12);
-  transform: translateY(-1px);
-}
-
-/* =========================================
-   MODEL INFORMATION
-   ========================================= */
-
-.live-details {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  min-width: 0;
-  padding: 17px 19px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  background: linear-gradient(
-    110deg,
-    rgba(139, 92, 246, 0.08),
-    rgba(13, 11, 19, 0.96) 70%
-  );
-}
-
-.live-avatar,
-.channel-avatar {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  border: 1px solid rgba(196, 181, 253, 0.2);
-  border-radius: 50%;
-  color: #fff;
-  font-weight: 800;
-  background: linear-gradient(135deg, #9d64ff, #4c3a9e);
-}
-
-.live-avatar {
-  width: 44px;
-  height: 44px;
-  font-size: 18px;
-}
-
-.live-channel-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.live-channel-info h2 {
-  margin: 0 0 5px;
-  color: #f7f3ff;
-  font-size: 19px;
-  font-weight: 750;
-  line-height: 1.35;
-  letter-spacing: -0.45px;
-  overflow-wrap: anywhere;
-}
-
-.live-channel-info p {
-  margin: 0 0 7px;
-  color: #b7a6e6;
-  font-size: 12px;
-}
-
-.live-note {
-  color: #aaa2ba;
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.live-open-twitch {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid rgba(196, 181, 253, 0.2);
-  border-radius: 12px;
-  color: #d7c5ff;
-  background: rgba(139, 92, 246, 0.08);
-  text-decoration: none;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.live-open-twitch:hover {
-  transform: translateY(-2px);
-  background: rgba(139, 92, 246, 0.2);
-}
-
-/* =========================================
-   EXPLORE MORE
-   ========================================= */
-
-.more-live {
-  margin: 28px auto 0;
-  padding: 22px;
-  border: 1px solid rgba(167, 139, 250, 0.17);
-  border-radius: 18px;
-  background: linear-gradient(135deg, #15111f, #0d0b12);
-}
-
-.more-live h3 {
-  margin: 0;
-  color: #f5f0ff;
-  font-size: 21px;
-  font-weight: 750;
-  letter-spacing: -0.4px;
-}
-
-.more-live > p {
-  margin: 8px 0 14px;
-  color: #a7a0b8;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.more-live > a {
-  color: #c4a5ff;
-  font-size: 14px;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.more-live > a:hover {
-  color: #e9ddff;
-}
-
-/* Optional channel list */
-.channel-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 17px;
-}
-
-.channel-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  color: white;
-  background: rgba(255, 255, 255, 0.025);
-  text-decoration: none;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.channel-item:hover,
-.channel-item.selected {
-  border-color: rgba(167, 130, 255, 0.4);
-  background: rgba(155, 115, 255, 0.08);
-}
-
-.channel-avatar {
-  width: 42px;
-  height: 42px;
-}
-
-.channel-text {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-  gap: 4px;
-}
-
-.channel-text strong {
-  font-size: 13px;
-}
-
-.channel-text small {
-  color: #9c96ac;
-  font-size: 11px;
-}
-
-.channel-watch {
-  color: #c5aaff;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-/* =========================================
-   LOADING / MODEL ERROR MESSAGE
-   ========================================= */
-
-.live-player-message {
-  margin: 20px auto;
-  padding: 24px 18px;
-  border: 1px solid rgba(167, 139, 250, 0.2);
-  border-radius: 16px;
-  color: #e8e1f5;
-  background: #111019;
-  font-size: 14px;
-  line-height: 1.7;
-  text-align: center;
-}
-
-.live-player-message p {
-  margin: 0 0 12px;
-}
-
-.live-player-message a {
-  color: #c4a5ff;
-  text-decoration: none;
-}
-
-/* =========================================
-   FOOTER
-   ========================================= */
-
-.live-footer {
-  padding: 26px 10px 0;
-  color: #716c7e;
-  font-size: 11px;
-  line-height: 1.6;
-  text-align: center;
-}
-
-/* =========================================
-   TABLET / DESKTOP
-   ========================================= */
-
-@media (min-width: 700px) {
-  .live-content {
-    width: min(calc(100% - 48px), 900px);
-  }
-
-  .live-heading {
-    padding-top: 38px;
-  }
-}
-
-/* =========================================
-   MOBILE
-   ========================================= */
-
-@media (max-width: 480px) {
-  .live-topbar {
-    min-height: 54px;
-    padding: 10px 12px;
-    gap: 8px;
-  }
-
-  .live-back {
-    gap: 5px;
-    font-size: 12px;
-  }
-
-  .live-brand {
-    font-size: 19px;
-    letter-spacing: -0.8px;
-  }
-
-  .live-topbar > .live-status {
-    gap: 5px;
-    font-size: 10px;
-  }
-
-  .live-content {
-    width: calc(100% - 22px);
-  }
-
-  .live-heading {
-    padding: 24px 0 16px;
-  }
-
-  .live-heading h1 {
-    font-size: 36px;
-    letter-spacing: -1.5px;
-  }
-
-  .live-player-card {
-    border-radius: 17px;
-  }
-
-  .live-player {
-    padding: 8px;
-  }
-
-  .onlystream-embed-wrap {
-    border-radius: 10px;
-  }
-
-  .live-details {
-    gap: 10px;
-    padding: 13px;
-  }
-
-  .live-avatar {
-    width: 39px;
-    height: 39px;
-    font-size: 16px;
-  }
-
-  .live-channel-info h2 {
-    font-size: 16px;
-  }
-
-  .live-open-twitch {
-    width: 36px;
-    height: 36px;
-  }
-
-  .more-live {
-    margin-top: 22px;
-    padding: 18px;
-    border-radius: 15px;
-  }
-
-  .more-live h3 {
-    font-size: 19px;
-  }
-
-  .live-footer {
-    padding-top: 22px;
-  }
-}
-
-@media (max-width: 340px) {
-  .live-back span {
-    display: none;
-  }
-
-  .live-brand {
-    font-size: 17px;
-  }
-
-  .live-topbar > .live-status {
-    font-size: 9px;
-  }
-}
-
-/* Respect reduced-motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  .live-page *,
-  .live-page *::before,
-  .live-page *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-
-/* ONLYSTREAM — EDGE-TO-EDGE PLAYER CARD FIX */
-
-/* Card ke andar player aur details ke beech zero gap */
-.live-player-card {
-  overflow: hidden !important;
-  padding: 0 !important;
-  gap: 0 !important;
-}
-
-/* Player ko card ke poore width tak stretch karo */
-.live-player-card .live-player {
+  isolation: isolate;
   display: block !important;
   width: 100% !important;
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  line-height: 0;
   aspect-ratio: 5 / 3;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
   overflow: hidden !important;
-  border-radius: 0 !important;
-  box-sizing: border-box !important;
+  background: #000;
+  line-height: 0;
 }
 
-/* Embed wrapper — no inner margin or gap */
-.live-player-card .onlystream-embed-wrap,
-.live-player-card .onlystream-embed {
-  display: block !important;
+/* Provider embed occupies the video area */
+
+.live-player .onlystream-embed-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
   width: 100% !important;
   height: 100% !important;
   min-height: 0 !important;
   max-height: none !important;
   margin: 0 !important;
   padding: 0 !important;
+  overflow: hidden !important;
   border: 0 !important;
   border-radius: 0 !important;
-  box-sizing: border-box !important;
+  background: #000 !important;
+}
+
+.live-player .onlystream-embed {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
   overflow: hidden !important;
   background: #000 !important;
 }
 
-/* Provider ka player poora area fill kare */
-.live-player-card .onlystream-embed iframe,
-.live-player-card .onlystream-embed video,
-.live-player-card .onlystream-embed object,
-.live-player-card .onlystream-embed embed {
-  display: block !important;
+.live-player .onlystream-embed iframe,
+.live-player .onlystream-embed video,
+.live-player .onlystream-embed object,
+.live-player .onlystream-embed embed {
+  display: block;
   width: 100% !important;
   height: 100% !important;
   min-height: 0 !important;
@@ -766,21 +194,475 @@
   border: 0 !important;
 }
 
-/* Model details directly below the video */
-.live-player-card .live-details {
-  margin: 0 !important;
-  gap: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+/* Loading state */
+
+.live-player .video-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #08060c;
+  color: #b8a9d2;
+  font-size: 12px;
+  line-height: normal;
+  pointer-events: none;
 }
 
-/* Mobile */
-@media (max-width: 768px) {
-  .live-player-card .live-player {
+.video-skeleton-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(185, 146, 255, 0.2);
+  border-top-color: #b18aff;
+  border-radius: 50%;
+  animation: onlystream-spin 0.8s linear infinite;
+}
+
+@keyframes onlystream-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.live-player .player-error {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(8, 6, 12, 0.96);
+  color: #f5efff;
+  font-size: 13px;
+  line-height: normal;
+  text-align: center;
+}
+
+.player-error button {
+  padding: 9px 15px;
+  border: 0;
+  border-radius: 10px;
+  background: #8c5cf6;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ========================================
+   FLOATING LIVE COMMENTS
+======================================== */
+
+.live-comment-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 12px 18px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Transparent text floating above video */
+
+.live-floating-comment {
+  display: block;
+  max-width: 94%;
+  padding: 0;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(11px, 1.6vw, 14px);
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 1),
+    1px 1px 3px rgba(0, 0, 0, 0.95),
+    -1px -1px 3px rgba(0, 0, 0, 0.85);
+  animation: onlystream-comment-in 0.22s ease-out both;
+}
+
+.live-comment-name {
+  margin-right: 6px;
+  color: #d9baff;
+  font-weight: 800;
+}
+
+.live-comment-message {
+  color: #fff;
+  font-weight: 600;
+}
+
+@keyframes onlystream-comment-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   COMMENT INPUT
+======================================== */
+
+.live-comment-composer {
+  position: absolute;
+  z-index: 10;
+  top: 10px;
+  left: 10px;
+  width: min(280px, calc(100% - 20px));
+  line-height: normal;
+}
+
+.live-comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 9px;
+  border: 1px solid rgba(207, 183, 255, 0.22);
+  border-radius: 13px;
+  background: rgba(13, 10, 21, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.live-comment-form input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(205, 183, 255, 0.12);
+  border-radius: 8px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.045);
+  color: #fff;
+  font-size: 12px;
+  line-height: normal;
+}
+
+.live-comment-form input::placeholder {
+  color: #a79ab9;
+}
+
+.live-comment-form input:focus {
+  border-color: rgba(180, 139, 255, 0.7);
+}
+
+.live-comment-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-comment-input-row input {
+  flex: 1;
+}
+
+.live-comment-input-row button {
+  display: grid;
+  flex: 0 0 34px;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #a879ff, #7543e8);
+  color: #fff;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.live-comment-input-row button:hover {
+  transform: translateY(-1px);
+}
+
+.live-comment-input-row button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.live-comment-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 22px;
+  margin: 5px 3px 0;
+  color: #d4c7e8;
+  font-size: 10px;
+  text-shadow: 0 1px 3px #000;
+}
+
+.live-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #f0b24b;
+}
+
+.live-status-dot.is-online {
+  background: #4ce5a3;
+  box-shadow: 0 0 9px rgba(76, 229, 163, 0.6);
+}
+
+.live-comment-notice {
+  color: #ffd29c;
+}
+
+/* ========================================
+   CHANNEL DETAILS
+======================================== */
+
+.live-details {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 16px 18px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: linear-gradient(110deg, #191225, #100d18);
+  line-height: normal;
+}
+
+.live-avatar {
+  display: grid;
+  flex: 0 0 43px;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  border: 1px solid rgba(196, 181, 253, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #9d64ff, #4c3a9e);
+  color: #fff;
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.live-channel-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.live-channel-info h2 {
+  margin: 0 0 5px;
+  color: #f7f3ff;
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.live-channel-info p {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 5px;
+  color: #b7a6e6;
+  font-size: 12px;
+}
+
+.live-note {
+  color: #aaa2ba;
+  font-size: 11px;
+}
+
+.live-open-twitch {
+  display: grid;
+  flex: 0 0 38px;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(196, 181, 253, 0.2);
+  border-radius: 12px;
+  color: #d7c5ff;
+  background: rgba(139, 92, 246, 0.1);
+  text-decoration: none;
+}
+
+/* ========================================
+   EXPLORE MORE
+======================================== */
+
+.live-explore {
+  max-width: 760px;
+  margin: 36px auto 0;
+}
+
+.live-explore > h2 {
+  margin: 0 0 16px;
+  color: #f7f3ff;
+  font-size: 19px;
+  font-weight: 750;
+}
+
+.live-explore-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.live-explore-card {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(190, 160, 255, 0.15);
+  border-radius: 13px;
+  background: #120e1b;
+  color: #f5efff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.live-explore-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(180, 139, 255, 0.6);
+}
+
+.live-explore-card img,
+.live-explore-placeholder {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  place-items: center;
+  background: #1b1428;
+  color: #b79aff;
+}
+
+.live-explore-card > span {
+  display: block;
+  padding: 10px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-footer {
+  padding: 35px 0 5px;
+  color: #756a86;
+  font-size: 11px;
+  text-align: center;
+}
+
+/* ========================================
+   MOBILE
+======================================== */
+
+@media (max-width: 600px) {
+  .live-page {
+    padding: 0 10px 28px;
+  }
+
+  .live-header {
+    padding: 15px 0;
+  }
+
+  .live-heading {
+    margin: 14px 0 19px;
+  }
+
+  .live-player-card {
+    border-radius: 15px;
+  }
+
+  .live-player {
     aspect-ratio: 5 / 3;
   }
 
-  .live-player-card .live-details {
-    margin: 0 !important;
+  .live-comment-overlay {
+    gap: 6px;
+    padding: 12px 9px 12px;
+  }
+
+  .live-floating-comment {
+    max-width: 98%;
+    font-size: 11px;
+  }
+
+  .live-comment-composer {
+    top: 7px;
+    left: 7px;
+    width: min(230px, calc(100% - 14px));
+  }
+
+  .live-comment-form {
+    gap: 5px;
+    padding: 7px;
+    border-radius: 11px;
+  }
+
+  .live-comment-form input {
+    height: 31px;
+    font-size: 11px;
+  }
+
+  .live-comment-input-row button {
+    flex-basis: 31px;
+    width: 31px;
+    height: 31px;
+  }
+
+  .live-comment-status {
+    font-size: 9px;
+  }
+
+  .live-details {
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .live-avatar {
+    flex-basis: 38px;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .live-channel-info h2 {
+    font-size: 16px;
+  }
+
+  .live-explore-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .live-floating-comment,
+  .video-skeleton-spinner {
+    animation: none;
+  }
+
+  .live-explore-card,
+  .live-comment-input-row button {
+    transition: none;
+  }
+}
