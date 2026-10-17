@@ -1,5 +1,4 @@
 
-
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -7,7 +6,13 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_ORIGIN || true,
+  },
+  maxHttpBufferSize: 1e6,
+});
 
 const PORT = process.env.PORT || 3000;
 const distPath = path.join(__dirname, "dist");
@@ -20,10 +25,7 @@ app.use(express.static(distPath));
 // ------------------------------------
 
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    app: "OnlyStream",
-  });
+  res.json({ status: "ok", app: "OnlyStream" });
 });
 
 // ------------------------------------
@@ -43,9 +45,7 @@ function redactUrl(rawUrl) {
     const url = new URL(rawUrl);
 
     for (const key of [...url.searchParams.keys()]) {
-      if (
-        /key|token|secret|auth|password|signature|psid/i.test(key)
-      ) {
+      if (/key|token|secret|auth|password|signature|psid/i.test(key)) {
         url.searchParams.set(key, "[REDACTED]");
       }
     }
@@ -92,14 +92,7 @@ async function fetchJson(url) {
   console.log("[AW Provider] Content-Type:", contentType);
 
   if (!response.ok) {
-    console.error(
-      "[AW Provider] Request failed with HTTP",
-      response.status
-    );
-
-    throw new Error(
-      `Provider returned HTTP ${response.status}`
-    );
+    throw new Error(`Provider returned HTTP ${response.status}`);
   }
 
   if (!contentType.toLowerCase().includes("json")) {
@@ -116,7 +109,6 @@ async function fetchJson(url) {
     throw new Error("Provider returned invalid JSON");
   }
 
-  // Log only safe metadata, not the full provider response.
   if (data && typeof data === "object") {
     const details = data.data ?? data;
 
@@ -248,10 +240,7 @@ app.get("/api/aw-models", async (req, res) => {
     res.set("Cache-Control", "public, max-age=30");
     return res.json(data);
   } catch (error) {
-    console.error(
-      "A.W. Empire models error:",
-      error.message
-    );
+    console.error("A.W. Empire models error:", error.message);
 
     return res.status(error.status || 502).json({
       error: "Could not load A.W. Empire models",
@@ -271,15 +260,11 @@ app.get("/api/aw-videos", async (req, res) => {
     res.set("Cache-Control", "private, no-store");
     return res.json(data);
   } catch (error) {
-    console.error(
-      "A.W. Empire videos error:",
-      error.message
-    );
+    console.error("A.W. Empire videos error:", error.message);
 
     return res.status(error.status || 502).json({
       error:
-        error.message ===
-        "Recorded video API is not configured"
+        error.message === "Recorded video API is not configured"
           ? error.message
           : "Could not load recorded videos",
       details: error.message,
@@ -289,7 +274,6 @@ app.get("/api/aw-videos", async (req, res) => {
 
 // ------------------------------------
 // A.W. EMPIRE: RECORDED VIDEO DETAILS API
-// GET /api/aw-video-details?video=VIDEO_ID
 // ------------------------------------
 
 app.get("/api/aw-video-details", async (req, res) => {
@@ -302,10 +286,7 @@ app.get("/api/aw-video-details", async (req, res) => {
   }
 
   try {
-    // Load the visitor-specific video feed.
     const videoList = await getVideoList(req);
-
-    // Find the requested video's details URL.
     const video = findVideoById(videoList, videoId);
 
     if (!video) {
@@ -314,15 +295,12 @@ app.get("/api/aw-video-details", async (req, res) => {
       });
     }
 
-    // Validate the details endpoint.
     const detailsUrl = parseProviderUrl(
       video.detailsUrl,
       "atwmcd.com"
     );
 
     const details = await fetchJson(detailsUrl);
-
-    // Provider may wrap its response in a data object.
     const videoDetails = details?.data ?? details;
 
     if (
@@ -335,25 +313,15 @@ app.get("/api/aw-video-details", async (req, res) => {
       });
     }
 
-    // Inspect field names without logging credentials or full URLs.
     const detailFields = Object.keys(videoDetails);
 
     const embedFields = detailFields.filter((key) =>
       /embed|player|script|video.?url|stream/i.test(key)
     );
 
-    console.log(
-      "[AW Video Details] Available fields:",
-      detailFields
-    );
+    console.log("[AW Video Details] Available fields:", detailFields);
+    console.log("[AW Video Details] Embed-related fields:", embedFields);
 
-    console.log(
-      "[AW Video Details] Embed-related fields:",
-      embedFields
-    );
-
-    // Preserve the full provider data for the frontend to inspect.
-    // This diagnostic endpoint does not assume that a URL is a script.
     res.set("Cache-Control", "private, no-store");
 
     return res.json({
@@ -366,10 +334,7 @@ app.get("/api/aw-video-details", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(
-      "A.W. Empire video details error:",
-      error.message
-    );
+    console.error("A.W. Empire video details error:", error.message);
 
     return res.status(error.status || 502).json({
       error: "Could not load video details",
@@ -379,16 +344,7 @@ app.get("/api/aw-video-details", async (req, res) => {
 });
 
 // ------------------------------------
-// REACT CLIENT-SIDE FALLBACK
-// Keep AFTER all API routes.
-// ------------------------------------
-
-app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(distPath, "index.html"));
-});
-
-// ------------------------------------
-// RANDOM VIDEO CHAT: SOCKET.IO
+// RANDOM VIDEO CHAT
 // ------------------------------------
 
 const waiting = [];
@@ -419,11 +375,134 @@ function stopSearching(socket) {
 }
 
 // ------------------------------------
+// LIVE COMMENT HELPERS
+// ------------------------------------
+
+const liveRoomPrefix = "live:";
+const commentRateLimits = new Map();
+
+function normalizeRoomName(value) {
+  if (typeof value !== "string") return "";
+
+  const name = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 80);
+
+  return name;
+}
+
+function getLiveRoom(model) {
+  return liveRoomPrefix + model;
+}
+
+function canPostComment(socket) {
+  const now = Date.now();
+  const previous = commentRateLimits.get(socket.id) || [];
+
+  // Allow at most 5 comments in any rolling 10-second window.
+  const recent = previous.filter(
+    (timestamp) => now - timestamp < 10000
+  );
+
+  if (recent.length >= 5) {
+    commentRateLimits.set(socket.id, recent);
+    return false;
+  }
+
+  recent.push(now);
+  commentRateLimits.set(socket.id, recent);
+
+  return true;
+}
+
+// ------------------------------------
 // SOCKET CONNECTION
 // ------------------------------------
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
+
+  // ----------------------------------
+  // LIVE COMMENTS: JOIN A MODEL ROOM
+  // Client sends the model's username.
+  // ----------------------------------
+
+  socket.on("live-join", (rawModel) => {
+    const model = normalizeRoomName(rawModel);
+
+    if (!model) {
+      socket.emit("live-error", "Invalid stream name.");
+      return;
+    }
+
+    // Leave the previous stream room when switching models.
+    for (const room of socket.rooms) {
+      if (room.startsWith(liveRoomPrefix)) {
+        socket.leave(room);
+      }
+    }
+
+    socket.data.liveModel = model;
+    socket.join(getLiveRoom(model));
+
+    socket.emit("live-joined", { model });
+
+    console.log(
+      "Live comment room joined:",
+      socket.id,
+      model
+    );
+  });
+
+  // ----------------------------------
+  // LIVE COMMENTS: BROADCAST
+  // ----------------------------------
+
+  socket.on("live-comment", (payload) => {
+    const model = socket.data.liveModel;
+
+    if (!model || !payload || typeof payload !== "object") {
+      return;
+    }
+
+    if (!canPostComment(socket)) {
+      socket.emit(
+        "live-error",
+        "Slow down a little before posting another comment."
+      );
+      return;
+    }
+
+    const name =
+      typeof payload.name === "string"
+        ? payload.name.trim().replace(/\s+/g, " ").slice(0, 24)
+        : "";
+
+    const message =
+      typeof payload.message === "string"
+        ? payload.message.trim().replace(/\s+/g, " ").slice(0, 180)
+        : "";
+
+    if (!name || !message) return;
+
+    const comment = {
+      id: `${socket.id}-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`,
+      name,
+      message,
+      createdAt: Date.now(),
+    };
+
+    // Broadcast to every viewer in this model's room, including sender.
+    io.to(getLiveRoom(model)).emit("live-comment", comment);
+  });
+
+  // ----------------------------------
+  // RANDOM VIDEO CHAT: MATCHING
+  // ----------------------------------
 
   socket.on("find-stranger", () => {
     stopSearching(socket);
@@ -468,10 +547,7 @@ io.on("connection", (socket) => {
   socket.on("typing", (isTyping) => {
     const partnerId = partners.get(socket.id);
 
-    if (
-      !partnerId ||
-      typeof isTyping !== "boolean"
-    ) {
+    if (!partnerId || typeof isTyping !== "boolean") {
       return;
     }
 
@@ -510,12 +586,26 @@ io.on("connection", (socket) => {
     io.to(partnerId).emit("signal", data);
   });
 
+  // ----------------------------------
+  // DISCONNECT
+  // ----------------------------------
+
   socket.on("disconnect", () => {
     removeFromQueue(socket.id);
     disconnectPartner(socket.id);
+    commentRateLimits.delete(socket.id);
 
     console.log("User disconnected:", socket.id);
   });
+});
+
+// ------------------------------------
+// REACT CLIENT-SIDE FALLBACK
+// Keep AFTER all API routes.
+// ------------------------------------
+
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
 });
 
 // ------------------------------------
