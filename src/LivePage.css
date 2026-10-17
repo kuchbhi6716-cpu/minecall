@@ -1179,5 +1179,109 @@
   }
 }
 
+/* Input remains over the video */
+.live-player {
+  position: relative !important;
+  isolation: isolate;
+}
 
+.live-player .onlystream-embed-wrap {
+  position: absolute !important;
+  inset: 0;
+  z-index: 1;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.live-player .onlystream-embed {
+  position: absolute !important;
+  inset: 0;
+  z-index: 1;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Input card: top-left, clickable */
+.live-player .live-comments-card {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 12;
+  width: min(230px, calc(100% - 20px));
+  pointer-events: auto;
+}
+
+/* Floating comments: bottom of video, no background */
+.live-player .live-floating-comments {
+  position: absolute;
+  left: 12px;
+  bottom: 14px;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: calc(100% - 24px);
+  max-height: 55%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.live-player .live-floating-comment {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: #fff;
+  font-size: clamp(12px, 1.7vw, 15px);
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 3px #000, 1px 1px 4px #000;
+  animation: onlystream-float-in 0.25s ease-out both;
+}
+
+.live-player .live-comment-name {
+  color: #d9baff;
+  font-weight: 800;
+}
+
+.live-player .live-comment-message {
+  color: #fff;
+  font-weight: 600;
+}
+
+@keyframes onlystream-float-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .live-player .live-comments-card {
+    top: 8px;
+    left: 8px;
+    width: min(220px, calc(100% - 16px));
+  }
+
+  .live-player .live-floating-comments {
+    left: 9px;
+    bottom: 10px;
+    width: calc(100% - 18px);
+    gap: 6px;
+    max-height: 52%;
+  }
+
+  .live-player .live-floating-comment {
+    font-size: 12px;
+  }
+}
 
