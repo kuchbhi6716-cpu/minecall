@@ -1,190 +1,300 @@
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 import {
   ArrowLeft,
   ExternalLink,
   Radio,
-  Send,
   Tv,
   Eye,
+  Send,
 } from "lucide-react";
 import "./LivePage.css";
 
-const API_BASE = "";
-const EMBED_SCRIPT = "https://edwmcr.com/embed/lf";
+const API_URL = "/api/aw-models";
+const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
 const COMMENT_DURATION = 6000;
 const MAX_VISIBLE_COMMENTS = 12;
 
-function getUsername(model) {
-  if (!model || typeof model !== "object") return "";
+// ------------------------------------
+// CONNECTION WARM-UP
+// ------------------------------------
 
-  const value =
-    model.username ??
-    model.userName ??
-    model.performer ??
-    model.name ??
-    model.slug ??
-    model.model;
+function warmUpProvider() {
+  ["https://atwmcd.com", "https://edwmcr.com"].forEach((url) => {
+    if (
+      document.querySelector(
+        `link[rel="preconnect"][href="${url}"]`
+      )
+    ) {
+      return;
+    }
 
-  return typeof value === "string" ? value.trim() : "";
+    const link = document.createElement("link");
+    link.rel = "preconnect";
+    link.href = url;
+    link.crossOrigin = "anonymous";
+    document.head.appendChild(link);
+  });
 }
 
-function getThumbnail(model) {
-  if (!model || typeof model !== "object") return "";
+// ------------------------------------
+// MODEL HELPERS
+// ------------------------------------
+
+function getUsername(item) {
+  return String(
+    item?.username ||
+      item?.nickname ||
+      item?.performerId ||
+      item?.performer_id ||
+      item?.id ||
+      item?.name ||
+      ""
+  ).trim();
+}
+
+function getThumbnail(item) {
+  const images = [
+    item?.profilePictureUrl?.size800x600,
+    item?.profilePictureUrl?.size320x180,
+    item?.thumbnail,
+    item?.thumb,
+    item?.thumb_big,
+    item?.profile_thumb_sfw,
+    item?.profile_thumb,
+    item?.image,
+    item?.imageUrl,
+    item?.image_url,
+  ];
 
   return (
-    model.thumbnail ??
-    model.image ??
-    model.preview ??
-    model.avatar ??
-    model.profileImage ??
-    ""
+    images.find(
+      (image) => typeof image === "string" && image.trim()
+    ) || ""
   );
 }
 
-function extractModels(data) {
-  if (Array.isArray(data)) return data;
+function extractModels(response) {
+  if (Array.isArray(response)) return response;
+  if (!response || typeof response !== "object") return [];
 
-  if (!data || typeof data !== "object") return [];
+  const candidates = [
+    response.data?.models,
+    response.models,
+    response.data?.performers,
+    response.performers,
+    response.data?.results,
+    response.results,
+    response.data?.items,
+    response.items,
+    response.data,
+  ];
 
-  for (const key of [
-    "models",
-    "performers",
-    "data",
-    "results",
-    "items",
-  ]) {
-    if (Array.isArray(data[key])) return data[key];
-  }
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
 
-  if (data.data && typeof data.data === "object") {
-    return extractModels(data.data);
+    if (candidate && typeof candidate === "object") {
+      for (const key of ["models", "performers", "results", "items"]) {
+        if (Array.isArray(candidate[key])) return candidate[key];
+      }
+    }
   }
 
   return [];
 }
 
-function normalizeModel(model) {
-  const username = getUsername(model);
+function normalizeModel(item) {
+  const age = Number(item?.persons?.[0]?.age ?? item?.age ?? 0);
 
   return {
-    ...model,
-    username,
-    displayName:
-      model.displayName ??
-      model.title ??
-      username,
-    thumbnail: getThumbnail(model),
+    username: getUsername(item),
+    name:
+      item?.displayName ||
+      item?.nickname ||
+      item?.username ||
+      item?.performerId ||
+      item?.name ||
+      "Live Model",
+    age: Number.isFinite(age) ? age : 0,
+    thumbnail: getThumbnail(item),
+    viewers:
+      Number(
+        item?.viewers ??
+          item?.viewerCount ??
+          item?.viewer_count ??
+          item?.numViewers ??
+          0
+      ) || 0,
+    profileUrl: item?.chatRoomUrl || item?.profileUrl || "",
   };
 }
 
 // ------------------------------------
-// PROVIDER PLAYER
+// LIVE MODEL PLAYER — ORIGINAL CONFIG
 // ------------------------------------
 
 function AWLivePlayer({ username }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const containerRef = useRef(null);
+  const [retry, setRetry] = useState(0);
+  const [playerError, setPlayerError] = useState("");
+  const [playerReady, setPlayerReady] = useState(false);
 
-  const loadPlayer = useCallback(() => {
-    if (!username || !containerRef.current) return;
+  useEffect(() => {
+    warmUpProvider();
 
-    setLoading(true);
-    setError("");
+    const container = document.getElementById("object_container");
 
-    const container = containerRef.current;
+    if (!container || !username) {
+      setPlayerError("No model selected.");
+      return undefined;
+    }
+
+    let cancelled = false;
+    let timeoutId;
+    let observer;
+
     container.replaceChildren();
+    setPlayerError("");
+    setPlayerReady(false);
 
-    const script = document.createElement("script");
     const params = new URLSearchParams();
 
-    params.set("performer", username);
-    params.append("forcedPerformers[]", username);
+    params.set("c", "object_container");
+    params.set("site", "jasmin");
+    params.set("cobrandId", "");
+    params.set("psid", "kuchbhi6677");
+    params.set("pstool", "202_1");
+    params.set("psprogram", "revs");
+    params.set("campaign_id", "");
+    params.set("category", "girl");
 
-    script.src = `${EMBED_SCRIPT}?${params.toString()}`;
+    params.set("vp[showChat]", "");
+    params.set("vp[chatAutoHide]", "");
+    params.set("vp[showCallToAction]", "");
+    params.set("vp[showPerformerName]", "true");
+    params.set("vp[showPerformerStatus]", "true");
+
+    params.set("ms_notrack", "1");
+    params.set("subAffId", "");
+
+    params.set("forcedPerformers[]", username);
+
+    const script = document.createElement("script");
     script.async = true;
+    script.src = `${PLAYER_SCRIPT}?${params.toString()}`;
+
+    function cleanup() {
+      window.clearTimeout(timeoutId);
+
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
+    }
+
+    function checkPlayer() {
+      if (cancelled) return false;
+
+      const player = container.querySelector(
+        "iframe, video, object, embed"
+      );
+
+      if (!player) return false;
+
+      setPlayerReady(true);
+      setPlayerError("");
+      cleanup();
+      return true;
+    }
+
+    script.onload = () => {
+      if (cancelled) return;
+
+      observer = new MutationObserver(checkPlayer);
+
+      observer.observe(container, {
+        childList: true,
+        subtree: true,
+      });
+
+      if (checkPlayer()) return;
+
+      timeoutId = window.setTimeout(() => {
+        if (!cancelled && !checkPlayer()) {
+          setPlayerError(
+            "Player load nahi hua. Provider embed settings check karo."
+          );
+        }
+      }, 20000);
+    };
+
     script.onerror = () => {
-      setLoading(false);
-      setError("The live player could not be loaded.");
+      if (!cancelled) {
+        setPlayerError(
+          "Player script load nahi hua. Retry karke dekho."
+        );
+      }
     };
 
     container.appendChild(script);
 
-    const timer = window.setTimeout(() => {
-      if (!containerRef.current) return;
-
-      const player = container.querySelector(
-        "iframe, video, object, embed"
-      );
-
-      if (player) {
-        setLoading(false);
-      }
-    }, 1200);
-
-    const observer = new MutationObserver(() => {
-      const player = container.querySelector(
-        "iframe, video, object, embed"
-      );
-
-      if (player) {
-        setLoading(false);
-        setError("");
-      }
-    });
-
-    observer.observe(container, {
-      childList: true,
-      subtree: true,
-    });
-
     return () => {
-      window.clearTimeout(timer);
-      observer.disconnect();
+      cancelled = true;
+      cleanup();
+      container.replaceChildren();
     };
-  }, [username]);
-
-  useEffect(() => {
-    const cleanup = loadPlayer();
-
-    return () => {
-      if (typeof cleanup === "function") cleanup();
-    };
-  }, [loadPlayer]);
+  }, [username, retry]);
 
   return (
     <div className="onlystream-embed-wrap">
-      {loading && (
-        <div className="video-skeleton">
-          <div className="video-skeleton-spinner" />
-          <p>Connecting to live stream…</p>
+      <div
+        id="object_container"
+        className="onlystream-embed"
+        style={{
+          width: "350px",
+          height: "210px",
+          maxWidth: "100%",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      />
+
+      {!playerReady && !playerError && (
+        <div className="video-skeleton" aria-live="polite">
+          <div className="skeleton-glow" />
+
+          <div className="skeleton-content">
+            <div className="skeleton-orb">▶</div>
+            <div className="skeleton-line" />
+            <div className="skeleton-caption">
+              Connecting to live stream...
+            </div>
+          </div>
+
+          <div className="skeleton-progress">
+            <div />
+          </div>
         </div>
       )}
 
-      {error && (
+      {playerError && (
         <div className="player-error">
-          <p>{error}</p>
+          <p>{playerError}</p>
+
           <button
             type="button"
-            onClick={() => loadPlayer()}
+            onClick={() => setRetry((value) => value + 1)}
           >
-            Retry
+            Retry player
           </button>
         </div>
       )}
-
-      <div
-        ref={containerRef}
-        className="onlystream-embed"
-      />
     </div>
   );
 }
 
 // ------------------------------------
-// LIVE COMMENTS
+// REAL-TIME VIEWER COMMENTS
 // ------------------------------------
 
 function LiveComments({ username }) {
@@ -198,59 +308,81 @@ function LiveComments({ username }) {
 
   const [message, setMessage] = useState("");
   const [comments, setComments] = useState([]);
-  const [connectionState, setConnectionState] = useState("connecting");
+  const [chatStatus, setChatStatus] = useState("Connecting...");
   const [notice, setNotice] = useState("");
 
   const socketRef = useRef(null);
-  const timerRefs = useRef(new Map());
+  const timersRef = useRef(new Map());
   const commentsRef = useRef([]);
+  const noticeTimerRef = useRef(null);
+
+  const showNotice = useCallback((text) => {
+    setNotice(text);
+    window.clearTimeout(noticeTimerRef.current);
+
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice("");
+    }, 3000);
+  }, []);
 
   const removeComment = useCallback((id) => {
-    const timer = timerRefs.current.get(id);
+    window.clearTimeout(timersRef.current.get(id));
+    timersRef.current.delete(id);
 
-    if (timer) {
-      window.clearTimeout(timer);
-      timerRefs.current.delete(id);
-    }
-
-    commentsRef.current = commentsRef.current.filter(
+    const next = commentsRef.current.filter(
       (comment) => comment.id !== id
     );
 
-    setComments([...commentsRef.current]);
+    commentsRef.current = next;
+    setComments(next);
   }, []);
 
   useEffect(() => {
-    const socket = io(API_BASE, {
+    if (!username) return undefined;
+
+    const socket = io({
       transports: ["websocket", "polling"],
       reconnection: true,
     });
 
     socketRef.current = socket;
 
-    const joinRoom = () => {
-      setConnectionState("connected");
+    function joinLiveRoom() {
+      setChatStatus("Joining chat...");
       socket.emit("live-join", username);
-    };
+    }
 
-    socket.on("connect", joinRoom);
+    socket.on("connect", joinLiveRoom);
 
     socket.on("disconnect", () => {
-      setConnectionState("connecting");
+      setChatStatus("Reconnecting...");
     });
 
     socket.on("connect_error", () => {
-      setConnectionState("offline");
+      setChatStatus("Chat unavailable");
     });
 
     socket.on("live-joined", () => {
-      setConnectionState("connected");
+      setChatStatus("Live chat connected");
+    });
+
+    socket.on("live-error", (payload) => {
+      showNotice(
+        typeof payload === "string"
+          ? payload
+          : payload?.message || "Unable to send comment."
+      );
     });
 
     socket.on("live-comment", (comment) => {
-      if (!comment?.id || !comment?.message) return;
+      if (
+        !comment ||
+        typeof comment.id !== "string" ||
+        typeof comment.message !== "string"
+      ) {
+        return;
+      }
 
-      // Avoid rendering duplicate events.
       if (
         commentsRef.current.some(
           (existing) => existing.id === comment.id
@@ -262,79 +394,78 @@ function LiveComments({ username }) {
       const next = [
         ...commentsRef.current,
         {
-          ...comment,
-          receivedAt: Date.now(),
+          id: comment.id,
+          name: String(comment.name || "Guest").slice(0, 24),
+          message: comment.message.slice(0, 180),
         },
       ].slice(-MAX_VISIBLE_COMMENTS);
 
-      // Clear timers for comments trimmed from the visible list.
       const visibleIds = new Set(next.map((item) => item.id));
 
-      for (const [id, timer] of timerRefs.current.entries()) {
+      for (const [id, timer] of timersRef.current.entries()) {
         if (!visibleIds.has(id)) {
           window.clearTimeout(timer);
-          timerRefs.current.delete(id);
+          timersRef.current.delete(id);
         }
       }
 
       commentsRef.current = next;
       setComments(next);
 
+      window.clearTimeout(timersRef.current.get(comment.id));
+
       const timer = window.setTimeout(() => {
         removeComment(comment.id);
       }, COMMENT_DURATION);
 
-      timerRefs.current.set(comment.id, timer);
+      timersRef.current.set(comment.id, timer);
     });
 
-    socket.on("live-error", (text) => {
-      setNotice(String(text || "Unable to post comment."));
-      window.setTimeout(() => setNotice(""), 3000);
-    });
-
-    if (socket.connected) joinRoom();
+    if (socket.connected) joinLiveRoom();
 
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
 
-      for (const timer of timerRefs.current.values()) {
+      for (const timer of timersRef.current.values()) {
         window.clearTimeout(timer);
       }
 
-      timerRefs.current.clear();
+      timersRef.current.clear();
       commentsRef.current = [];
       socketRef.current = null;
-    };
-  }, [username, removeComment]);
 
-  function submitComment(event) {
+      window.clearTimeout(noticeTimerRef.current);
+    };
+  }, [username, removeComment, showNotice]);
+
+  function sendComment(event) {
     event.preventDefault();
 
     const name = guestName.trim().replace(/\s+/g, " ");
     const text = message.trim().replace(/\s+/g, " ");
 
     if (!name) {
-      setNotice("Enter a guest name first.");
+      showNotice("Pehle guest name enter karo.");
       return;
     }
 
     if (!text) return;
 
     if (name.length > 24 || text.length > 180) {
-      setNotice("Name or comment is too long.");
+      showNotice("Name ya comment bahut lamba hai.");
       return;
     }
 
     if (!socketRef.current?.connected) {
-      setNotice("Reconnecting. Please try again.");
+      showNotice("Chat reconnect ho raha hai. Dobara try karo.");
       return;
     }
 
     try {
       localStorage.setItem("onlystream-guest-name", name);
     } catch {
-      // Local storage may be unavailable in private browsing.
+      // Continue if local storage is unavailable.
     }
 
     socketRef.current.emit("live-comment", {
@@ -348,6 +479,7 @@ function LiveComments({ username }) {
 
   return (
     <>
+      {/* Transparent comments over the video */}
       <div className="live-comment-overlay" aria-live="polite">
         {comments.map((comment) => (
           <div className="live-floating-comment" key={comment.id}>
@@ -361,16 +493,14 @@ function LiveComments({ username }) {
         ))}
       </div>
 
+      {/* Input appears in the details card above model name */}
       <div className="live-comment-composer">
-        <form
-          className="live-comment-form"
-          onSubmit={submitComment}
-        >
+        <form className="live-comment-form" onSubmit={sendComment}>
           <input
             type="text"
             value={guestName}
             onChange={(event) => setGuestName(event.target.value)}
-            placeholder="Guest name"
+            placeholder="Your guest name"
             aria-label="Guest name"
             maxLength={24}
           />
@@ -380,8 +510,8 @@ function LiveComments({ username }) {
               type="text"
               value={message}
               onChange={(event) => setMessage(event.target.value)}
-              placeholder="Say something…"
-              aria-label="Live comment"
+              placeholder="Write a comment..."
+              aria-label="Write a live comment"
               maxLength={180}
             />
 
@@ -390,31 +520,20 @@ function LiveComments({ username }) {
               aria-label="Send comment"
               disabled={!message.trim()}
             >
-              <Send size={17} />
+              <Send size={16} />
             </button>
           </div>
         </form>
 
         <div className="live-comment-status">
           <span
-            className={
-              connectionState === "connected"
-                ? "live-status-dot is-online"
-                : "live-status-dot"
-            }
+            className={`live-status-dot ${
+              chatStatus === "Live chat connected" ? "is-online" : ""
+            }`}
           />
-          <span>
-            {connectionState === "connected"
-              ? "Live chat"
-              : connectionState === "offline"
-                ? "Reconnecting…"
-                : "Connecting…"}
-          </span>
-
+          <span>{chatStatus}</span>
           {notice && (
-            <span className="live-comment-notice">
-              {notice}
-            </span>
+            <span className="live-comment-notice">{notice}</span>
           )}
         </div>
       </div>
@@ -423,214 +542,196 @@ function LiveComments({ username }) {
 }
 
 // ------------------------------------
-// LIVE PAGE
+// PAGE — ORIGINAL MODEL LOADING
 // ------------------------------------
 
 export default function LivePage() {
-  const [models, setModels] = useState([]);
+  const params = new URLSearchParams(window.location.search);
+  const requestedModel = (params.get("model") || "").trim();
+
+  const [model, setModel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedModel, setSelectedModel] = useState(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
+    let cancelled = false;
 
-    async function fetchModels() {
+    async function loadModel() {
+      setLoading(true);
+      setError("");
+      setModel(null);
+
       try {
-        const response = await fetch("/api/aw-models");
+        const response = await fetch(API_URL, {
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+          cache: "no-store",
+        });
 
         if (!response.ok) {
-          throw new Error("Could not load live models.");
+          throw new Error(`Model feed error (${response.status}).`);
         }
 
         const data = await response.json();
 
-        if (!active) return;
-
-        const list = extractModels(data)
+        const models = extractModels(data)
+          .filter((item) => item && typeof item === "object")
           .map(normalizeModel)
-          .filter((model) => model.username);
+          .filter((item) => item.username);
 
-        setModels(list);
+        const target = requestedModel.toLowerCase();
 
-        const params = new URLSearchParams(window.location.search);
-        const requested = (
-          params.get("model") || ""
-        ).trim().toLowerCase();
-
-        const match = list.find(
-          (model) =>
-            model.username.toLowerCase() === requested
+        const selected = models.find(
+          (item) =>
+            item.username.toLowerCase() === target ||
+            item.name.toLowerCase() === target
         );
 
-        setSelectedModel(match || list[0] || null);
+        if (!selected) {
+          throw new Error(
+            "Model feed mein nahi mila. Homepage par jaakar doosra model select karo."
+          );
+        }
+
+        if (!cancelled) setModel(selected);
       } catch (err) {
-        if (active) {
-          setError(err.message || "Something went wrong.");
+        if (!cancelled && err.name !== "AbortError") {
+          setError(err.message || "Unable to load this model.");
         }
       } finally {
-        if (active) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
-    fetchModels();
+    if (requestedModel) {
+      loadModel();
+    } else {
+      setError("No model selected. Return to the homepage.");
+      setLoading(false);
+    }
 
     return () => {
-      active = false;
+      cancelled = true;
+      controller.abort();
     };
-  }, []);
-
-  const username = selectedModel?.username || "";
+  }, [requestedModel, reload]);
 
   return (
     <main className="live-page">
-      <header className="live-header">
-        <a href="/" className="live-back-link">
-          <ArrowLeft size={18} />
-          <span>OnlyStream</span>
+      <header className="live-topbar">
+        <a className="live-back" href="/">
+          <ArrowLeft size={20} />
+          <span>Home</span>
         </a>
 
-        <div className="live-header-status">
-          <Radio size={15} />
-          <span>LIVE</span>
-        </div>
+        <a className="live-brand" href="/">
+          OnlyStream<span>.</span>
+        </a>
+
+        <span className="live-status">
+          <Radio size={15} /> LIVE
+        </span>
       </header>
 
       <section className="live-content">
         <div className="live-heading">
-          <div>
-            <p className="live-eyebrow">
-              <Tv size={14} /> LIVE STREAMS
-            </p>
-            <h1>Watch Live</h1>
-            <p className="live-subtitle">
-              Watch a stream and chat with other viewers.
-            </p>
-          </div>
+          <span className="live-eyebrow">
+            <Tv size={15} /> LIVE MODEL
+          </span>
+
+          <h1>
+            Watch <span>live.</span>
+          </h1>
+
+          <p>Watch creators on OnlyStream.</p>
         </div>
 
-        {loading && (
-          <div className="live-page-message">
-            Loading live streams…
+        {loading ? (
+          <div className="live-player-message">
+            Loading model...
           </div>
-        )}
+        ) : error ? (
+          <div className="live-player-message">
+            <p>{error}</p>
 
-        {error && (
-          <div className="live-page-message">
-            {error}
+            <button
+              type="button"
+              onClick={() => setReload((value) => value + 1)}
+            >
+              Retry
+            </button>
+
+            <p>
+              <a href="/">Back to live models</a>
+            </p>
           </div>
-        )}
-
-        {!loading && !error && !selectedModel && (
-          <div className="live-page-message">
-            No live streams are available right now.
-          </div>
-        )}
-
-        {selectedModel && (
+        ) : model ? (
           <>
             <article className="live-player-card">
               <div className="live-player">
-                <AWLivePlayer username={username} />
+                <AWLivePlayer
+                  key={model.username}
+                  username={model.username}
+                />
 
                 <LiveComments
-                  key={username}
-                  username={username}
+                  key={`comments-${model.username}`}
+                  username={model.username}
                 />
               </div>
 
               <div className="live-details">
                 <div className="live-avatar">
-                  {(selectedModel.displayName || username)
-                    .slice(0, 1)
-                    .toUpperCase()}
+                  {model.name.charAt(0).toUpperCase()}
                 </div>
 
                 <div className="live-channel-info">
-                  <h2>{selectedModel.displayName || username}</h2>
+                  <h2>{model.name}</h2>
 
                   <p>
-                    <Eye size={14} />
-                    {" "}
-                    {selectedModel.viewers ??
-                      selectedModel.viewersCount ??
-                      "Live now"}
+                    {model.age > 0 ? `Age ${model.age}+` : "Live model"}
                   </p>
 
                   <span className="live-note">
-                    You are watching as a guest.
+                    <Eye
+                      size={14}
+                      style={{
+                        display: "inline",
+                        verticalAlign: "middle",
+                      }}
+                    />{" "}
+                    {model.viewers.toLocaleString()} watching
                   </span>
                 </div>
 
-                <a
-                  className="live-open-twitch"
-                  href={`https://www.google.com/search?q=${encodeURIComponent(username)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Find stream information"
-                >
-                  <ExternalLink size={17} />
-                </a>
+                {model.profileUrl && (
+                  <a
+                    className="live-open-twitch"
+                    href={model.profileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open provider room"
+                  >
+                    <ExternalLink size={18} />
+                  </a>
+                )}
               </div>
             </article>
 
-            {models.length > 1 && (
-              <section className="live-explore">
-                <h2>Explore more streams</h2>
-
-                <div className="live-explore-grid">
-                  {models
-                    .filter((model) => model.username !== username)
-                    .slice(0, 8)
-                    .map((model) => (
-                      <button
-                        type="button"
-                        className="live-explore-card"
-                        key={model.username}
-                        onClick={() => {
-                          const url = new URL(
-                            window.location.href
-                          );
-
-                          url.searchParams.set(
-                            "model",
-                            model.username
-                          );
-
-                          window.history.pushState(
-                            {},
-                            "",
-                            url
-                          );
-
-                          setSelectedModel(model);
-                        }}
-                      >
-                        {model.thumbnail ? (
-                          <img
-                            src={model.thumbnail}
-                            alt=""
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="live-explore-placeholder">
-                            <Tv size={22} />
-                          </div>
-                        )}
-
-                        <span>{model.displayName}</span>
-                      </button>
-                    ))}
-                </div>
-              </section>
-            )}
+            <section className="more-live">
+              <h3>Explore more models</h3>
+              <p>Discover other creators.</p>
+              <a href="/">Browse live models →</a>
+            </section>
           </>
-        )}
-      </section>
+        ) : null}
 
-      <footer className="live-footer">
-        OnlyStream · Respect other viewers.
-      </footer>
+        <footer className="live-footer">
+          Powered by OnlyStream
+        </footer>
+      </section>
     </main>
   );
 }
