@@ -584,11 +584,7 @@ export default function Home() {
           <br />
           <span>unexpected.</span>
         </h1>
-
-        <p>
-          Real conversations. New connections. One click away.
-        </p>
-
+        
         <button
           type="button"
           className="start-btn"
@@ -603,9 +599,6 @@ export default function Home() {
           <ArrowUpRight size={21} />
         </button>
 
-        <small>
-          No complicated setup. Just start chatting.
-        </small>
       </section>
 
       <section className="discovery">
