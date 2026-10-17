@@ -1059,3 +1059,118 @@
   }
 }
 
+
+/* OnlyStream live player card */
+.live-player-card {
+  width: 100%;
+  max-width: 720px;
+  margin: 24px auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: #111019;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+}
+
+/* Player area */
+.live-player {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  box-sizing: border-box;
+  background: #09080e;
+}
+
+/* Embed wrapper: preserve the requested 350x210 size */
+.onlystream-embed-wrap {
+  position: relative;
+  width: 350px;
+  height: 210px;
+  max-width: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  background: #000;
+  border-radius: 10px;
+}
+
+/* Actual provider embed */
+.onlystream-embed {
+  position: relative;
+  width: 350px;
+  height: 210px;
+  max-width: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+/* Keep provider-created content within the player */
+.onlystream-embed iframe,
+.onlystream-embed video,
+.onlystream-embed object,
+.onlystream-embed embed {
+  display: block;
+  max-width: 100%;
+  border: 0;
+}
+
+/* Model information card */
+.live-details {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  background: #111019;
+}
+
+.live-channel-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.live-channel-info h2 {
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+
+.live-channel-info p {
+  margin: 0 0 8px;
+  color: #aaa5b8;
+}
+
+.live-avatar {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #292038;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .live-player-card {
+    border-radius: 14px;
+  }
+
+  .live-player {
+    padding: 8px;
+  }
+
+  .onlystream-embed-wrap,
+  .onlystream-embed {
+    width: 350px;
+    height: 210px;
+    max-width: 100%;
+  }
+
+  .live-details {
+    padding: 14px;
+  }
+}
+
+
