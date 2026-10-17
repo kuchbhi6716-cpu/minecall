@@ -1,4 +1,5 @@
 
+
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -43,9 +44,7 @@ function redactUrl(rawUrl) {
 
     for (const key of [...url.searchParams.keys()]) {
       if (
-        /key|token|secret|auth|password|signature|psid/i.test(
-          key
-        )
+        /key|token|secret|auth|password|signature|psid/i.test(key)
       ) {
         url.searchParams.set(key, "[REDACTED]");
       }
@@ -91,12 +90,13 @@ async function fetchJson(url) {
   console.log("[AW Provider] URL:", redactUrl(url));
   console.log("[AW Provider] HTTP status:", response.status);
   console.log("[AW Provider] Content-Type:", contentType);
-  console.log(
-    "[AW Provider] Response preview:",
-    body.slice(0, 500)
-  );
 
   if (!response.ok) {
+    console.error(
+      "[AW Provider] Request failed with HTTP",
+      response.status
+    );
+
     throw new Error(
       `Provider returned HTTP ${response.status}`
     );
@@ -108,11 +108,27 @@ async function fetchJson(url) {
     );
   }
 
+  let data;
+
   try {
-    return JSON.parse(body);
+    data = JSON.parse(body);
   } catch {
     throw new Error("Provider returned invalid JSON");
   }
+
+  // Log only safe metadata, not the full provider response.
+  if (data && typeof data === "object") {
+    const details = data.data ?? data;
+
+    if (details && typeof details === "object") {
+      console.log(
+        "[AW Provider] Response fields:",
+        Object.keys(details)
+      );
+    }
+  }
+
+  return data;
 }
 
 // ------------------------------------
@@ -298,7 +314,7 @@ app.get("/api/aw-video-details", async (req, res) => {
       });
     }
 
-    // Only allow the approved provider host.
+    // Validate the details endpoint.
     const detailsUrl = parseProviderUrl(
       video.detailsUrl,
       "atwmcd.com"
@@ -311,35 +327,43 @@ app.get("/api/aw-video-details", async (req, res) => {
 
     if (
       !videoDetails ||
-      typeof videoDetails.playerEmbedUrl !== "string"
+      typeof videoDetails !== "object" ||
+      Array.isArray(videoDetails)
     ) {
-      console.error(
-        "A.W. Empire details response is missing playerEmbedUrl"
-      );
-
       return res.status(502).json({
-        error:
-          "Provider response did not include playerEmbedUrl",
+        error: "Invalid provider details response",
       });
     }
 
-    // Validate the player URL independently.
-    const playerUrl = parseProviderUrl(
-      videoDetails.playerEmbedUrl,
-      "atwmcd.com"
+    // Inspect field names without logging credentials or full URLs.
+    const detailFields = Object.keys(videoDetails);
+
+    const embedFields = detailFields.filter((key) =>
+      /embed|player|script|video.?url|stream/i.test(key)
     );
 
-    if (playerUrl.pathname === "/") {
-      return res.status(502).json({
-        error: "Provider returned an invalid player URL",
-      });
-    }
+    console.log(
+      "[AW Video Details] Available fields:",
+      detailFields
+    );
 
+    console.log(
+      "[AW Video Details] Embed-related fields:",
+      embedFields
+    );
+
+    // Preserve the full provider data for the frontend to inspect.
+    // This diagnostic endpoint does not assume that a URL is a script.
     res.set("Cache-Control", "private, no-store");
 
     return res.json({
       ...videoDetails,
-      playerEmbedUrl: playerUrl.toString(),
+      _diagnostics: {
+        availableFields: detailFields,
+        embedRelatedFields: embedFields,
+        playerEmbedUrlPresent:
+          typeof videoDetails.playerEmbedUrl === "string",
+      },
     });
   } catch (error) {
     console.error(
