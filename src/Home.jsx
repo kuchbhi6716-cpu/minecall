@@ -16,6 +16,12 @@ const REFRESH_INTERVAL = 45000;
 const MISSING_REFRESH_LIMIT = 2;
 const AGE_CONFIRMATION_KEY = "onlystream-age-confirmed-v1";
 
+const AFFILIATE_BANNER_URL =
+  "https://pt-static1.ttstwm.com/npt/banner/s1_soulmate/300x250.jpg?sid=baabf45c&psid=kuchbhi6677&pstool=201_4&psprogram=revs&campaign_id=";
+
+const AFFILIATE_TRACKING_URL =
+  "https://ctwmsg.com/?siteId=jasmin&cobrandId=&superCategoryName=&categoryName=soul_mate&pageName=listpage&prm[psid]=kuchbhi6677&prm[pstool]=201_4&prm[psprogram]=revs&prm[campaign_id]=&subAffId=";
+
 function normalizeImageUrl(url) {
   if (typeof url !== "string") return "";
   const value = url.trim();
@@ -169,13 +175,13 @@ function normalizeModels(list) {
 }
 
 /*
- * Stable card behaviour:
- * - Existing cards never shuffle.
- * - Updated model details retain the existing card position.
- * - New models are appended at the end.
- * - A missing model is removed after two successful API refreshes.
+ * Existing model behaviour preserved:
+ * - Existing cards keep their order.
+ * - Updated model details retain their card position.
+ * - New models are appended.
+ * - Missing models are removed after two successful refreshes.
  * - Explicitly offline models are filtered immediately.
- * - Failed API requests do not count as missing refreshes.
+ * - Failed API requests don't count as missing refreshes.
  */
 function mergeModels(previous, incoming, missingCounts) {
   const incomingMap = new Map(
@@ -307,6 +313,27 @@ function AgeDisclaimer({ onConfirm }) {
   );
 }
 
+function AffiliateBanner() {
+  return (
+    <div className="affiliate-ad">
+      <a
+        title="Find your Soulmate Live webcam chat!"
+        href={AFFILIATE_TRACKING_URL}
+        target="_blank"
+        rel="sponsored noopener noreferrer"
+      >
+        <img
+          src={AFFILIATE_BANNER_URL}
+          alt="Find your Soulmate Live webcam chat"
+          width="300"
+          height="250"
+          loading="lazy"
+        />
+      </a>
+    </div>
+  );
+}
+
 function ModelCard({ model }) {
   const [imageError, setImageError] = useState(false);
 
@@ -377,7 +404,7 @@ export default function Home() {
     try {
       window.localStorage.setItem(AGE_CONFIRMATION_KEY, "true");
     } catch {
-      // The current session can continue if storage is unavailable.
+      // Continue for this session if storage is unavailable.
     }
 
     setAgeConfirmed(true);
@@ -433,7 +460,6 @@ export default function Home() {
         );
       } catch (error) {
         if (active) {
-          // Preserve the current cards on temporary API errors.
           setModelsError(
             error.message || "Could not refresh live models."
           );
@@ -584,7 +610,7 @@ export default function Home() {
           <br />
           <span>unexpected.</span>
         </h1>
-        
+
         <button
           type="button"
           className="start-btn"
@@ -599,6 +625,8 @@ export default function Home() {
           <ArrowUpRight size={21} />
         </button>
 
+        {/* AW Empire affiliate banner: directly below Start Chatting */}
+        <AffiliateBanner />
       </section>
 
       <section className="discovery">
