@@ -913,3 +913,149 @@
   }
 }
 
+
+
+/* ==========================================
+   ONLYSTREAM — EMBED-SIZED PLAYER OVERRIDE
+   Original embed ratio: 350 × 210 = 5:3
+   ========================================== */
+
+.live-content {
+  width: min(calc(100% - 32px), 1100px);
+  margin: 24px auto 0;
+}
+
+/* Remove conflicting outer card styles */
+.live-player-card {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0;
+  overflow: visible;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
+/* Responsive container follows the embed's native ratio */
+.live-player {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: 0;
+  overflow: hidden;
+  aspect-ratio: 5 / 3;
+  background: #000;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Embed wrappers must fill the ratio container */
+.onlystream-embed-wrap,
+.onlystream-embed {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0 !important;
+  max-height: none;
+  aspect-ratio: auto;
+  overflow: hidden;
+  background: #000;
+  border: 0;
+  border-radius: 0;
+}
+
+/* Generic embedded media sizing */
+.onlystream-embed iframe,
+.onlystream-embed video,
+.onlystream-embed object,
+.onlystream-embed embed {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  border: 0;
+}
+
+/* Model name: transparent background */
+.live-details {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  margin-top: 14px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.live-avatar,
+.live-channel-info p,
+.live-note,
+.live-open-twitch,
+.live-details > .live-status {
+  display: none !important;
+}
+
+.live-channel-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.live-channel-info h2 {
+  margin: 0;
+  padding: 0;
+  color: #f4edff;
+  background: transparent !important;
+  font-family: "Trebuchet MS", Arial, sans-serif;
+  font-size: clamp(21px, 2.5vw, 28px);
+  font-weight: 800;
+  letter-spacing: -0.7px;
+}
+
+/* Hide unused heading */
+.live-heading {
+  padding: 0 0 14px;
+}
+
+.live-heading .live-eyebrow,
+.live-heading h1,
+.live-heading p {
+  display: none !important;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .live-content {
+    width: calc(100% - 20px);
+    margin-top: 14px;
+  }
+
+  .live-topbar {
+    height: 54px;
+    padding-inline: 12px;
+  }
+
+  .live-player {
+    aspect-ratio: 5 / 3;
+  }
+
+  .live-details {
+    margin-top: 12px;
+    padding: 8px 0;
+  }
+
+  .live-channel-info h2 {
+    font-size: 22px;
+  }
+}
+
