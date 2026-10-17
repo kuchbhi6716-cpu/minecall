@@ -16,7 +16,7 @@ import "./LivePage.css";
 
 const API_URL = "/api/aw-models";
 const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
-const COMMENT_DURATION = 6000;
+const COMMENT_DURATION = 12000;
 const MAX_VISIBLE_COMMENTS = 12;
 
 // ------------------------------------
