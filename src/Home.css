@@ -1600,3 +1600,30 @@ footer p {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+.affiliate-ad {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 24px auto 32px;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
+.affiliate-ad a {
+  display: block;
+  width: 300px;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.affiliate-ad img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 0;
+  border-radius: 8px;
+}
+
