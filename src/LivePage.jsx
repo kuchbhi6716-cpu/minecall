@@ -1,24 +1,30 @@
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ExternalLink,
   Radio,
+  Tv,
   Eye,
 } from "lucide-react";
 import "./LivePage.css";
 
 const API_URL = "/api/aw-models";
-const PLAYER_WIDTH = 350;
-const PLAYER_HEIGHT = 210;
+const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
+
+// ------------------------------------
+// CONNECTION WARM-UP
+// ------------------------------------
 
 function warmUpProvider() {
   ["https://atwmcd.com", "https://edwmcr.com"].forEach((url) => {
-    const exists = document.querySelector(
-      `link[rel="preconnect"][href="${url}"]`
-    );
-
-    if (exists) return;
+    if (
+      document.querySelector(
+        `link[rel="preconnect"][href="${url}"]`
+      )
+    ) {
+      return;
+    }
 
     const link = document.createElement("link");
     link.rel = "preconnect";
@@ -28,7 +34,9 @@ function warmUpProvider() {
   });
 }
 
-warmUpProvider();
+// ------------------------------------
+// MODEL HELPERS
+// ------------------------------------
 
 function getUsername(item) {
   return String(
@@ -118,66 +126,159 @@ function normalizeModel(item) {
   };
 }
 
-// Generic fixed-size player container.
-// Connect a provider-supported player integration here.
-function LivePlayer({ username }) {
-  const containerRef = useRef(null);
-  const [playerError, setPlayerError] = useState("");
+// ------------------------------------
+// LIVE MODEL PLAYER
+// ------------------------------------
+
+function AWLivePlayer({ username }) {
   const [retry, setRetry] = useState(0);
+  const [playerError, setPlayerError] = useState("");
+  const [playerReady, setPlayerReady] = useState(false);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return undefined;
+    warmUpProvider();
+
+    const container = document.getElementById("object_container");
+
+    if (!container || !username) {
+      setPlayerError("No model selected.");
+      return undefined;
+    }
 
     let cancelled = false;
     let timeoutId;
+    let observer;
 
     container.replaceChildren();
     setPlayerError("");
+    setPlayerReady(false);
 
-    // This container intentionally does not invent a provider URL.
-    // Add your provider's documented embed integration here.
+    // New provider embed parameters.
+    const params = new URLSearchParams();
 
-    timeoutId = window.setTimeout(() => {
-      if (!cancelled && container.childElementCount === 0) {
+    params.set("c", "object_container");
+    params.set("site", "jasmin");
+    params.set("cobrandId", "");
+    params.set("psid", "kuchbhi6677");
+    params.set("pstool", "202_1");
+    params.set("psprogram", "revs");
+    params.set("campaign_id", "");
+    params.set("category", "girl");
+
+    params.set("vp[showChat]", "");
+    params.set("vp[chatAutoHide]", "");
+    params.set("vp[showCallToAction]", "");
+    params.set("vp[showPerformerName]", "true");
+    params.set("vp[showPerformerStatus]", "true");
+
+    params.set("ms_notrack", "1");
+    params.set("subAffId", "");
+
+    // Open the model selected on OnlyStream.
+    params.set("forcedPerformers[]", username);
+
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `${PLAYER_SCRIPT}?${params.toString()}`;
+
+    function cleanup() {
+      window.clearTimeout(timeoutId);
+
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
+    }
+
+    function checkPlayer() {
+      if (cancelled) return false;
+
+      const player = container.querySelector(
+        "iframe, video, object, embed"
+      );
+
+      if (!player) return false;
+
+      setPlayerReady(true);
+      setPlayerError("");
+      cleanup();
+      return true;
+    }
+
+    script.onload = () => {
+      if (cancelled) return;
+
+      observer = new MutationObserver(checkPlayer);
+
+      observer.observe(container, {
+        childList: true,
+        subtree: true,
+      });
+
+      if (checkPlayer()) return;
+
+      timeoutId = window.setTimeout(() => {
+        if (!cancelled && !checkPlayer()) {
+          setPlayerError(
+            "Player load nahi hua. Provider embed settings check karo."
+          );
+        }
+      }, 20000);
+    };
+
+    script.onerror = () => {
+      if (!cancelled) {
         setPlayerError(
-          "Player integration abhi configure nahi hua hai."
+          "Player script load nahi hua. Retry karke dekho."
         );
       }
-    }, 100);
+    };
+
+    container.appendChild(script);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timeoutId);
+      cleanup();
       container.replaceChildren();
     };
   }, [username, retry]);
 
   return (
-    <div
-      className="onlystream-embed-wrap"
-      style={{
-        width: PLAYER_WIDTH,
-        height: PLAYER_HEIGHT,
-        position: "relative",
-        flex: "0 0 auto",
-        overflow: "hidden",
-        background: "#08080c",
-      }}
-    >
+    <div className="onlystream-embed-wrap">
       <div
-        ref={containerRef}
+        id="object_container"
         className="onlystream-embed"
         style={{
-          width: PLAYER_WIDTH,
-          height: PLAYER_HEIGHT,
+          width: "350px",
+          height: "210px",
+          maxWidth: "100%",
+          position: "relative",
           overflow: "hidden",
         }}
       />
 
+      {!playerReady && !playerError && (
+        <div className="video-skeleton" aria-live="polite">
+          <div className="skeleton-glow" />
+
+          <div className="skeleton-content">
+            <div className="skeleton-orb">▶</div>
+            <div className="skeleton-line" />
+            <div className="skeleton-caption">
+              Connecting to live stream...
+            </div>
+          </div>
+
+          <div className="skeleton-progress">
+            <div />
+          </div>
+        </div>
+      )}
+
       {playerError && (
         <div className="player-error">
           <p>{playerError}</p>
+
           <button
             type="button"
             onClick={() => setRetry((value) => value + 1)}
@@ -189,6 +290,10 @@ function LivePlayer({ username }) {
     </div>
   );
 }
+
+// ------------------------------------
+// PAGE
+// ------------------------------------
 
 export default function LivePage() {
   const params = new URLSearchParams(window.location.search);
@@ -236,7 +341,7 @@ export default function LivePage() {
 
         if (!selected) {
           throw new Error(
-            "Model not found in the current feed. Go home and select another model."
+            "Model feed mein nahi mila. Homepage par jaakar doosra model select karo."
           );
         }
 
@@ -283,7 +388,7 @@ export default function LivePage() {
       <section className="live-content">
         <div className="live-heading">
           <span className="live-eyebrow">
-            <Radio size={15} /> LIVE MODEL
+            <Tv size={15} /> LIVE MODEL
           </span>
 
           <h1>
@@ -315,20 +420,8 @@ export default function LivePage() {
         ) : model ? (
           <>
             <article className="live-player-card">
-              <div
-                className="live-player"
-                style={{
-                  width: PLAYER_WIDTH,
-                  height: PLAYER_HEIGHT,
-                  minHeight: PLAYER_HEIGHT,
-                  maxHeight: PLAYER_HEIGHT,
-                  aspectRatio: "auto",
-                  flex: "0 0 auto",
-                  padding: 0,
-                  overflow: "hidden",
-                }}
-              >
-                <LivePlayer
+              <div className="live-player">
+                <AWLivePlayer
                   key={model.username}
                   username={model.username}
                 />
@@ -387,4 +480,3 @@ export default function LivePage() {
     </main>
   );
 }
-
