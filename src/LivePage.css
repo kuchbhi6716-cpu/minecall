@@ -668,37 +668,60 @@
 }
 
 
-/* =========================================
-   LIVE PLAYER — LARGE, FULL FRAME, NO CROP
-   ========================================= */
+/* ==========================================
+   ONLYSTREAM — PREMIUM LIVE PLAYER
+   ========================================== */
 
-/* Wider page for the live player */
 .live-content {
-  width: min(100% - 24px, 1200px);
-  margin-inline: auto;
+  width: min(calc(100% - 40px), 1240px);
+  margin: 0 auto;
 }
 
-/* Remove unnecessary card spacing */
+/* Heading spacing */
+.live-heading {
+  padding: 14px 0 20px;
+}
+
+/* Premium outer frame */
 .live-player-card {
+  position: relative;
   overflow: hidden;
-  border-radius: 14px;
+  width: 100%;
+  margin: 0 auto;
+  border: 1px solid rgba(174, 126, 255, 0.28);
+  border-radius: 22px;
+  background: linear-gradient(145deg, #171020, #09080e);
+  box-shadow:
+    0 18px 55px rgba(0, 0, 0, 0.45),
+    0 0 35px rgba(139, 92, 246, 0.12);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-/* Large player */
+.live-player-card:hover {
+  border-color: rgba(190, 150, 255, 0.5);
+  box-shadow:
+    0 22px 65px rgba(0, 0, 0, 0.5),
+    0 0 42px rgba(139, 92, 246, 0.17);
+}
+
+/* Large player with a little extra height */
 .live-player {
+  position: relative;
   width: 100%;
-  height: min(82vh, 900px);
-  min-height: 500px;
+  height: min(85vh, 940px);
+  min-height: 520px;
   max-height: none;
   aspect-ratio: auto;
-  padding: 0;
-  background: #000;
+  padding: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at center, #21132d 0%, #08070c 72%);
 }
 
-/* Embed container fills available space */
+/* Embed stays inside the frame */
 .onlystream-embed-wrap,
 .onlystream-embed {
   position: relative;
@@ -708,10 +731,11 @@
   max-height: 100%;
   aspect-ratio: auto;
   overflow: hidden;
+  border-radius: 13px;
   background: #000;
 }
 
-/* Keep the embedded player inside the container */
+/* Provider player */
 .onlystream-embed iframe,
 .onlystream-embed video,
 .onlystream-embed object,
@@ -724,14 +748,23 @@
   border: 0 !important;
 }
 
-/* Show only the model name below the player */
+/* ==========================================
+   STYLISH MODEL NAME
+   ========================================== */
+
 .live-details {
+  position: relative;
   display: flex;
   align-items: center;
-  padding: 12px 16px;
   gap: 0;
+  min-height: 68px;
+  padding: 15px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(100deg, #171020, #0d0b13 65%, #151020);
 }
 
+/* Keep only the name */
 .live-avatar,
 .live-channel-info p,
 .live-note,
@@ -745,17 +778,56 @@
   min-width: 0;
 }
 
+/* Elegant, modern name styling */
 .live-channel-info h2 {
+  display: inline-block;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
   margin: 0;
-  font-size: 17px;
-  line-height: 1.4;
-  color: #fff;
+  color: #f7f1ff;
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: clamp(18px, 2.2vw, 23px);
+  font-weight: 750;
+  line-height: 1.35;
+  letter-spacing: -0.65px;
   overflow-wrap: anywhere;
+  cursor: default;
+  transform-origin: left center;
+  transition:
+    color 0.25s ease,
+    text-shadow 0.25s ease,
+    transform 0.25s ease;
 }
 
-/* Hide extra page headings to give the player more room */
+/* Animated purple underline */
+.live-channel-info h2::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -5px;
+  width: 0;
+  height: 2px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #a855f7, #d8b4fe);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.55);
+  transition: width 0.3s ease;
+}
+
+/* Name hover */
+.live-channel-info h2:hover {
+  color: #d9baff;
+  text-shadow: 0 0 22px rgba(168, 85, 247, 0.4);
+  transform: translateY(-1px);
+}
+
+.live-channel-info h2:hover::after {
+  width: 100%;
+}
+
+/* Hide the page heading, preserve its small spacing */
 .live-heading {
-  padding: 12px 0;
+  padding: 12px 0 16px;
 }
 
 .live-heading .live-eyebrow,
@@ -764,27 +836,29 @@
   display: none;
 }
 
-/* Mobile: use nearly the entire screen */
+/* ==========================================
+   MOBILE
+   ========================================== */
+
 @media (max-width: 768px) {
   .live-content {
-    width: 100%;
+    width: calc(100% - 24px);
   }
 
   .live-topbar {
-    height: 52px;
+    height: 54px;
     padding-inline: 14px;
   }
 
   .live-player-card {
-    border-radius: 0;
-    border-left: 0;
-    border-right: 0;
+    border-radius: 17px;
   }
 
   .live-player {
-    height: 82dvh;
-    min-height: 420px;
-    max-height: 900px;
+    height: 84dvh;
+    min-height: 440px;
+    max-height: 940px;
+    padding: 7px;
   }
 
   .onlystream-embed-wrap,
@@ -792,32 +866,50 @@
     width: 100%;
     height: 100%;
     min-height: 0;
+    border-radius: 11px;
   }
 
   .live-details {
-    padding: 10px 14px;
+    min-height: 60px;
+    padding: 12px 15px;
+  }
+
+  .live-channel-info h2 {
+    font-size: 19px;
+    letter-spacing: -0.4px;
   }
 
   .live-footer {
-    padding-top: 12px;
+    padding-top: 16px;
   }
 }
 
-/* Short screens */
+/* Short mobile screens */
 @media (max-height: 600px) and (max-width: 768px) {
   .live-player {
-    height: 78dvh;
-    min-height: 300px;
+    height: 80dvh;
+    min-height: 320px;
   }
 }
 
 /* Desktop */
 @media (min-width: 769px) {
   .live-player {
-    height: min(82vh, 900px);
-    min-height: 500px;
+    height: min(85vh, 940px);
+    min-height: 520px;
   }
 }
 
+/* Touchscreens don't need sticky hover effects */
+@media (hover: none) {
+  .live-channel-info h2:hover {
+    color: #f7f1ff;
+    text-shadow: none;
+    transform: none;
+  }
 
+  .live-channel-info h2:hover::after {
+    width: 0;
+  }
+}
 
