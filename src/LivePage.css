@@ -668,60 +668,53 @@
 }
 
 
-/* ==========================================
-   ONLYSTREAM — PREMIUM LIVE PLAYER
-   ========================================== */
+/* ===== ONLYSTREAM — CLEAN FULL-SIZE PLAYER ===== */
 
 .live-content {
   width: min(calc(100% - 40px), 1240px);
   margin: 0 auto;
 }
 
-/* Heading spacing */
-.live-heading {
-  padding: 14px 0 20px;
-}
-
-/* Premium outer frame */
+/* Remove the outer card styling completely */
 .live-player-card {
   position: relative;
-  overflow: hidden;
   width: 100%;
   margin: 0 auto;
-  border: 1px solid rgba(174, 126, 255, 0.28);
-  border-radius: 22px;
-  background: linear-gradient(145deg, #171020, #09080e);
-  box-shadow:
-    0 18px 55px rgba(0, 0, 0, 0.45),
-    0 0 35px rgba(139, 92, 246, 0.12);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  padding: 0;
+  overflow: visible;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transition: none !important;
 }
 
 .live-player-card:hover {
-  border-color: rgba(190, 150, 255, 0.5);
-  box-shadow:
-    0 22px 65px rgba(0, 0, 0, 0.5),
-    0 0 42px rgba(139, 92, 246, 0.17);
+  border: none !important;
+  box-shadow: none !important;
 }
 
-/* Large player with a little extra height */
+/* Player area — longer, without card background */
 .live-player {
   position: relative;
   width: 100%;
-  height: min(85vh, 940px);
-  min-height: 520px;
+  height: min(88vh, 1000px);
+  min-height: 540px;
   max-height: none;
   aspect-ratio: auto;
-  padding: 10px;
+  padding: 0;
+  margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at center, #21132d 0%, #08070c 72%);
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
-/* Embed stays inside the frame */
+/* Embed takes the full player space */
 .onlystream-embed-wrap,
 .onlystream-embed {
   position: relative;
@@ -731,11 +724,12 @@
   max-height: 100%;
   aspect-ratio: auto;
   overflow: hidden;
-  border-radius: 13px;
   background: #000;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
-/* Provider player */
 .onlystream-embed iframe,
 .onlystream-embed video,
 .onlystream-embed object,
@@ -748,23 +742,22 @@
   border: 0 !important;
 }
 
-/* ==========================================
-   STYLISH MODEL NAME
-   ========================================== */
+/* ===== MODEL NAME — NEW FONT, TRANSPARENT BACKGROUND ===== */
 
 .live-details {
-  position: relative;
   display: flex;
   align-items: center;
+  min-height: 58px;
+  margin: 0;
+  padding: 12px 0;
   gap: 0;
-  min-height: 68px;
-  padding: 15px 22px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  background:
-    linear-gradient(100deg, #171020, #0d0b13 65%, #151020);
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-/* Keep only the name */
+/* Hide unwanted details */
 .live-avatar,
 .live-channel-info p,
 .live-note,
@@ -776,107 +769,94 @@
 .live-channel-info {
   flex: 1;
   min-width: 0;
+  background: transparent !important;
 }
 
-/* Elegant, modern name styling */
+/* Changed typography: modern geometric look */
 .live-channel-info h2 {
   display: inline-block;
   position: relative;
   width: fit-content;
   max-width: 100%;
   margin: 0;
-  color: #f7f1ff;
-  font-family: Inter, "Segoe UI", system-ui, sans-serif;
-  font-size: clamp(18px, 2.2vw, 23px);
-  font-weight: 750;
-  line-height: 1.35;
-  letter-spacing: -0.65px;
+  padding: 0;
+  color: #f4edff;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+
+  font-family: "Trebuchet MS", "Arial", sans-serif;
+  font-size: clamp(21px, 2.5vw, 28px);
+  font-weight: 800;
+  font-style: normal;
+  line-height: 1.3;
+  letter-spacing: -1px;
+  text-transform: none;
   overflow-wrap: anywhere;
-  cursor: default;
-  transform-origin: left center;
-  transition:
-    color 0.25s ease,
-    text-shadow 0.25s ease,
-    transform 0.25s ease;
+
+  transition: color 0.25s ease, text-shadow 0.25s ease;
 }
 
-/* Animated purple underline */
+/* No underline or hover effect on the name itself */
 .live-channel-info h2::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -5px;
-  width: 0;
-  height: 2px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, #a855f7, #d8b4fe);
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.55);
-  transition: width 0.3s ease;
+  display: none !important;
 }
 
-/* Name hover */
-.live-channel-info h2:hover {
-  color: #d9baff;
-  text-shadow: 0 0 22px rgba(168, 85, 247, 0.4);
-  transform: translateY(-1px);
-}
-
-.live-channel-info h2:hover::after {
-  width: 100%;
-}
-
-/* Hide the page heading, preserve its small spacing */
+/* Hide the extra page heading */
 .live-heading {
-  padding: 12px 0 16px;
+  padding: 0;
 }
 
 .live-heading .live-eyebrow,
 .live-heading h1,
 .live-heading p {
-  display: none;
+  display: none !important;
 }
 
-/* ==========================================
-   MOBILE
-   ========================================== */
+/* ===== HOVER EFFECT ON THE VIDEO PLAYER ===== */
+
+/* Glow appears around the video only, not a card */
+.live-player-card .onlystream-embed-wrap,
+.live-player-card .onlystream-embed {
+  transition: box-shadow 0.3s ease;
+}
+
+.live-player-card:hover .onlystream-embed-wrap,
+.live-player-card:hover .onlystream-embed {
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.16);
+}
+
+/* Keep the outer player completely card-free */
+.live-player-card:hover {
+  background: transparent !important;
+}
+
+/* ===== MOBILE ===== */
 
 @media (max-width: 768px) {
   .live-content {
-    width: calc(100% - 24px);
+    width: calc(100% - 20px);
   }
 
   .live-topbar {
     height: 54px;
-    padding-inline: 14px;
-  }
-
-  .live-player-card {
-    border-radius: 17px;
+    padding-inline: 12px;
   }
 
   .live-player {
-    height: 84dvh;
+    height: 86dvh;
     min-height: 440px;
-    max-height: 940px;
-    padding: 7px;
-  }
-
-  .onlystream-embed-wrap,
-  .onlystream-embed {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    border-radius: 11px;
+    padding: 0;
   }
 
   .live-details {
-    min-height: 60px;
-    padding: 12px 15px;
+    min-height: 54px;
+    padding: 10px 0;
   }
 
   .live-channel-info h2 {
-    font-size: 19px;
-    letter-spacing: -0.4px;
+    font-size: 22px;
+    letter-spacing: -0.6px;
   }
 
   .live-footer {
@@ -884,32 +864,17 @@
   }
 }
 
-/* Short mobile screens */
 @media (max-height: 600px) and (max-width: 768px) {
   .live-player {
     height: 80dvh;
-    min-height: 320px;
+    min-height: 300px;
   }
 }
 
-/* Desktop */
-@media (min-width: 769px) {
-  .live-player {
-    height: min(85vh, 940px);
-    min-height: 520px;
-  }
-}
-
-/* Touchscreens don't need sticky hover effects */
 @media (hover: none) {
-  .live-channel-info h2:hover {
-    color: #f7f1ff;
-    text-shadow: none;
-    transform: none;
-  }
-
-  .live-channel-info h2:hover::after {
-    width: 0;
+  .live-player-card .onlystream-embed-wrap,
+  .live-player-card .onlystream-embed {
+    box-shadow: none;
   }
 }
 
