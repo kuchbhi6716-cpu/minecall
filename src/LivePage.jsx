@@ -12,7 +12,6 @@ import "./LivePage.css";
 const API_URL = "/api/aw-models";
 const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
 const VIDEO_DETAILS_API = "/api/aw-video-details";
-
 const RECORDED_CONTAINER_ID = "aw_recorded_video_container";
 
 // ------------------------------------
@@ -47,8 +46,7 @@ function getThumbnail(item) {
 
   return (
     images.find(
-      (image) =>
-        typeof image === "string" && image.trim()
+      (image) => typeof image === "string" && image.trim()
     ) || ""
   );
 }
@@ -73,15 +71,8 @@ function extractModels(response) {
     if (Array.isArray(candidate)) return candidate;
 
     if (candidate && typeof candidate === "object") {
-      for (const key of [
-        "models",
-        "performers",
-        "results",
-        "items",
-      ]) {
-        if (Array.isArray(candidate[key])) {
-          return candidate[key];
-        }
+      for (const key of ["models", "performers", "results", "items"]) {
+        if (Array.isArray(candidate[key])) return candidate[key];
       }
     }
   }
@@ -90,9 +81,7 @@ function extractModels(response) {
 }
 
 function normalizeModel(item) {
-  const age = Number(
-    item?.persons?.[0]?.age ?? item?.age ?? 0
-  );
+  const age = Number(item?.persons?.[0]?.age ?? item?.age ?? 0);
 
   return {
     username: getUsername(item),
@@ -113,8 +102,7 @@ function normalizeModel(item) {
           item?.numViewers ??
           0
       ) || 0,
-    profileUrl:
-      item?.chatRoomUrl || item?.profileUrl || "",
+    profileUrl: item?.chatRoomUrl || item?.profileUrl || "",
   };
 }
 
@@ -123,9 +111,7 @@ function validateProviderPlayerUrl(rawUrl) {
 
   if (
     url.protocol !== "https:" ||
-    !["atwmcd.com", "www.atwmcd.com"].includes(
-      url.hostname
-    ) ||
+    !["atwmcd.com", "www.atwmcd.com"].includes(url.hostname) ||
     !url.pathname.startsWith("/embed/")
   ) {
     throw new Error("Provider returned an invalid player URL.");
@@ -192,10 +178,7 @@ function AWLivePlayer({ username }) {
     function checkPlayer() {
       if (cancelled) return false;
 
-      const player = container.querySelector(
-        "iframe, video, object, embed"
-      );
-
+      const player = container.querySelector("iframe, video, object, embed");
       if (!player) return false;
 
       setPlayerReady(true);
@@ -207,10 +190,7 @@ function AWLivePlayer({ username }) {
       if (cancelled || checkPlayer()) return;
 
       observer = new MutationObserver(checkPlayer);
-      observer.observe(container, {
-        childList: true,
-        subtree: true,
-      });
+      observer.observe(container, { childList: true, subtree: true });
 
       timeoutId = window.setTimeout(() => {
         if (!cancelled && !checkPlayer()) {
@@ -263,10 +243,7 @@ function AWLivePlayer({ username }) {
       {playerError && (
         <div className="player-error">
           <p>{playerError}</p>
-          <button
-            type="button"
-            onClick={() => setRetry((value) => value + 1)}
-          >
+          <button type="button" onClick={() => setRetry((value) => value + 1)}>
             Retry player
           </button>
         </div>
@@ -286,7 +263,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
 
-  // Fetch provider video details.
+  // Fetch the video details from our backend.
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
@@ -326,13 +303,13 @@ function AWRecordedVideoPlayer({ videoId, title }) {
 
         if (!rawPlayerUrl) {
           throw new Error(
-            "Player URL nahi mila. API response mein playerEmbedUrl missing hai."
+            "API response mein playerEmbedUrl nahi mila."
           );
         }
 
         const playerUrl = validateProviderPlayerUrl(rawPlayerUrl);
 
-        // Replace the provider placeholder with our actual container ID.
+        // The provider URL contains c={CONTAINER}; replace it.
         playerUrl.searchParams.set("c", RECORDED_CONTAINER_ID);
 
         if (!cancelled) {
@@ -343,14 +320,10 @@ function AWRecordedVideoPlayer({ videoId, title }) {
         }
       } catch (err) {
         if (!cancelled && err.name !== "AbortError") {
-          setError(
-            err.message || "Video details load nahi hue."
-          );
+          setError(err.message || "Video details load nahi hue.");
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -367,20 +340,16 @@ function AWRecordedVideoPlayer({ videoId, title }) {
     };
   }, [videoId, retry]);
 
-  // Load the provider's official embed script.
+  // Load the provider embed script and watch the container immediately.
   useEffect(() => {
     if (!details?.playerEmbedUrl) return undefined;
 
-    const container = document.getElementById(
-      RECORDED_CONTAINER_ID
-    );
-
+    const container = document.getElementById(RECORDED_CONTAINER_ID);
     if (!container) return undefined;
 
     let cancelled = false;
     let timeoutId;
     let observer;
-    let script;
 
     container.replaceChildren();
     setError("");
@@ -418,32 +387,30 @@ function AWRecordedVideoPlayer({ videoId, title }) {
     }
 
     try {
-      const playerUrl = validateProviderPlayerUrl(
-        details.playerEmbedUrl
-      );
-
+      const playerUrl = validateProviderPlayerUrl(details.playerEmbedUrl);
       playerUrl.searchParams.set("c", RECORDED_CONTAINER_ID);
 
-      script = document.createElement("script");
+      // Observe before loading the script to avoid missing early DOM changes.
+      observer = new MutationObserver(() => {
+        checkPlayer();
+      });
+
+      observer.observe(container, {
+        childList: true,
+        subtree: true,
+      });
+
+      const script = document.createElement("script");
       script.async = true;
       script.src = playerUrl.toString();
 
       script.onload = () => {
         if (cancelled || checkPlayer()) return;
 
-        observer = new MutationObserver(() => {
-          checkPlayer();
-        });
-
-        observer.observe(container, {
-          childList: true,
-          subtree: true,
-        });
-
         timeoutId = window.setTimeout(() => {
           if (!cancelled && !checkPlayer()) {
             fail(
-              "Provider script load hua, lekin player nahi bana. Browser console aur provider embed permissions check karo."
+              "Provider script load hua, lekin player nahi bana. Provider embed configuration ya browser console check karo."
             );
           }
         }, 20000);
@@ -481,10 +448,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
     return (
       <div className="live-player-message">
         <p>{error}</p>
-        <button
-          type="button"
-          onClick={() => setRetry((value) => value + 1)}
-        >
+        <button type="button" onClick={() => setRetry((value) => value + 1)}>
           Retry video
         </button>
         <p>
@@ -505,10 +469,7 @@ function AWRecordedVideoPlayer({ videoId, title }) {
             />
 
             {playerLoading && !error && (
-              <div
-                className="recorded-video-loading"
-                aria-live="polite"
-              >
+              <div className="recorded-video-loading" aria-live="polite">
                 <div className="video-spinner" />
                 <p>Connecting to video player...</p>
                 <span>This may take a few seconds.</span>
@@ -621,17 +582,13 @@ export default function LivePage() {
           );
         }
 
-        if (!cancelled) {
-          setModel(selected);
-        }
+        if (!cancelled) setModel(selected);
       } catch (err) {
         if (!cancelled && err.name !== "AbortError") {
           setError(err.message || "Unable to load this model.");
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -713,16 +670,11 @@ export default function LivePage() {
             title={requestedTitle}
           />
         ) : loading ? (
-          <div className="live-player-message">
-            Loading model...
-          </div>
+          <div className="live-player-message">Loading model...</div>
         ) : error ? (
           <div className="live-player-message">
             <p>{error}</p>
-            <button
-              type="button"
-              onClick={() => setReload((value) => value + 1)}
-            >
+            <button type="button" onClick={() => setReload((value) => value + 1)}>
               Retry
             </button>
             <p>
@@ -747,9 +699,7 @@ export default function LivePage() {
                 <div className="live-channel-info">
                   <h2>{model.name}</h2>
                   <p>
-                    {model.age > 0
-                      ? `Age ${model.age}+`
-                      : "Live model"}
+                    {model.age > 0 ? `Age ${model.age}+` : "Live model"}
                   </p>
                   <span className="live-note">
                     <Eye
@@ -785,10 +735,9 @@ export default function LivePage() {
           </>
         ) : null}
 
-        <footer className="live-footer">
-          Powered by OnlyStream
-        </footer>
+        <footer className="live-footer">Powered by OnlyStream</footer>
       </section>
     </main>
   );
 }
+
