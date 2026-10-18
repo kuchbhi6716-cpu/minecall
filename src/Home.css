@@ -1760,3 +1760,51 @@ footer p {
 }
 
 
+/* FIX: Mobile footer alignment */
+@media (max-width: 600px) {
+  .footer-about {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 28px;
+    text-align: left;
+  }
+
+  .footer-about-card {
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .footer-about-card h3 {
+    text-align: left;
+  }
+
+  .footer-about-card p {
+    width: 100%;
+    max-width: none;
+    text-align: left;
+    line-height: 1.8;
+  }
+
+  .footer-contact a {
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .footer-main {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .footer-tagline {
+    text-align: left;
+  }
+
+  .footer-bottom {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+
