@@ -344,6 +344,62 @@ app.get("/api/aw-video-details", async (req, res) => {
 });
 
 // ------------------------------------
+// CREATOR LIVE REGISTRY (TEST MODE)
+// ------------------------------------
+
+// In-memory only. Restarting the server clears this list.
+// Authentication and creator ownership verification are not
+// implemented here yet, so this is for testing only.
+
+const liveCreators = new Map();
+
+function normalizeCreatorName(value) {
+  if (typeof value !== "string") return "";
+
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 30);
+}
+
+function getPublicLiveCreators() {
+  return Array.from(liveCreators.values()).map((creator) => ({
+    username: creator.username,
+    startedAt: creator.startedAt,
+  }));
+}
+
+function broadcastLiveCreators() {
+  io.emit("live-creators-updated", getPublicLiveCreators());
+}
+
+function removeCreatorLive(socket) {
+  const username = socket.data.creatorLiveUsername;
+
+  if (!username) return;
+
+  const current = liveCreators.get(username);
+
+  // Do not remove a newer session if the same username reconnects.
+  if (current?.socketId === socket.id) {
+    liveCreators.delete(username);
+    broadcastLiveCreators();
+
+    console.log("Creator ended live:", username);
+  }
+
+  socket.data.creatorLiveUsername = null;
+}
+
+// Read the currently live creator list.
+app.get("/api/live-creators", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({
+    creators: getPublicLiveCreators(),
+  });
+});
+
+// ------------------------------------
 // RANDOM VIDEO CHAT
 // ------------------------------------
 
@@ -425,8 +481,83 @@ io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
   // ----------------------------------
+  // CREATOR: GET CURRENT LIVE LIST
+  // ----------------------------------
+
+  socket.on("get-live-creators", () => {
+    socket.emit("live-creators-updated", getPublicLiveCreators());
+  });
+
+  // ----------------------------------
+  // CREATOR: GO LIVE
+  // ----------------------------------
+
+  socket.on("creator-go-live", (payload, acknowledge) => {
+    const username = normalizeCreatorName(payload?.username);
+
+    if (!username) {
+      if (typeof acknowledge === "function") {
+        acknowledge({
+          ok: false,
+          error: "A valid creator username is required.",
+        });
+      }
+      return;
+    }
+
+    // Remove this socket's previous live entry if the name changed.
+    removeCreatorLive(socket);
+
+    const previous = liveCreators.get(username);
+
+    // A duplicate username replaces the previous test session.
+    if (previous && previous.socketId !== socket.id) {
+      const oldSocket = io.sockets.sockets.get(previous.socketId);
+
+      if (oldSocket) {
+        oldSocket.data.creatorLiveUsername = null;
+        oldSocket.emit("creator-live-replaced");
+      }
+    }
+
+    const creator = {
+      username,
+      socketId: socket.id,
+      startedAt: new Date().toISOString(),
+    };
+
+    liveCreators.set(username, creator);
+    socket.data.creatorLiveUsername = username;
+
+    broadcastLiveCreators();
+
+    console.log("Creator went live:", username);
+
+    if (typeof acknowledge === "function") {
+      acknowledge({
+        ok: true,
+        creator: {
+          username: creator.username,
+          startedAt: creator.startedAt,
+        },
+      });
+    }
+  });
+
+  // ----------------------------------
+  // CREATOR: END LIVE
+  // ----------------------------------
+
+  socket.on("creator-end-live", (acknowledge) => {
+    removeCreatorLive(socket);
+
+    if (typeof acknowledge === "function") {
+      acknowledge({ ok: true });
+    }
+  });
+
+  // ----------------------------------
   // LIVE COMMENTS: JOIN A MODEL ROOM
-  // Client sends the model's username.
   // ----------------------------------
 
   socket.on("live-join", (rawModel) => {
@@ -437,7 +568,6 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Leave the previous stream room when switching models.
     for (const room of socket.rooms) {
       if (room.startsWith(liveRoomPrefix)) {
         socket.leave(room);
@@ -496,7 +626,6 @@ io.on("connection", (socket) => {
       createdAt: Date.now(),
     };
 
-    // Broadcast to every viewer in this model's room, including sender.
     io.to(getLiveRoom(model)).emit("live-comment", comment);
   });
 
@@ -593,6 +722,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     removeFromQueue(socket.id);
     disconnectPartner(socket.id);
+    removeCreatorLive(socket);
     commentRateLimits.delete(socket.id);
 
     console.log("User disconnected:", socket.id);
@@ -615,3 +745,4 @@ app.get(/.*/, (req, res) => {
 server.listen(PORT, "0.0.0.0", () => {
   console.log("OnlyStream server running on port", PORT);
 });
+
