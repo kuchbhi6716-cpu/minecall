@@ -1,22 +1,10 @@
+
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
-  ArrowLeft,
-  Camera,
-  CameraOff,
-  Coins,
-  Gift,
-  LogOut,
-  Phone,
-  Radio,
-  ShieldCheck,
-  Video,
-  VideoOff,
-  PhoneOff,
-  Check,
-  X,
-  RefreshCw,
-  Wallet,
+  ArrowLeft, Camera, CameraOff, Coins, Gift, LogOut, Phone,
+  Radio, ShieldCheck, Video, VideoOff, PhoneOff, Check, X,
+  RefreshCw, Wallet, Mic, MicOff, RotateCw
 } from "lucide-react";
 import "./CreatorDashboard.css";
 
@@ -40,11 +28,9 @@ function formatNumber(value) {
 
 async function readJson(response) {
   const data = await response.json().catch(() => ({}));
-
   if (!response.ok) {
     throw new Error(data.error || data.message || "Request failed.");
   }
-
   return data;
 }
 
@@ -54,18 +40,16 @@ export default function CreatorDashboard() {
   const streamRef = useRef(null);
   const socketRef = useRef(null);
   const peerRef = useRef(null);
-
-  // Buffer signals that arrive before the peer or remote description exists.
   const pendingSignalsRef = useRef([]);
   const pendingCandidatesRef = useRef([]);
   const processingSignalsRef = useRef(false);
-
   const requestRef = useRef(null);
   const isLiveRef = useRef(false);
   const acceptedRef = useRef(false);
-  const connectedRef = useRef(false);
   const billingStartedRef = useRef(false);
   const mountedRef = useRef(false);
+  const cameraFacingRef = useRef("user");
+  const switchCameraRef = useRef(false);
 
   const [username, setUsername] = useState("Creator");
   const [isLive, setIsLive] = useState(false);
@@ -81,13 +65,17 @@ export default function CreatorDashboard() {
   const [callElapsed, setCallElapsed] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
 
+  // New camera and microphone controls.
+  const [micMuted, setMicMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+  const [facingMode, setFacingMode] = useState("user");
+  const [cameraSwitching, setCameraSwitching] = useState(false);
+
   const refreshEconomy = useCallback(async () => {
     let session;
 
     try {
-      session = JSON.parse(
-        localStorage.getItem(SESSION_KEY) || "null"
-      );
+      session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
     } catch {
       session = null;
     }
@@ -102,30 +90,21 @@ export default function CreatorDashboard() {
       setEconomyError("");
 
       const response = await fetch(
-        `${API_BASE}/api/economy/me?username=${encodeURIComponent(
-          session.username
-        )}`,
+        `${API_BASE}/api/economy/me?username=${encodeURIComponent(session.username)}`,
         { headers: { Accept: "application/json" } }
       );
 
       const data = await readJson(response);
 
       if (mountedRef.current) {
-        // Support either a direct account response or a nested account.
-        const account = data.account ?? data.economy ?? data;
-
-        setEconomy(account);
+        setEconomy(data.account ?? data.economy ?? data);
       }
     } catch (error) {
       if (mountedRef.current) {
-        setEconomyError(
-          error.message || "Could not load your test earnings."
-        );
+        setEconomyError(error.message || "Could not load your test earnings.");
       }
     } finally {
-      if (mountedRef.current) {
-        setEconomyLoading(false);
-      }
+      if (mountedRef.current) setEconomyLoading(false);
     }
   }, []);
 
@@ -133,7 +112,6 @@ export default function CreatorDashboard() {
     if (!billingStartedRef.current) return;
 
     billingStartedRef.current = false;
-
     socketRef.current?.emit("call-billing-stop", {
       username,
       creatorUsername: username,
@@ -145,9 +123,8 @@ export default function CreatorDashboard() {
   const closePeer = useCallback(() => {
     stopBilling();
 
-    const peer = peerRef.current;
-
-    if (peer) {
+    if (peerRef.current) {
+      const peer = peerRef.current;
       peer.ontrack = null;
       peer.onicecandidate = null;
       peer.onconnectionstatechange = null;
@@ -165,8 +142,6 @@ export default function CreatorDashboard() {
     pendingSignalsRef.current = [];
     pendingCandidatesRef.current = [];
     processingSignalsRef.current = false;
-
-    connectedRef.current = false;
     acceptedRef.current = false;
 
     setCallConnected(false);
@@ -180,17 +155,15 @@ export default function CreatorDashboard() {
   }, [stopBilling]);
 
   const stopLocalStream = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        track.stop();
-      });
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
 
-      streamRef.current = null;
-    }
+    if (videoRef.current) videoRef.current.srcObject = null;
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+    setMicMuted(false);
+    setCameraOff(false);
+    setFacingMode("user");
+    cameraFacingRef.current = "user";
   }, []);
 
   const startBilling = useCallback(() => {
@@ -207,85 +180,57 @@ export default function CreatorDashboard() {
   }, [username]);
 
   const createPeer = useCallback((initiator) => {
-    if (peerRef.current) {
-      return peerRef.current;
-    }
+    if (peerRef.current) return peerRef.current;
 
     const socket = socketRef.current;
-
-    if (!socket) {
-      console.error("Cannot create peer: socket is unavailable.");
-      return null;
-    }
+    if (!socket) return null;
 
     const peer = new RTCPeerConnection(ICE_SERVERS);
     peerRef.current = peer;
 
-    // Add creator camera and microphone tracks before negotiation.
-    const localStream = streamRef.current;
-
-    if (localStream) {
-      localStream.getTracks().forEach((track) => {
-        peer.addTrack(track, localStream);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        peer.addTrack(track, streamRef.current);
       });
     } else {
-      console.error("Creator local stream is missing.");
-      setCameraError(
-        "Your camera is unavailable. End Live and start it again."
-      );
+      setCameraError("Your camera is unavailable. Start Live again.");
     }
 
-    // Receive the caller's video/audio and attach it to the main video.
     peer.ontrack = (event) => {
-      console.log("Creator received remote track:", event.track.kind);
+      const remoteVideo = remoteVideoRef.current;
+      if (!remoteVideo) return;
 
       let remoteStream = event.streams?.[0];
 
       if (!remoteStream) {
-        remoteStream = new MediaStream();
+        remoteStream =
+          remoteVideo.srcObject instanceof MediaStream
+            ? remoteVideo.srcObject
+            : new MediaStream();
 
-        const existingVideo = remoteVideoRef.current?.srcObject;
-
-        if (existingVideo instanceof MediaStream) {
-          remoteStream = existingVideo;
-        }
-
-        const alreadyAdded = remoteStream
-          .getTracks()
-          .some((track) => track.id === event.track.id);
-
-        if (!alreadyAdded) {
+        if (!remoteStream.getTracks().some((t) => t.id === event.track.id)) {
           remoteStream.addTrack(event.track);
         }
       }
 
-      const remoteVideo = remoteVideoRef.current;
-
-      if (remoteVideo && remoteVideo.srcObject !== remoteStream) {
+      if (remoteVideo.srcObject !== remoteStream) {
         remoteVideo.srcObject = remoteStream;
       }
 
-      if (remoteVideo) {
-        remoteVideo.play().catch((error) => {
-          console.warn("Remote video autoplay needs interaction:", error);
+      remoteVideo.play().catch(() => {});
+    };
+
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        socketRef.current?.emit("signal", {
+          type: "candidate",
+          candidate: event.candidate,
         });
       }
     };
 
-    peer.onicecandidate = (event) => {
-      if (!event.candidate) return;
-
-      socketRef.current?.emit("signal", {
-        type: "candidate",
-        candidate: event.candidate,
-      });
-    };
-
     peer.onconnectionstatechange = () => {
-      console.log("Creator WebRTC connection:", peer.connectionState);
-
       if (peer.connectionState === "connected") {
-        connectedRef.current = true;
         setCallConnected(true);
         setCameraError("");
         startBilling();
@@ -293,26 +238,15 @@ export default function CreatorDashboard() {
         peer.connectionState === "failed" ||
         peer.connectionState === "closed"
       ) {
-        connectedRef.current = false;
         setCallConnected(false);
         stopBilling();
 
         if (peer.connectionState === "failed") {
-          setCameraError(
-            "Video connection failed. Please end the call and try again."
-          );
+          setCameraError("Video connection failed. End the call and retry.");
         }
-      } else if (peer.connectionState === "disconnected") {
-        // A brief network interruption may recover, so do not close the peer.
-        console.warn("Creator connection temporarily disconnected.");
       }
     };
 
-    peer.oniceconnectionstatechange = () => {
-      console.log("Creator ICE state:", peer.iceConnectionState);
-    };
-
-    // Only the server-designated initiator should create an offer.
     if (initiator) {
       peer.createOffer()
         .then((offer) => peer.setLocalDescription(offer))
@@ -321,12 +255,10 @@ export default function CreatorDashboard() {
             type: "offer",
             offer: peer.localDescription,
           });
-
-          console.log("Creator offer sent.");
         })
         .catch((error) => {
-          console.error("Creator offer error:", error);
-          setCameraError("Could not start the video call. Please retry.");
+          console.error("Offer error:", error);
+          setCameraError("Could not start the video call.");
         });
     }
 
@@ -335,7 +267,6 @@ export default function CreatorDashboard() {
 
   const processSignal = useCallback(async (data) => {
     const peer = peerRef.current;
-
     if (!peer || !data) return;
 
     if (data.type === "candidate" && data.candidate) {
@@ -344,27 +275,17 @@ export default function CreatorDashboard() {
         return;
       }
 
-      await peer.addIceCandidate(
-        new RTCIceCandidate(data.candidate)
-      );
-
+      await peer.addIceCandidate(new RTCIceCandidate(data.candidate));
       return;
     }
 
     if (data.type === "offer" && data.offer) {
-      console.log("Creator processing offer.");
-
       await peer.setRemoteDescription(
         new RTCSessionDescription(data.offer)
       );
 
-      // Apply ICE candidates received before the offer.
-      const candidates = pendingCandidatesRef.current.splice(0);
-
-      for (const candidate of candidates) {
-        await peer.addIceCandidate(
-          new RTCIceCandidate(candidate)
-        );
+      for (const candidate of pendingCandidatesRef.current.splice(0)) {
+        await peer.addIceCandidate(new RTCIceCandidate(candidate));
       }
 
       const answer = await peer.createAnswer();
@@ -374,61 +295,40 @@ export default function CreatorDashboard() {
         type: "answer",
         answer: peer.localDescription,
       });
-
-      console.log("Creator answer sent.");
       return;
     }
 
     if (data.type === "answer" && data.answer) {
-      console.log("Creator processing answer.");
-
       await peer.setRemoteDescription(
         new RTCSessionDescription(data.answer)
       );
 
-      const candidates = pendingCandidatesRef.current.splice(0);
-
-      for (const candidate of candidates) {
-        await peer.addIceCandidate(
-          new RTCIceCandidate(candidate)
-        );
+      for (const candidate of pendingCandidatesRef.current.splice(0)) {
+        await peer.addIceCandidate(new RTCIceCandidate(candidate));
       }
     }
   }, []);
 
   const drainSignals = useCallback(async () => {
-    if (processingSignalsRef.current) return;
-    if (!peerRef.current) return;
+    if (processingSignalsRef.current || !peerRef.current) return;
 
     processingSignalsRef.current = true;
 
     try {
-      while (
-        pendingSignalsRef.current.length > 0 &&
-        peerRef.current
-      ) {
+      while (pendingSignalsRef.current.length && peerRef.current) {
         const data = pendingSignalsRef.current.shift();
 
         try {
           await processSignal(data);
         } catch (error) {
-          console.error(
-            `Creator failed to process ${data?.type || "unknown"} signal:`,
-            error
-          );
+          console.error("Signal processing failed:", error);
         }
       }
     } finally {
       processingSignalsRef.current = false;
 
-      // A new signal may have arrived while the previous one was processing.
-      if (
-        pendingSignalsRef.current.length > 0 &&
-        peerRef.current
-      ) {
-        queueMicrotask(() => {
-          drainSignals();
-        });
+      if (pendingSignalsRef.current.length && peerRef.current) {
+        queueMicrotask(() => drainSignals());
       }
     }
   }, [processSignal]);
@@ -436,25 +336,15 @@ export default function CreatorDashboard() {
   const handleSignal = useCallback((data) => {
     if (!data) return;
 
-    console.log("Creator received signal:", data.type);
-
-    // Do not discard an offer/candidate just because matched has not arrived yet.
     pendingSignalsRef.current.push(data);
-
-    if (peerRef.current) {
-      drainSignals();
-    }
+    if (peerRef.current) drainSignals();
   }, [drainSignals]);
 
   useEffect(() => {
     mountedRef.current = true;
 
-    let session;
-
     try {
-      session = JSON.parse(
-        localStorage.getItem(SESSION_KEY) || "null"
-      );
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
 
       if (!session || session.role !== "creator") {
         window.location.replace("/login");
@@ -463,14 +353,8 @@ export default function CreatorDashboard() {
 
       setUsername(session.username || "Creator");
 
-      const oldLive = JSON.parse(
-        localStorage.getItem(LIVE_KEY) || "null"
-      );
-
-      if (
-        oldLive?.username === session.username &&
-        oldLive.isLive
-      ) {
+      const oldLive = JSON.parse(localStorage.getItem(LIVE_KEY) || "null");
+      if (oldLive?.username === session.username && oldLive.isLive) {
         localStorage.removeItem(LIVE_KEY);
       }
     } catch {
@@ -480,39 +364,29 @@ export default function CreatorDashboard() {
 
     refreshEconomy();
 
-    const socket = io({
-      transports: ["websocket", "polling"],
-    });
-
+    const socket = io({ transports: ["websocket", "polling"] });
     socketRef.current = socket;
 
-    socket.on("connect", () => {
-      console.log("Creator socket connected:", socket.id);
-      socket.emit("get-live-creators");
-    });
+    socket.on("connect", () => socket.emit("get-live-creators"));
 
-    socket.on("connect_error", (error) => {
-      console.error("Creator socket connection error:", error);
+    socket.on("connect_error", () => {
       setCameraError("Server connection failed. Please refresh and retry.");
-    });
-
-    socket.on("incoming-creator-call", (request) => {
-      if (!isLiveRef.current || acceptedRef.current) {
-        socket.emit("creator-call-reject", {
-          requestId: request?.requestId,
-        });
-
-        return;
-      }
-
-      requestRef.current = request;
-      setIncomingCall(request);
     });
 
     const clearIncomingRequest = () => {
       requestRef.current = null;
       setIncomingCall(null);
     };
+
+    socket.on("incoming-creator-call", (request) => {
+      if (!isLiveRef.current || acceptedRef.current) {
+        socket.emit("creator-call-reject", { requestId: request?.requestId });
+        return;
+      }
+
+      requestRef.current = request;
+      setIncomingCall(request);
+    });
 
     socket.on("creator-call-request-cancelled", clearIncomingRequest);
     socket.on("creator-call-cancelled", clearIncomingRequest);
@@ -525,37 +399,22 @@ export default function CreatorDashboard() {
     socket.on("creator-call-accepted", (data) => {
       acceptedRef.current = true;
       requestRef.current = null;
-
       setIncomingCall(null);
       setCallerName(data?.callerName || "Caller");
       setCameraError("");
-
-      console.log(
-        "Creator call accepted. Waiting for matched/WebRTC negotiation."
-      );
     });
 
     socket.on("matched", (data) => {
-      if (!isLiveRef.current || !acceptedRef.current) {
-        console.warn("Ignoring matched event: creator is not ready.");
-        return;
-      }
-
-      console.log("Creator matched event:", data);
+      if (!isLiveRef.current || !acceptedRef.current) return;
 
       setCallerName((current) => current || "Caller");
-
       createPeer(Boolean(data?.initiator));
-
-      // Now process any offer/candidates received before matched.
       drainSignals();
     });
 
     socket.on("signal", handleSignal);
 
     socket.on("partner-left", () => {
-      console.log("Creator received partner-left.");
-
       closePeer();
       clearIncomingRequest();
       setCameraError("The caller ended the call.");
@@ -563,17 +422,10 @@ export default function CreatorDashboard() {
     });
 
     socket.on("call-billing-update", (data) => {
-      if (data) {
-        setEconomy((current) => ({
-          ...(current || {}),
-          ...data,
-        }));
-      }
+      if (data) setEconomy((current) => ({ ...(current || {}), ...data }));
     });
 
     socket.on("disconnect", () => {
-      console.warn("Creator socket disconnected.");
-
       closePeer();
       clearIncomingRequest();
       setCameraError("Connection lost. Reconnect and try again.");
@@ -582,10 +434,8 @@ export default function CreatorDashboard() {
     socket.on("creator-live-replaced", () => {
       isLiveRef.current = false;
       setIsLive(false);
-
       stopLocalStream();
       closePeer();
-
       localStorage.removeItem(LIVE_KEY);
       setCameraError("Your live session was replaced by another session.");
     });
@@ -593,39 +443,31 @@ export default function CreatorDashboard() {
     return () => {
       mountedRef.current = false;
       isLiveRef.current = false;
-
       socket.removeAllListeners();
       socket.disconnect();
 
-      if (socketRef.current === socket) {
-        socketRef.current = null;
-      }
+      if (socketRef.current === socket) socketRef.current = null;
 
       closePeer();
       stopLocalStream();
     };
   }, [
-    closePeer,
-    createPeer,
-    drainSignals,
-    handleSignal,
-    refreshEconomy,
-    stopLocalStream,
+    closePeer, createPeer, drainSignals, handleSignal,
+    refreshEconomy, stopLocalStream
   ]);
 
   useEffect(() => {
     if (!callConnected || !callStartedAt) return undefined;
 
     const updateElapsed = () => {
-      setCallElapsed(
-        Math.max(0, Math.floor((Date.now() - callStartedAt) / 1000))
-      );
+      setCallElapsed(Math.max(
+        0,
+        Math.floor((Date.now() - callStartedAt) / 1000)
+      ));
     };
 
     updateElapsed();
-
     const interval = window.setInterval(updateElapsed, 1000);
-
     return () => window.clearInterval(interval);
   }, [callConnected, callStartedAt]);
 
@@ -635,9 +477,7 @@ export default function CreatorDashboard() {
 
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error(
-          "Camera access is unavailable. Open the website using HTTPS."
-        );
+        throw new Error("Camera access requires HTTPS.");
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -650,73 +490,58 @@ export default function CreatorDashboard() {
       });
 
       streamRef.current = stream;
+      cameraFacingRef.current = "user";
+      setFacingMode("user");
+      setMicMuted(false);
+      setCameraOff(false);
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
 
-      const session = JSON.parse(
-        localStorage.getItem(SESSION_KEY) || "null"
-      );
-
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
       const creatorUsername = session?.username || username;
       const socket = socketRef.current;
 
       if (!socket?.connected) {
-        throw new Error("Server is not connected. Please retry in a moment.");
+        throw new Error("Server is not connected. Please retry.");
       }
 
-      socket.emit(
-        "creator-go-live",
-        { username: creatorUsername },
-        (response) => {
-          if (response?.ok === false) {
-            isLiveRef.current = false;
-            setIsLive(false);
-            stopLocalStream();
+      socket.emit("creator-go-live", { username: creatorUsername }, (response) => {
+        if (response?.ok === false) {
+          isLiveRef.current = false;
+          setIsLive(false);
+          stopLocalStream();
 
-            setCameraError(
-              response.error ||
-              response.message ||
-              "Could not publish your live status."
-            );
-
-            return;
-          }
-
-          isLiveRef.current = true;
-          setIsLive(true);
-
-          localStorage.setItem(
-            LIVE_KEY,
-            JSON.stringify({
-              username: creatorUsername,
-              isLive: true,
-              startedAt: new Date().toISOString(),
-            })
+          setCameraError(
+            response.error || response.message || "Could not publish live status."
           );
-
-          console.log("Creator is live:", creatorUsername);
+          return;
         }
-      );
+
+        isLiveRef.current = true;
+        setIsLive(true);
+
+        localStorage.setItem(LIVE_KEY, JSON.stringify({
+          username: creatorUsername,
+          isLive: true,
+          startedAt: new Date().toISOString(),
+        }));
+      });
 
       window.setTimeout(() => {
         if (mountedRef.current && !isLiveRef.current && streamRef.current) {
-          setCameraError((current) =>
-            current ||
-            "The server has not confirmed Go Live. Check the server logs and retry."
-          );
+          setCameraError((current) => current ||
+            "Server has not confirmed Go Live. Check server logs and retry.");
         }
       }, 8000);
     } catch (error) {
       stopLocalStream();
-
       setCameraError(
         error?.name === "NotAllowedError"
-          ? "Camera or microphone permission was denied. Allow access in your browser settings."
-          : error?.message ||
-            "Could not start your camera. Please try again."
+          ? "Camera or microphone permission denied. Allow access in browser settings."
+          : error?.message || "Could not start your camera."
       );
     } finally {
       setBusy(false);
@@ -734,22 +559,14 @@ export default function CreatorDashboard() {
     setCallerName(request.callerName || "Caller");
     setIncomingCall(null);
 
-    socket.emit(
-      "creator-call-accept",
-      { requestId: request.requestId },
-      (response) => {
-        if (response?.ok === false) {
-          closePeer();
-          requestRef.current = null;
-
-          setCameraError(
-            response.error ||
-            response.message ||
-            "This call request is no longer available."
-          );
-        }
+    socket.emit("creator-call-accept", { requestId: request.requestId }, (response) => {
+      if (response?.ok === false) {
+        closePeer();
+        requestRef.current = null;
+        setCameraError(response.error || response.message ||
+          "This call request is no longer available.");
       }
-    );
+    });
 
     requestRef.current = null;
   }
@@ -767,20 +584,102 @@ export default function CreatorDashboard() {
     setIncomingCall(null);
   }
 
+  // Mute/unmute microphone without destroying the call.
+  function toggleMic() {
+    const tracks = streamRef.current?.getAudioTracks() || [];
+    if (!tracks.length) return;
+
+    const nextMuted = !micMuted;
+    tracks.forEach((track) => {
+      track.enabled = !nextMuted;
+    });
+    setMicMuted(nextMuted);
+  }
+
+  // Turn the camera off/on while keeping the call and microphone active.
+  function toggleCamera() {
+    const tracks = streamRef.current?.getVideoTracks() || [];
+    if (!tracks.length) return;
+
+    const nextOff = !cameraOff;
+    tracks.forEach((track) => {
+      track.enabled = !nextOff;
+    });
+    setCameraOff(nextOff);
+  }
+
+  // Switch the physical camera and replace the outgoing WebRTC video track.
+  async function switchCamera() {
+    if (!streamRef.current || cameraSwitching) return;
+
+    const nextFacing = facingMode === "user" ? "environment" : "user";
+    setCameraSwitching(true);
+    setCameraError("");
+
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: nextFacing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+
+      const newTrack = newStream.getVideoTracks()[0];
+      if (!newTrack) throw new Error("Could not access the selected camera.");
+
+      newTrack.enabled = !cameraOff;
+
+      const peer = peerRef.current;
+      if (peer) {
+        const sender = peer.getSenders().find(
+          (item) => item.track?.kind === "video"
+        );
+
+        if (sender) await sender.replaceTrack(newTrack);
+        else peer.addTrack(newTrack, streamRef.current);
+      }
+
+      const oldTrack = streamRef.current.getVideoTracks()[0];
+      if (oldTrack) {
+        streamRef.current.removeTrack(oldTrack);
+        oldTrack.stop();
+      }
+
+      streamRef.current.addTrack(newTrack);
+      cameraFacingRef.current = nextFacing;
+      setFacingMode(nextFacing);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        await videoRef.current.play().catch(() => {});
+      }
+
+      // Stop any extra tracks created by getUserMedia.
+      newStream.getTracks().forEach((track) => {
+        if (track !== newTrack) track.stop();
+      });
+    } catch (error) {
+      setCameraError(
+        error?.message || "Could not switch camera. Your device may not support it."
+      );
+    } finally {
+      setCameraSwitching(false);
+    }
+  }
+
   function endCall() {
     socketRef.current?.emit("stop-chat");
-
     closePeer();
     setIncomingCall(null);
     requestRef.current = null;
     setCameraError("");
-
     refreshEconomy();
   }
 
   function endLive() {
     if (isEnding) return;
-
     setIsEnding(true);
 
     if (requestRef.current?.requestId) {
@@ -789,10 +688,7 @@ export default function CreatorDashboard() {
       });
     }
 
-    stopBilling();
-
     socketRef.current?.emit("creator-end-live", { username });
-
     closePeer();
     setIncomingCall(null);
     requestRef.current = null;
@@ -804,43 +700,30 @@ export default function CreatorDashboard() {
     setIsLive(false);
     setCameraError("");
     setIsEnding(false);
-
     refreshEconomy();
   }
 
   function logout() {
     stopBilling();
-
     socketRef.current?.emit("creator-end-live", { username });
 
     isLiveRef.current = false;
-
     closePeer();
     stopLocalStream();
 
     localStorage.removeItem(LIVE_KEY);
     localStorage.removeItem(SESSION_KEY);
-
     window.location.href = "/";
   }
 
   const creatorCoins =
-    economy?.creatorCoins ??
-    economy?.coins ??
-    economy?.balance ??
-    economy?.wallet?.coins ??
-    0;
+    economy?.creatorCoins ?? economy?.coins ?? economy?.balance ??
+    economy?.wallet?.coins ?? 0;
 
-  // FIX: Read the actual revenue field returned by the backend.
   const creatorRevenue =
-    economy?.testRevenueInr ??
-    economy?.creatorRevenue ??
-    economy?.revenue ??
-    economy?.earnings ??
-    economy?.wallet?.revenue ??
-    0;
+    economy?.testRevenueInr ?? economy?.creatorRevenue ?? economy?.revenue ??
+    economy?.earnings ?? economy?.wallet?.revenue ?? 0;
 
-  // FIX: Read the test signup bonus recorded by the backend.
   const signupBonus = Number(economy?.testBonusInr ?? 0);
 
   const elapsedLabel =
@@ -850,22 +733,16 @@ export default function CreatorDashboard() {
   return (
     <main className="creator-dashboard">
       <header className="creator-header">
-        <a className="creator-brand" href="/">
-          OnlyStream<span>.</span>
-        </a>
-
+        <a className="creator-brand" href="/">OnlyStream<span>.</span></a>
         <button className="creator-logout" onClick={logout}>
-          <LogOut size={17} />
-          <span>Log out</span>
+          <LogOut size={17} /><span>Log out</span>
         </button>
       </header>
 
       <div className="creator-welcome">
         <a className="creator-back" href="/">
-          <ArrowLeft size={16} />
-          Home
+          <ArrowLeft size={16} /> Home
         </a>
-
         <p className="creator-eyebrow">CREATOR STUDIO</p>
         <h1>Welcome, {username}</h1>
         <p className="creator-subtitle">
@@ -884,7 +761,6 @@ export default function CreatorDashboard() {
                   : "Go live to become available for incoming calls."}
               </p>
             </div>
-
             <span className={isLive ? "creator-status live" : "creator-status"}>
               <span className="creator-status-dot" />
               {isLive ? "LIVE" : "OFFLINE"}
@@ -895,114 +771,115 @@ export default function CreatorDashboard() {
             <video
               ref={remoteVideoRef}
               className="creator-remote-video"
-              autoPlay
-              playsInline
+              autoPlay playsInline
             />
-
             <video
               ref={videoRef}
-              className={
-                callConnected
-                  ? "creator-preview-video creator-preview-small"
-                  : "creator-preview-video"
-              }
-              autoPlay
-              muted
-              playsInline
+              className={callConnected
+                ? "creator-preview-video creator-preview-small"
+                : "creator-preview-video"}
+              autoPlay muted playsInline
             />
 
             {!isLive && (
               <div className="creator-camera-placeholder">
-                <div className="creator-camera-icon">
-                  <CameraOff size={32} />
-                </div>
+                <div className="creator-camera-icon"><CameraOff size={32} /></div>
                 <h3>Your camera preview</h3>
                 <p>Go live to turn on your camera and microphone.</p>
               </div>
             )}
 
             {isLive && (
-              <div className="creator-live-label">
-                <span />
-                LIVE NOW
-              </div>
+              <div className="creator-live-label"><span /> LIVE NOW</div>
             )}
-
             {callConnected && (
-              <div className="creator-call-label">
-                <Phone size={14} />
-                Connected
-              </div>
+              <div className="creator-call-label"><Phone size={14} /> Connected</div>
             )}
           </div>
 
           {cameraError && (
-            <p className="creator-error" role="alert">
-              {cameraError}
-            </p>
+            <p className="creator-error" role="alert">{cameraError}</p>
           )}
 
           {incomingCall && (
             <div className="creator-incoming-call">
-              <div className="creator-incoming-icon">
-                <Phone size={20} />
-              </div>
-
+              <div className="creator-incoming-icon"><Phone size={20} /></div>
               <div className="creator-incoming-details">
                 <strong>Incoming call</strong>
-                <span>
-                  {incomingCall.callerName || "A user"} wants to call you.
-                </span>
+                <span>{incomingCall.callerName || "A user"} wants to call you.</span>
               </div>
-
               <div className="creator-incoming-actions">
-                <button
-                  className="creator-accept-call"
-                  onClick={acceptCall}
-                  aria-label="Accept call"
-                >
-                  <Check size={18} />
-                  Accept
+                <button className="creator-accept-call" onClick={acceptCall}>
+                  <Check size={18} /> Accept
                 </button>
-
-                <button
-                  className="creator-reject-call"
-                  onClick={rejectCall}
-                  aria-label="Reject call"
-                >
-                  <X size={18} />
-                  Reject
+                <button className="creator-reject-call" onClick={rejectCall}>
+                  <X size={18} /> Reject
                 </button>
               </div>
             </div>
           )}
 
-          <div className="creator-camera-actions">
-            {!isLive ? (
-              <button
-                className="creator-go-live"
-                onClick={goLive}
-                disabled={busy}
-              >
-                <Radio size={19} />
-                {busy ? "Starting camera..." : "Go Live"}
+          {!isLive ? (
+            <div className="creator-camera-actions">
+              <button className="creator-go-live" onClick={goLive} disabled={busy}>
+                <Radio size={19} /> {busy ? "Starting camera..." : "Go Live"}
               </button>
-            ) : callConnected ? (
-              <button className="creator-end-live" onClick={endCall}>
-                <PhoneOff size={19} />
-                End Call
-              </button>
-            ) : (
-              <button
-                className="creator-end-live"
-                onClick={endLive}
-                disabled={isEnding}
-              >
-                <VideoOff size={19} />
-                {isEnding ? "Ending..." : "End Live"}
-              </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              <div className="creator-media-controls">
+                <button
+                  type="button"
+                  className={micMuted ? "creator-media-button is-off" : "creator-media-button"}
+                  onClick={toggleMic}
+                  disabled={!streamRef.current}
+                  aria-pressed={micMuted}
+                  title={micMuted ? "Unmute microphone" : "Mute microphone"}
+                >
+                  {micMuted ? <MicOff size={19} /> : <Mic size={19} />}
+                  <span>{micMuted ? "Unmute" : "Mute"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={cameraOff ? "creator-media-button is-off" : "creator-media-button"}
+                  onClick={toggleCamera}
+                  disabled={!streamRef.current}
+                  aria-pressed={cameraOff}
+                  title={cameraOff ? "Turn camera on" : "Turn camera off"}
+                >
+                  {cameraOff ? <CameraOff size={19} /> : <Camera size={19} />}
+                  <span>{cameraOff ? "Camera on" : "Camera off"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="creator-media-button"
+                  onClick={switchCamera}
+                  disabled={!streamRef.current || cameraSwitching}
+                  title="Switch front/back camera"
+                >
+                  <RotateCw size={19} />
+                  <span>{cameraSwitching ? "Switching..." : "Flip camera"}</span>
+                </button>
+              </div>
+
+              <div className="creator-camera-actions">
+                {callConnected && (
+                  <button className="creator-end-live" onClick={endCall}>
+                    <PhoneOff size={19} /> End Call
+                  </button>
+                )}
+                <button
+                  className="creator-end-live"
+                  onClick={endLive}
+                  disabled={isEnding}
+                >
+                  <VideoOff size={19} /> {isEnding ? "Ending..." : "End Live"}
+                </button>
+              </div>
+            </>
+          )}
 
           <p className="creator-camera-note">
             <ShieldCheck size={15} />
@@ -1012,9 +889,7 @@ export default function CreatorDashboard() {
 
         <aside className="creator-stats-column">
           <div className="creator-stat-card">
-            <div className="creator-stat-icon">
-              <Coins size={22} />
-            </div>
+            <div className="creator-stat-icon"><Coins size={22} /></div>
             <p className="creator-stat-label">Creator coin balance</p>
             <div className="creator-stat-value">
               {economyLoading ? "…" : formatNumber(creatorCoins)}
@@ -1024,11 +899,8 @@ export default function CreatorDashboard() {
             </p>
           </div>
 
-          {/* NEW: Creator signup bonus */}
           <div className="creator-stat-card">
-            <div className="creator-stat-icon">
-              <Gift size={22} />
-            </div>
+            <div className="creator-stat-icon"><Gift size={22} /></div>
             <p className="creator-stat-label">Creator signup bonus</p>
             <div className="creator-stat-value">
               {economyLoading ? "…" : `₹${formatNumber(signupBonus)}`}
@@ -1039,9 +911,7 @@ export default function CreatorDashboard() {
           </div>
 
           <div className="creator-stat-card">
-            <div className="creator-stat-icon">
-              <Wallet size={22} />
-            </div>
+            <div className="creator-stat-icon"><Wallet size={22} /></div>
             <p className="creator-stat-label">Estimated creator revenue</p>
             <div className="creator-stat-value">
               {economyLoading ? "…" : `₹${formatNumber(creatorRevenue)}`}
@@ -1061,29 +931,24 @@ export default function CreatorDashboard() {
             </button>
 
             {economyError && (
-              <p className="creator-error" role="alert">
-                {economyError}
-              </p>
+              <p className="creator-error" role="alert">{economyError}</p>
             )}
           </div>
 
           <div className="creator-info-card">
-            <div className="creator-info-icon">
-              <Video size={21} />
-            </div>
+            <div className="creator-info-icon"><Video size={21} /></div>
             <h3>How it works</h3>
             <ul>
               <li>Go Live to publish your creator status.</li>
               <li>Accept a call to connect video and audio.</li>
-              <li>End Call to stop the current call.</li>
-              <li>End Live to stop your camera and microphone.</li>
+              <li>Mute or disable your camera without ending the call.</li>
+              <li>End Call stops the current call.</li>
+              <li>End Live stops the camera and microphone.</li>
             </ul>
           </div>
 
           <div className="creator-info-card creator-test-card">
-            <div className="creator-info-icon">
-              <Camera size={21} />
-            </div>
+            <div className="creator-info-icon"><Camera size={21} /></div>
             <h3>Testing version</h3>
             <p>
               Coins and revenue shown here are demo values. This is not a
