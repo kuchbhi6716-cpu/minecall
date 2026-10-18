@@ -461,3 +461,141 @@
     transition: none;
   }
 }
+
+
+/* Incoming creator call */
+.creator-remote-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #08060c;
+}
+
+.creator-preview-video {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.creator-preview-video.creator-preview-small {
+  inset: auto 14px 14px auto;
+  width: clamp(90px, 24%, 170px);
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.creator-call-label {
+  position: absolute;
+  z-index: 2;
+  top: 13px;
+  right: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 9px;
+  color: #fff;
+  background: rgba(20, 12, 29, 0.82);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.creator-incoming-call {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(170, 124, 255, 0.3);
+  border-radius: 14px;
+  background: rgba(121, 72, 190, 0.12);
+}
+
+.creator-incoming-icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #d5bdff;
+  background: rgba(145, 91, 232, 0.2);
+}
+
+.creator-incoming-details {
+  display: flex;
+  flex: 1;
+  min-width: 130px;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.creator-incoming-details strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.creator-incoming-details span {
+  color: #b9adc9;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.creator-incoming-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.creator-accept-call,
+.creator-reject-call {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 10px 13px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: white;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.creator-accept-call {
+  background: #258f64;
+}
+
+.creator-reject-call {
+  border-color: rgba(255, 105, 139, 0.25);
+  background: rgba(193, 47, 85, 0.2);
+}
+
+.creator-accept-call:hover {
+  background: #2ba875;
+}
+
+.creator-reject-call:hover {
+  background: rgba(193, 47, 85, 0.4);
+}
+
+@media (max-width: 540px) {
+  .creator-incoming-actions {
+    width: 100%;
+  }
+
+  .creator-incoming-actions button {
+    flex: 1;
+  }
+}
+
