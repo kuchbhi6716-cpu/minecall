@@ -584,7 +584,7 @@ export default function Home() {
           <br />
           <span>unexpected.</span>
         </h1>
-        
+
         <button
           type="button"
           className="start-btn"
@@ -598,7 +598,6 @@ export default function Home() {
           <span>START CHATTING</span>
           <ArrowUpRight size={21} />
         </button>
-
       </section>
 
       <section className="discovery">
@@ -651,12 +650,53 @@ export default function Home() {
         )}
       </section>
 
-      <footer>
-        <a className="logo" href="/">
-          OnlyStream<span>.</span>
-        </a>
+      <footer className="site-footer">
+        <div className="footer-main">
+          <a className="logo" href="/">
+            OnlyStream<span>.</span>
+          </a>
 
-        <p>Meet respectfully. Connect safely.</p>
+          <p className="footer-tagline">
+            Meet respectfully. Connect safely.
+          </p>
+        </div>
+
+        <div className="footer-about">
+          <section className="footer-about-card">
+            <h3>About OnlyStream</h3>
+            <p>
+              OnlyStream is a platform built to help people
+              discover live creators and connect with others
+              through online conversations.
+            </p>
+          </section>
+
+          <section className="footer-about-card">
+            <h3>About the Owner</h3>
+            <p>
+              OnlyStream is an independent online project.
+              For questions, feedback, or business enquiries,
+              feel free to get in touch.
+            </p>
+          </section>
+
+          <section className="footer-about-card footer-contact">
+            <h3>Contact</h3>
+            <p>Have a question or suggestion?</p>
+
+            <a href="mailto:kuchbhi6716@gmail.com">
+              kuchbhi6716@gmail.com
+              <ArrowUpRight size={16} />
+            </a>
+          </section>
+        </div>
+
+        <div className="footer-bottom">
+          <span>
+            © {new Date().getFullYear()} OnlyStream
+          </span>
+          <span>Meet respectfully. Connect safely.</span>
+        </div>
       </footer>
     </main>
   );
