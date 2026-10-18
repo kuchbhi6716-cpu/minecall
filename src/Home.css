@@ -2435,5 +2435,281 @@ button:focus-visible, a:focus-visible {
 }
 
 
+/* ==========================================
+   ONLYSTREAM — PREMIUM ABOUT & FOOTER
+   Paste at the VERY END of Home.css
+========================================== */
+
+/* Greenish online indicator in the top navbar */
+.miebbe .online-status,
+.miebbe .navbar .online-status,
+.miebbe .minebbe .online-status,
+.miebbe .navbar .online-status {
+  color: #a4f5c5;
+}
+
+.miebbe .online-status::first-letter {
+  color: #53e99b;
+}
+
+/* Correct root selector */
+.miebbe .navbar .online-status,
+.miebbe .online-status {
+  color: #b8f8d2;
+}
+
+/* Footer base */
+.miebbe .site-footer {
+  position: relative;
+  margin: 90px auto 0;
+  padding: 0;
+  width: min(1180px, calc(100% - 40px));
+  overflow: hidden;
+  border: 1px solid rgba(174, 135, 255, 0.18);
+  border-radius: 26px 26px 0 0;
+  background:
+    radial-gradient(
+      ellipse at 15% 0%,
+      rgba(126, 78, 255, 0.17),
+      transparent 48%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(25, 20, 48, 0.98),
+      rgba(13, 12, 27, 0.99)
+    );
+  box-shadow: 0 -18px 70px rgba(100, 55, 220, 0.08);
+}
+
+/* Brand area */
+.miebbe .footer-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 30px 34px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.miebbe .footer-main .logo {
+  color: #fff;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  text-decoration: none;
+}
+
+.miebbe .footer-main .logo span {
+  color: #a78bfa;
+}
+
+.miebbe .footer-tagline {
+  margin: 0;
+  color: #a9a5bc;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+/* About cards layout */
+.miebbe .footer-about {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 18px;
+  padding: 28px 30px;
+}
+
+.miebbe .footer-about-card {
+  position: relative;
+  min-width: 0;
+  padding: 25px 23px;
+  overflow: hidden;
+  border: 1px solid rgba(180, 150, 255, 0.13);
+  border-radius: 18px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.055),
+    rgba(255, 255, 255, 0.018)
+  );
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.miebbe .footer-about-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 22px;
+  width: 42px;
+  height: 2px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #a78bfa, #e879f9);
+  opacity: 0.9;
+}
+
+.miebbe .footer-about-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(167, 139, 250, 0.4);
+  background: linear-gradient(
+    145deg,
+    rgba(124, 83, 235, 0.12),
+    rgba(255, 255, 255, 0.035)
+  );
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.17);
+}
+
+.miebbe .footer-about-card h3 {
+  margin: 0 0 13px;
+  color: #f4f0ff;
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -0.25px;
+}
+
+.miebbe .footer-about-card p {
+  margin: 0;
+  color: #aaa6bd;
+  font-size: 13px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+
+/* Contact card */
+.miebbe .footer-contact a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-top: 17px;
+  color: #c4b5fd;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color 180ms ease;
+}
+
+.miebbe .footer-contact a:hover {
+  color: #f0abfc;
+}
+
+.miebbe .footer-contact a svg {
+  flex-shrink: 0;
+  transition: transform 180ms ease;
+}
+
+.miebbe .footer-contact a:hover svg {
+  transform: translate(3px, -3px);
+}
+
+/* Copyright row */
+.miebbe .footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px 34px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  color: #77738d;
+  font-size: 11px;
+  letter-spacing: 0.25px;
+}
+
+/* Tablet */
+@media (max-width: 800px) {
+  .miebbe .site-footer {
+    width: calc(100% - 28px);
+    margin-top: 65px;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .miebbe .footer-about {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 22px;
+  }
+
+  .miebbe .footer-about-card:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .miebbe .footer-main {
+    padding: 25px 24px;
+  }
+
+  .miebbe .footer-bottom {
+    padding: 18px 24px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 520px) {
+  .miebbe .site-footer {
+    width: calc(100% - 20px);
+    margin-top: 48px;
+    border-radius: 19px 19px 0 0;
+  }
+
+  .miebbe .footer-main {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 24px 20px;
+  }
+
+  .miebbe .footer-main .logo {
+    font-size: 23px;
+  }
+
+  .miebbe .footer-tagline {
+    font-size: 12px;
+  }
+
+  .miebbe .footer-about {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 18px;
+  }
+
+  .miebbe .footer-about-card:first-child {
+    grid-column: auto;
+  }
+
+  .miebbe .footer-about-card {
+    padding: 23px 20px;
+    border-radius: 16px;
+  }
+
+  .miebbe .footer-about-card h3 {
+    font-size: 15px;
+  }
+
+  .miebbe .footer-about-card p {
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  .miebbe .footer-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 18px 20px;
+    font-size: 10px;
+  }
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .miebbe .footer-about-card,
+  .miebbe .footer-contact a,
+  .miebbe .footer-contact a svg {
+    transition: none;
+  }
+}
+
+
+
 
 
