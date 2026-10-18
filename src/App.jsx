@@ -30,11 +30,7 @@ function CallPage() {
   const creatorUsername = params.get("creator")?.trim() || "";
   const isCreatorCall = Boolean(creatorUsername);
 
-  const [status, setStatus] = useState(
-    isCreatorCall
-      ? `Ready to call ${creatorUsername}`
-      : "Ready when you are"
-  );
+  const [status, setStatus] = useState("Ready when you are");
   const [phase, setPhase] = useState("idle");
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
@@ -56,13 +52,16 @@ function CallPage() {
   const typingRef = useRef(false);
   const messagesArea = useRef(null);
   const mountedRef = useRef(false);
+  const callGenerationRef = useRef(0);
 
   const cleanupPeer = useCallback(() => {
-    if (peerRef.current) {
-      peerRef.current.ontrack = null;
-      peerRef.current.onicecandidate = null;
-      peerRef.current.onconnectionstatechange = null;
-      peerRef.current.close();
+    const peer = peerRef.current;
+
+    if (peer) {
+      peer.ontrack = null;
+      peer.onicecandidate = null;
+      peer.onconnectionstatechange = null;
+      peer.close();
       peerRef.current = null;
     }
 
@@ -84,57 +83,84 @@ function CallPage() {
     }
   }, []);
 
-  const createPeer = useCallback((socket) => {
-    if (peerRef.current) {
-      peerRef.current.close();
-      peerRef.current = null;
-    }
+  const resetCall = useCallback(
+    (newStatus = "Ready when you are") => {
+      activeRef.current = false;
+      requestPendingRef.current = false;
+      callGenerationRef.current += 1;
 
-    pendingCandidates.current = [];
+      cleanupPeer();
+      stopMedia();
 
-    const peer = new RTCPeerConnection(ICE_SERVERS);
-    peerRef.current = peer;
+      setPhase("idle");
+      setMessages([]);
+      setMessage("");
+      setPartnerTyping(false);
+      setMuted(false);
+      setCameraOff(false);
+      setExpanded(false);
+      setStatus(newStatus);
+    },
+    [cleanupPeer, stopMedia]
+  );
 
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        peer.addTrack(track, streamRef.current);
-      });
-    }
+  const createPeer = useCallback(
+    (socket) => {
+      cleanupPeer();
 
-    peer.ontrack = (event) => {
-      const remoteStream =
-        event.streams?.[0] || new MediaStream([event.track]);
+      const peer = new RTCPeerConnection(ICE_SERVERS);
+      peerRef.current = peer;
 
-      if (remoteVideo.current) {
-        remoteVideo.current.srcObject = remoteStream;
-        remoteVideo.current.play().catch(() => {});
-      }
-    };
-
-    peer.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit("signal", {
-          type: "candidate",
-          candidate: event.candidate,
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => {
+          peer.addTrack(track, streamRef.current);
         });
       }
-    };
 
-    peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "connected") {
-        setStatus(
-          isCreatorCall
-            ? `Connected with ${creatorUsername}`
-            : "Live connection established"
-        );
-        setPhase("connected");
-      } else if (peer.connectionState === "failed") {
-        setStatus("Connection failed. Please try again.");
-      }
-    };
+      peer.ontrack = (event) => {
+        const remoteStream =
+          event.streams?.[0] || new MediaStream([event.track]);
 
-    return peer;
-  }, [creatorUsername, isCreatorCall]);
+        if (remoteVideo.current) {
+          remoteVideo.current.srcObject = remoteStream;
+          remoteVideo.current.play().catch(() => {});
+        }
+      };
+
+      peer.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit("signal", {
+            type: "candidate",
+            candidate: event.candidate,
+          });
+        }
+      };
+
+      peer.onconnectionstatechange = () => {
+        if (peerRef.current !== peer) return;
+
+        if (peer.connectionState === "connected") {
+          setPhase("connected");
+          setStatus(
+            isCreatorCall
+              ? `Connected with ${creatorUsername}`
+              : "Live connection established"
+          );
+        } else if (peer.connectionState === "failed") {
+          setStatus(
+            "Connection failed. Try again; this network may require a TURN server."
+          );
+        } else if (peer.connectionState === "disconnected") {
+          setStatus("Connection interrupted. Waiting for the connection...");
+        } else if (peer.connectionState === "closed") {
+          setPhase("idle");
+        }
+      };
+
+      return peer;
+    },
+    [cleanupPeer, creatorUsername, isCreatorCall]
+  );
 
   const flushCandidates = useCallback(async (peer) => {
     const candidates = pendingCandidates.current.splice(0);
@@ -144,61 +170,48 @@ function CallPage() {
     }
   }, []);
 
-  const handleSignal = useCallback(async (data) => {
-    const peer = peerRef.current;
-    if (!peer || !data) return;
+  const handleSignal = useCallback(
+    async (data) => {
+      const peer = peerRef.current;
+      if (!peer || !data) return;
 
-    try {
-      if (data.type === "offer" && data.offer) {
-        await peer.setRemoteDescription(
-          new RTCSessionDescription(data.offer)
-        );
-
-        await flushCandidates(peer);
-
-        const answer = await peer.createAnswer();
-        await peer.setLocalDescription(answer);
-
-        socketRef.current?.emit("signal", {
-          type: "answer",
-          answer: peer.localDescription,
-        });
-      } else if (data.type === "answer" && data.answer) {
-        await peer.setRemoteDescription(
-          new RTCSessionDescription(data.answer)
-        );
-
-        await flushCandidates(peer);
-      } else if (data.type === "candidate" && data.candidate) {
-        if (peer.remoteDescription) {
-          await peer.addIceCandidate(
-            new RTCIceCandidate(data.candidate)
+      try {
+        if (data.type === "offer" && data.offer) {
+          await peer.setRemoteDescription(
+            new RTCSessionDescription(data.offer)
           );
-        } else {
-          pendingCandidates.current.push(data.candidate);
+
+          await flushCandidates(peer);
+
+          const answer = await peer.createAnswer();
+          await peer.setLocalDescription(answer);
+
+          socketRef.current?.emit("signal", {
+            type: "answer",
+            answer: peer.localDescription,
+          });
+        } else if (data.type === "answer" && data.answer) {
+          await peer.setRemoteDescription(
+            new RTCSessionDescription(data.answer)
+          );
+
+          await flushCandidates(peer);
+        } else if (data.type === "candidate" && data.candidate) {
+          if (peer.remoteDescription) {
+            await peer.addIceCandidate(
+              new RTCIceCandidate(data.candidate)
+            );
+          } else {
+            pendingCandidates.current.push(data.candidate);
+          }
         }
+      } catch (error) {
+        console.error("WebRTC signaling error:", error);
+        setStatus("A connection error occurred. Please try again.");
       }
-    } catch (error) {
-      console.error("WebRTC signaling error:", error);
-      setStatus("A connection error occurred. Try again.");
-    }
-  }, [flushCandidates]);
-
-  const resetCall = useCallback((newStatus) => {
-    activeRef.current = false;
-    requestPendingRef.current = false;
-
-    cleanupPeer();
-    stopMedia();
-
-    setPhase("idle");
-    setMessages([]);
-    setMessage("");
-    setPartnerTyping(false);
-    setMuted(false);
-    setCameraOff(false);
-    setStatus(newStatus);
-  }, [cleanupPeer, stopMedia]);
+    },
+    [flushCandidates]
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -208,6 +221,14 @@ function CallPage() {
     });
 
     socketRef.current = socket;
+
+    socket.on("connect", () => {
+      setStatus((current) =>
+        current.startsWith("Server connection failed")
+          ? "Ready when you are"
+          : current
+      );
+    });
 
     socket.on("connect_error", (error) => {
       console.error("Socket connection error:", error);
@@ -224,16 +245,12 @@ function CallPage() {
     socket.on("matched", async (data = {}) => {
       if (!activeRef.current) return;
 
-      // The creator-call accepted event must arrive before this event.
-      if (isCreatorCall && !requestPendingRef.current) {
-        // Once accepted, the request flag is cleared by the accepted handler.
-        // activeRef remains the authoritative indicator that this call is active.
-      }
-
-      cleanupPeer();
+      // Creator calls must have been accepted before WebRTC starts.
+      if (isCreatorCall && requestPendingRef.current) return;
 
       const peer = createPeer(socket);
-      setPhase("connected");
+
+      setPhase("waiting");
       setStatus(
         isCreatorCall
           ? `Connecting to ${creatorUsername}...`
@@ -263,13 +280,27 @@ function CallPage() {
       setStatus(`${creatorUsername} accepted. Connecting...`);
     });
 
-    socket.on("creator-call-rejected", () => {
+    socket.on("creator-call-rejected", (data) => {
+      requestPendingRef.current = false;
+      activeRef.current = false;
+
+      cleanupPeer();
+      stopMedia();
+
+      setPhase("idle");
+      setStatus(
+        data?.message ||
+          `${creatorUsername} declined the call or is unavailable.`
+      );
+    });
+
+    socket.on("creator-call-request-cancelled", () => {
       requestPendingRef.current = false;
       activeRef.current = false;
       cleanupPeer();
       stopMedia();
       setPhase("idle");
-      setStatus(`${creatorUsername} declined the call.`);
+      setStatus("The call request was cancelled.");
     });
 
     socket.on("creator-call-cancelled", () => {
@@ -288,7 +319,7 @@ function CallPage() {
         ...old,
         {
           id: `${Date.now()}-${Math.random()}`,
-          text: String(text),
+          text: String(text).slice(0, 1000),
           own: false,
         },
       ]);
@@ -316,6 +347,10 @@ function CallPage() {
 
       cleanupPeer();
       stopMedia();
+
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
     };
   }, [
     cleanupPeer,
@@ -345,13 +380,16 @@ function CallPage() {
       return;
     }
 
-    if (isCreatorCall) {
-      let session = null;
+    if (!socketRef.current?.connected) {
+      setStatus("Connecting to the server. Please try again in a moment.");
+      return;
+    }
 
+    let session = null;
+
+    if (isCreatorCall) {
       try {
-        session = JSON.parse(
-          localStorage.getItem(SESSION_KEY) || "null"
-        );
+        session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
       } catch {
         session = null;
       }
@@ -363,15 +401,24 @@ function CallPage() {
       }
     }
 
+    const generation = ++callGenerationRef.current;
+
     try {
       setStatus("Waiting for camera permission...");
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing },
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
         audio: true,
       });
 
-      if (!mountedRef.current) {
+      if (
+        !mountedRef.current ||
+        generation !== callGenerationRef.current
+      ) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
@@ -390,10 +437,6 @@ function CallPage() {
         setPhase("waiting");
         setStatus(`Calling ${creatorUsername}...`);
 
-        const session = JSON.parse(
-          localStorage.getItem(SESSION_KEY) || "null"
-        );
-
         socketRef.current.emit(
           "creator-call-request",
           {
@@ -407,8 +450,14 @@ function CallPage() {
               stopMedia();
               setPhase("idle");
               setStatus(
-                response?.message ||
+                response?.error ||
+                  response?.message ||
                   `${creatorUsername} is unavailable right now.`
+              );
+            } else {
+              setStatus(
+                response.message ||
+                  `Call request sent to ${creatorUsername}.`
               );
             }
           }
@@ -444,8 +493,13 @@ function CallPage() {
 
     cleanupPeer();
     setMessages([]);
+    setMessage("");
+    setPartnerTyping(false);
     setPhase("waiting");
     setStatus("Finding someone new...");
+
+    // The server removes the current pairing and places this socket
+    // back in the matchmaking queue.
     socketRef.current?.emit("find-stranger");
   }
 
@@ -607,6 +661,7 @@ function CallPage() {
               <p className="eyebrow">
                 {isCreatorCall ? "YOUR CREATOR CALL" : "YOUR NEXT CONVERSATION"}
               </p>
+
               <h1>
                 {isCreatorCall ? (
                   <>
@@ -651,6 +706,7 @@ function CallPage() {
                   <div className="placeholder-orb">
                     <span>{phase === "waiting" ? "✳" : "✦"}</span>
                   </div>
+
                   <h2>
                     {phase === "waiting"
                       ? isCreatorCall
@@ -660,6 +716,7 @@ function CallPage() {
                       ? "Ready to call your creator"
                       : "Your next hello awaits"}
                   </h2>
+
                   <p>
                     {phase === "waiting"
                       ? "Keep this page open while the connection is being made."
@@ -667,6 +724,7 @@ function CallPage() {
                       ? "Tap Call Creator to send a request."
                       : "Tap Start Chatting to meet someone new."}
                   </p>
+
                   {phase === "waiting" && (
                     <div className="search-loader">
                       <span />
@@ -833,7 +891,11 @@ function CallPage() {
                 >
                   <div className="message-bubble">{item.text}</div>
                   <span className="message-author">
-                    {item.own ? "YOU" : isCreatorCall ? creatorUsername : "STRANGER"}
+                    {item.own
+                      ? "YOU"
+                      : isCreatorCall
+                      ? creatorUsername
+                      : "STRANGER"}
                   </span>
                 </div>
               ))
@@ -862,6 +924,7 @@ function CallPage() {
               disabled={phase !== "connected"}
               aria-label="Chat message"
             />
+
             <button
               type="submit"
               disabled={phase !== "connected" || !message.trim()}
@@ -874,7 +937,7 @@ function CallPage() {
       </main>
 
       <footer className="footer">
-        <span>OnlyStream © 2026</span>
+        <span>OnlyStream © {new Date().getFullYear()}</span>
         <span>
           Made for spontaneous connections <b />
         </span>
@@ -900,3 +963,4 @@ export default function App() {
 
   return <Home />;
 }
+
