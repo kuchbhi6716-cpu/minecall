@@ -1,6 +1,13 @@
 
 import React, { useState } from "react";
-import { ArrowLeft, Eye, EyeOff, LockKeyhole, UserRound, Video } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  UserRound,
+  Video,
+} from "lucide-react";
 
 const ACCOUNTS_KEY = "onlystream-test-accounts-v1";
 const SESSION_KEY = "onlystream-test-session-v1";
@@ -17,13 +24,16 @@ function readAccounts() {
 async function hashPassword(password) {
   const bytes = new TextEncoder().encode(password);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
+
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
 
-export default function AuthPage() {
-  const [mode, setMode] = useState("login");
+export default function AuthPage({ initialMode = "login" }) {
+  const [mode, setMode] = useState(
+    initialMode === "signup" ? "signup" : "login"
+  );
   const [role, setRole] = useState("user");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -58,6 +68,7 @@ export default function AuthPage() {
     try {
       const accounts = readAccounts();
       const passwordHash = await hashPassword(password);
+
       const existing = accounts.find(
         (account) => account.username === cleanUsername
       );
@@ -72,7 +83,7 @@ export default function AuthPage() {
           username: cleanUsername,
           role,
           passwordHash,
-          testCoins: role === "user" ? 0 : undefined,
+          ...(role === "user" ? { testCoins: 0 } : {}),
           createdAt: new Date().toISOString(),
         };
 
@@ -90,8 +101,7 @@ export default function AuthPage() {
           })
         );
 
-        window.location.href =
-          role === "creator" ? "/creator" : "/";
+        window.location.href = role === "creator" ? "/creator" : "/";
         return;
       }
 
@@ -116,8 +126,7 @@ export default function AuthPage() {
         })
       );
 
-      window.location.href =
-        existing.role === "creator" ? "/creator" : "/";
+      window.location.href = existing.role === "creator" ? "/creator" : "/";
     } catch {
       setMessage(
         "Browser storage is unavailable. Please try another browser or session."
@@ -127,14 +136,25 @@ export default function AuthPage() {
     }
   }
 
+  function changeMode(nextMode) {
+    setMode(nextMode);
+    setMessage("");
+    setConfirmPassword("");
+
+    const nextPath = nextMode === "signup" ? "/signup" : "/login";
+    window.history.replaceState({}, "", nextPath);
+  }
+
   return (
     <main className="auth-page">
       <header className="auth-topbar">
         <a href="/" className="auth-brand">
           OnlyStream<span>.</span>
         </a>
+
         <a href="/" className="auth-back">
-          <ArrowLeft size={17} /> Home
+          <ArrowLeft size={17} />
+          Home
         </a>
       </header>
 
@@ -148,7 +168,11 @@ export default function AuthPage() {
         </div>
 
         <p className="auth-eyebrow">ONLYSTREAM ACCOUNT</p>
-        <h1>{mode === "signup" ? "Create your account" : "Welcome back"}</h1>
+
+        <h1>
+          {mode === "signup" ? "Create your account" : "Welcome back"}
+        </h1>
+
         <p className="auth-description">
           {mode === "signup"
             ? "Choose your account type to get started."
@@ -170,9 +194,7 @@ export default function AuthPage() {
 
           <button
             type="button"
-            className={
-              role === "creator" ? "auth-role active" : "auth-role"
-            }
+            className={role === "creator" ? "auth-role active" : "auth-role"}
             onClick={() => {
               setRole("creator");
               setMessage("");
@@ -185,6 +207,7 @@ export default function AuthPage() {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label htmlFor="auth-username">Username</label>
+
           <input
             id="auth-username"
             type="text"
@@ -198,6 +221,7 @@ export default function AuthPage() {
           />
 
           <label htmlFor="auth-password">Password</label>
+
           <div className="auth-password-wrap">
             <input
               id="auth-password"
@@ -211,6 +235,7 @@ export default function AuthPage() {
               minLength={6}
               required
             />
+
             <button
               type="button"
               className="auth-show-password"
@@ -223,7 +248,10 @@ export default function AuthPage() {
 
           {mode === "signup" && (
             <>
-              <label htmlFor="auth-confirm-password">Confirm password</label>
+              <label htmlFor="auth-confirm-password">
+                Confirm password
+              </label>
+
               <input
                 id="auth-confirm-password"
                 type={showPassword ? "text" : "password"}
@@ -245,6 +273,7 @@ export default function AuthPage() {
 
           <button className="auth-submit" type="submit" disabled={busy}>
             <LockKeyhole size={18} />
+
             {busy
               ? "Please wait..."
               : mode === "signup"
@@ -259,13 +288,9 @@ export default function AuthPage() {
             : "New to OnlyStream?"}{" "}
           <button
             type="button"
-            onClick={() => {
-              setMode((value) =>
-                value === "signup" ? "login" : "signup"
-              );
-              setMessage("");
-              setConfirmPassword("");
-            }}
+            onClick={() =>
+              changeMode(mode === "signup" ? "login" : "signup")
+            }
           >
             {mode === "signup" ? "Log in" : "Sign up"}
           </button>
