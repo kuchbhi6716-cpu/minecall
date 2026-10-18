@@ -15,11 +15,14 @@ import {
   PhoneOff,
   Check,
   X,
+  RefreshCw,
+  Wallet,
 } from "lucide-react";
 import "./CreatorDashboard.css";
 
 const SESSION_KEY = "onlystream-test-session-v1";
 const LIVE_KEY = "onlystream-test-live-v1";
+const API_BASE = "";
 
 const ICE_SERVERS = {
   iceServers: [
@@ -27,6 +30,19 @@ const ICE_SERVERS = {
     { urls: "stun:stun1.l.google.com:19302" },
   ],
 };
+
+function formatNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.floor(number).toLocaleString("en-IN") : "0";
+}
+
+async function readJson(response) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Request failed.");
+  }
+  return data;
+}
 
 export default function CreatorDashboard() {
   const videoRef = useRef(null);
@@ -36,10 +52,11 @@ export default function CreatorDashboard() {
   const peerRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
   const requestRef = useRef(null);
-  const mountedRef = useRef(false);
   const isLiveRef = useRef(false);
   const acceptedRef = useRef(false);
   const connectedRef = useRef(false);
+  const billingStartedRef = useRef(false);
+  const mountedRef = useRef(false);
 
   const [username, setUsername] = useState("Creator");
   const [isLive, setIsLive] = useState(false);
@@ -48,9 +65,62 @@ export default function CreatorDashboard() {
   const [incomingCall, setIncomingCall] = useState(null);
   const [callConnected, setCallConnected] = useState(false);
   const [callerName, setCallerName] = useState("");
-  const [callCoins] = useState(0);
+  const [economy, setEconomy] = useState(null);
+  const [economyLoading, setEconomyLoading] = useState(true);
+  const [economyError, setEconomyError] = useState("");
+  const [callStartedAt, setCallStartedAt] = useState(null);
+  const [callElapsed, setCallElapsed] = useState(0);
+  const [isEnding, setIsEnding] = useState(false);
+
+  const refreshEconomy = useCallback(async () => {
+    const session = JSON.parse(
+      localStorage.getItem(SESSION_KEY) || "null"
+    );
+
+    if (!session?.username) {
+      setEconomyLoading(false);
+      return;
+    }
+
+    try {
+      setEconomyError("");
+      const response = await fetch(
+        `${API_BASE}/api/economy/me?username=${encodeURIComponent(session.username)}`,
+        { headers: { Accept: "application/json" } }
+      );
+      const data = await readJson(response);
+
+      if (mountedRef.current) {
+        setEconomy(data);
+      }
+    } catch (error) {
+      if (mountedRef.current) {
+        setEconomyError(
+          error.message || "Could not load your test earnings."
+        );
+      }
+    } finally {
+      if (mountedRef.current) {
+        setEconomyLoading(false);
+      }
+    }
+  }, []);
+
+  const stopBilling = useCallback(() => {
+    if (!billingStartedRef.current) return;
+
+    billingStartedRef.current = false;
+    socketRef.current?.emit("call-billing-stop", {
+      username,
+      creatorUsername: username,
+    });
+
+    refreshEconomy();
+  }, [refreshEconomy, username]);
 
   const closePeer = useCallback(() => {
+    stopBilling();
+
     if (peerRef.current) {
       peerRef.current.ontrack = null;
       peerRef.current.onicecandidate = null;
@@ -62,13 +132,16 @@ export default function CreatorDashboard() {
     pendingCandidatesRef.current = [];
     connectedRef.current = false;
     acceptedRef.current = false;
+
     setCallConnected(false);
     setCallerName("");
+    setCallStartedAt(null);
+    setCallElapsed(0);
 
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
-  }, []);
+  }, [stopBilling]);
 
   const stopLocalStream = useCallback(() => {
     if (streamRef.current) {
@@ -80,6 +153,19 @@ export default function CreatorDashboard() {
       videoRef.current.srcObject = null;
     }
   }, []);
+
+  const startBilling = useCallback(() => {
+    if (billingStartedRef.current) return;
+
+    billingStartedRef.current = true;
+    setCallStartedAt(Date.now());
+    setCallElapsed(0);
+
+    socketRef.current?.emit("call-billing-start", {
+      username,
+      creatorUsername: username,
+    });
+  }, [username]);
 
   const createPeer = useCallback((initiator) => {
     if (peerRef.current) return peerRef.current;
@@ -95,8 +181,7 @@ export default function CreatorDashboard() {
 
     peer.ontrack = (event) => {
       const remoteStream =
-        event.streams?.[0] ||
-        new MediaStream([event.track]);
+        event.streams?.[0] || new MediaStream([event.track]);
 
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remoteStream;
@@ -117,13 +202,16 @@ export default function CreatorDashboard() {
       if (peer.connectionState === "connected") {
         connectedRef.current = true;
         setCallConnected(true);
+        startBilling();
       }
 
       if (
         peer.connectionState === "failed" ||
-        peer.connectionState === "closed"
+        peer.connectionState === "closed" ||
+        peer.connectionState === "disconnected"
       ) {
         setCallConnected(false);
+        stopBilling();
       }
     };
 
@@ -143,7 +231,7 @@ export default function CreatorDashboard() {
     }
 
     return peer;
-  }, []);
+  }, [startBilling, stopBilling]);
 
   const handleSignal = useCallback(async (data) => {
     const peer = peerRef.current;
@@ -219,11 +307,17 @@ export default function CreatorDashboard() {
       return undefined;
     }
 
+    refreshEconomy();
+
     const socket = io({
       transports: ["websocket", "polling"],
     });
 
     socketRef.current = socket;
+
+    socket.on("connect", () => {
+      socket.emit("get-live-creators");
+    });
 
     socket.on("incoming-creator-call", (request) => {
       if (!isLiveRef.current || acceptedRef.current) {
@@ -237,14 +331,16 @@ export default function CreatorDashboard() {
       setIncomingCall(request);
     });
 
-    socket.on("creator-call-cancelled", () => {
+    const clearIncomingRequest = () => {
       requestRef.current = null;
       setIncomingCall(null);
-    });
+    };
+
+    socket.on("creator-call-request-cancelled", clearIncomingRequest);
+    socket.on("creator-call-cancelled", clearIncomingRequest);
 
     socket.on("creator-call-rejected", () => {
-      requestRef.current = null;
-      setIncomingCall(null);
+      clearIncomingRequest();
       setCameraError("The call request was declined or cancelled.");
     });
 
@@ -253,11 +349,11 @@ export default function CreatorDashboard() {
       requestRef.current = null;
       setIncomingCall(null);
       setCallerName(data?.callerName || "Caller");
+      setCameraError("");
     });
 
     socket.on("matched", (data) => {
       if (!isLiveRef.current || !acceptedRef.current) return;
-
       setCallerName((current) => current || "Caller");
       createPeer(Boolean(data?.initiator));
     });
@@ -266,15 +362,30 @@ export default function CreatorDashboard() {
 
     socket.on("partner-left", () => {
       closePeer();
-      setIncomingCall(null);
-      requestRef.current = null;
+      clearIncomingRequest();
       setCameraError("The caller ended the call.");
+      refreshEconomy();
+    });
+
+    socket.on("call-billing-update", (data) => {
+      if (data) {
+        setEconomy((current) => ({ ...(current || {}), ...data }));
+      }
     });
 
     socket.on("disconnect", () => {
       closePeer();
-      setIncomingCall(null);
-      requestRef.current = null;
+      clearIncomingRequest();
+      setCameraError("Connection lost. Reconnect and try again.");
+    });
+
+    socket.on("creator-live-replaced", () => {
+      isLiveRef.current = false;
+      setIsLive(false);
+      stopLocalStream();
+      closePeer();
+      localStorage.removeItem(LIVE_KEY);
+      setCameraError("Your live session was replaced by another session.");
     });
 
     return () => {
@@ -291,7 +402,26 @@ export default function CreatorDashboard() {
       closePeer();
       stopLocalStream();
     };
-  }, [closePeer, createPeer, handleSignal, stopLocalStream]);
+  }, [
+    closePeer,
+    createPeer,
+    handleSignal,
+    refreshEconomy,
+    stopLocalStream,
+  ]);
+
+  useEffect(() => {
+    if (!callConnected || !callStartedAt) return undefined;
+
+    const updateElapsed = () => {
+      setCallElapsed(Math.max(0, Math.floor((Date.now() - callStartedAt) / 1000)));
+    };
+
+    updateElapsed();
+    const interval = window.setInterval(updateElapsed, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [callConnected, callStartedAt]);
 
   async function goLive() {
     setCameraError("");
@@ -323,7 +453,6 @@ export default function CreatorDashboard() {
       const session = JSON.parse(
         localStorage.getItem(SESSION_KEY) || "null"
       );
-
       const creatorUsername = session?.username || username;
 
       socketRef.current?.emit(
@@ -331,25 +460,39 @@ export default function CreatorDashboard() {
         { username: creatorUsername },
         (response) => {
           if (response?.ok === false) {
+            isLiveRef.current = false;
+            setIsLive(false);
+            stopLocalStream();
             setCameraError(
-              response.message || "Could not publish your live status."
+              response.error || response.message || "Could not publish your live status."
             );
+            return;
           }
+
+          isLiveRef.current = true;
+          setIsLive(true);
+
+          localStorage.setItem(
+            LIVE_KEY,
+            JSON.stringify({
+              username: creatorUsername,
+              isLive: true,
+              startedAt: new Date().toISOString(),
+            })
+          );
         }
       );
 
-      isLiveRef.current = true;
-
-      localStorage.setItem(
-        LIVE_KEY,
-        JSON.stringify({
-          username: creatorUsername,
-          isLive: true,
-          startedAt: new Date().toISOString(),
-        })
-      );
-
-      setIsLive(true);
+      // Prevent the button from staying stuck while waiting for an ack.
+      window.setTimeout(() => {
+        if (!isLiveRef.current && streamRef.current) {
+          // If the server did not acknowledge, leave the camera running
+          // only until the user sees the connection error and retries.
+          setCameraError((current) =>
+            current || "Waiting for the server. If you remain offline, try again."
+          );
+        }
+      }, 8000);
     } catch (error) {
       stopLocalStream();
 
@@ -365,7 +508,6 @@ export default function CreatorDashboard() {
 
   function acceptCall() {
     const request = requestRef.current;
-
     if (!request?.requestId || !socketRef.current) return;
 
     setCameraError("");
@@ -381,7 +523,7 @@ export default function CreatorDashboard() {
           closePeer();
           requestRef.current = null;
           setCameraError(
-            response.message || "This call request is no longer available."
+            response.error || response.message || "This call request is no longer available."
           );
         }
       }
@@ -409,18 +551,21 @@ export default function CreatorDashboard() {
     setIncomingCall(null);
     requestRef.current = null;
     setCameraError("");
+    refreshEconomy();
   }
 
   function endLive() {
+    if (isEnding) return;
+    setIsEnding(true);
+
     if (requestRef.current?.requestId) {
       socketRef.current?.emit("creator-call-reject", {
         requestId: requestRef.current.requestId,
       });
     }
 
-    socketRef.current?.emit("creator-end-live", {
-      username,
-    });
+    stopBilling();
+    socketRef.current?.emit("creator-end-live");
 
     closePeer();
     setIncomingCall(null);
@@ -432,10 +577,13 @@ export default function CreatorDashboard() {
     localStorage.removeItem(LIVE_KEY);
     setIsLive(false);
     setCameraError("");
+    setIsEnding(false);
+    refreshEconomy();
   }
 
   function logout() {
-    socketRef.current?.emit("creator-end-live", { username });
+    stopBilling();
+    socketRef.current?.emit("creator-end-live");
     isLiveRef.current = false;
     closePeer();
     stopLocalStream();
@@ -444,6 +592,22 @@ export default function CreatorDashboard() {
     localStorage.removeItem(SESSION_KEY);
     window.location.href = "/";
   }
+
+  const creatorCoins =
+    economy?.creatorCoins ??
+    economy?.coins ??
+    economy?.balance ??
+    economy?.wallet?.coins ??
+    0;
+
+  const creatorRevenue =
+    economy?.creatorRevenue ??
+    economy?.revenue ??
+    economy?.earnings ??
+    economy?.wallet?.revenue ??
+    0;
+
+  const elapsedLabel = `${String(Math.floor(callElapsed / 60)).padStart(2, "0")}:${String(callElapsed % 60).padStart(2, "0")}`;
 
   return (
     <main className="creator-dashboard">
@@ -467,7 +631,7 @@ export default function CreatorDashboard() {
         <p className="creator-eyebrow">CREATOR STUDIO</p>
         <h1>Welcome, {username}</h1>
         <p className="creator-subtitle">
-          Go live, accept call requests, and manage your studio.
+          Go live, accept call requests, and manage your test earnings.
         </p>
       </div>
 
@@ -478,8 +642,8 @@ export default function CreatorDashboard() {
               <h2>{callConnected ? "You're on a call" : "Your camera"}</h2>
               <p>
                 {callConnected
-                  ? `Connected with ${callerName || "caller"}`
-                  : "Your camera stays ready while you wait for a call."}
+                  ? `Connected with ${callerName || "caller"} · ${elapsedLabel}`
+                  : "Go live to become available for incoming calls."}
               </p>
             </div>
 
@@ -548,7 +712,9 @@ export default function CreatorDashboard() {
 
               <div className="creator-incoming-details">
                 <strong>Incoming call</strong>
-                <span>{incomingCall.callerName || "A user"} wants to call you.</span>
+                <span>
+                  {incomingCall.callerName || "A user"} wants to call you.
+                </span>
               </div>
 
               <div className="creator-incoming-actions">
@@ -588,9 +754,13 @@ export default function CreatorDashboard() {
                 End Call
               </button>
             ) : (
-              <button className="creator-end-live" onClick={endLive}>
+              <button
+                className="creator-end-live"
+                onClick={endLive}
+                disabled={isEnding}
+              >
                 <VideoOff size={19} />
-                End Live
+                {isEnding ? "Ending..." : "End Live"}
               </button>
             )}
           </div>
@@ -606,11 +776,38 @@ export default function CreatorDashboard() {
             <div className="creator-stat-icon">
               <Coins size={22} />
             </div>
-            <p className="creator-stat-label">Coins collected this call</p>
-            <div className="creator-stat-value">{callCoins}</div>
+            <p className="creator-stat-label">Creator coin balance</p>
+            <div className="creator-stat-value">
+              {economyLoading ? "…" : formatNumber(creatorCoins)}
+            </div>
             <p className="creator-stat-footnote">
-              Test mode · Billing is not connected yet.
+              Demo balance · refreshes from the server
             </p>
+          </div>
+
+          <div className="creator-stat-card">
+            <div className="creator-stat-icon">
+              <Wallet size={22} />
+            </div>
+            <p className="creator-stat-label">Estimated creator revenue</p>
+            <div className="creator-stat-value">
+              {economyLoading ? "…" : `₹${formatNumber(creatorRevenue)}`}
+            </div>
+            <p className="creator-stat-footnote">
+              Test estimate only · not withdrawable money
+            </p>
+            <button
+              type="button"
+              className="creator-refresh-button"
+              onClick={refreshEconomy}
+              disabled={economyLoading}
+            >
+              <RefreshCw size={14} />
+              {economyLoading ? "Refreshing…" : "Refresh earnings"}
+            </button>
+            {economyError && (
+              <p className="creator-error" role="alert">{economyError}</p>
+            )}
           </div>
 
           <div className="creator-info-card">
@@ -632,8 +829,10 @@ export default function CreatorDashboard() {
             </div>
             <h3>Testing version</h3>
             <p>
-              This version uses browser-based test login. Payments, persistent
-              accounts, and real earnings are not connected.
+              Coins and revenue shown here are demo values. This is not a
+              payment processor, and the displayed amount is not withdrawable.
+              Production use needs secure server-side authentication, a
+              persistent database, and a verified payment provider.
             </p>
           </div>
         </aside>
