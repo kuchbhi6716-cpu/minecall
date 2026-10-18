@@ -37,8 +37,6 @@ function CallPage() {
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
-  const [facing, setFacing] = useState("user");
-  const [expanded, setExpanded] = useState(false);
 
   const socketRef = useRef(null);
   const localVideo = useRef(null);
@@ -46,13 +44,15 @@ function CallPage() {
   const streamRef = useRef(null);
   const peerRef = useRef(null);
   const pendingCandidates = useRef([]);
+  const pendingSignals = useRef([]);
   const activeRef = useRef(false);
   const requestPendingRef = useRef(false);
   const typingTimeout = useRef(null);
   const typingRef = useRef(false);
   const messagesArea = useRef(null);
   const mountedRef = useRef(false);
-  const callGenerationRef = useRef(0);
+  const generationRef = useRef(0);
+  const signalLockRef = useRef(false);
 
   const cleanupPeer = useCallback(() => {
     const peer = peerRef.current;
@@ -61,11 +61,14 @@ function CallPage() {
       peer.ontrack = null;
       peer.onicecandidate = null;
       peer.onconnectionstatechange = null;
+      peer.oniceconnectionstatechange = null;
       peer.close();
       peerRef.current = null;
     }
 
     pendingCandidates.current = [];
+    pendingSignals.current = [];
+    signalLockRef.current = false;
 
     if (remoteVideo.current) {
       remoteVideo.current.srcObject = null;
@@ -87,7 +90,7 @@ function CallPage() {
     (newStatus = "Ready when you are") => {
       activeRef.current = false;
       requestPendingRef.current = false;
-      callGenerationRef.current += 1;
+      generationRef.current += 1;
 
       cleanupPeer();
       stopMedia();
@@ -98,120 +101,171 @@ function CallPage() {
       setPartnerTyping(false);
       setMuted(false);
       setCameraOff(false);
-      setExpanded(false);
       setStatus(newStatus);
     },
     [cleanupPeer, stopMedia]
   );
 
-  const createPeer = useCallback(
-    (socket) => {
-      cleanupPeer();
+  const handleSignal = useCallback(async (data) => {
+    if (!data || !["offer", "answer", "candidate"].includes(data.type)) {
+      return;
+    }
 
-      const peer = new RTCPeerConnection(ICE_SERVERS);
-      peerRef.current = peer;
+    // FIX: do not discard a signal just because matched has not
+    // created the RTCPeerConnection yet.
+    if (!peerRef.current) {
+      pendingSignals.current.push(data);
+      return;
+    }
 
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => {
-          peer.addTrack(track, streamRef.current);
-        });
+    // Serialize incoming signaling so candidates and SDP are processed
+    // in order rather than racing one another.
+    if (signalLockRef.current) {
+      pendingSignals.current.push(data);
+      return;
+    }
+
+    signalLockRef.current = true;
+
+    try {
+      const peer = peerRef.current;
+      if (!peer) {
+        pendingSignals.current.push(data);
+        return;
       }
 
-      peer.ontrack = (event) => {
-        const remoteStream =
-          event.streams?.[0] || new MediaStream([event.track]);
+      if (data.type === "offer" && data.offer) {
+        await peer.setRemoteDescription(
+          new RTCSessionDescription(data.offer)
+        );
 
-        if (remoteVideo.current) {
-          remoteVideo.current.srcObject = remoteStream;
-          remoteVideo.current.play().catch(() => {});
+        const candidates = pendingCandidates.current.splice(0);
+        for (const candidate of candidates) {
+          await peer.addIceCandidate(new RTCIceCandidate(candidate));
         }
-      };
 
-      peer.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit("signal", {
-            type: "candidate",
-            candidate: event.candidate,
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+
+        socketRef.current?.emit("signal", {
+          type: "answer",
+          answer: peer.localDescription,
+        });
+      } else if (data.type === "answer" && data.answer) {
+        await peer.setRemoteDescription(
+          new RTCSessionDescription(data.answer)
+        );
+
+        const candidates = pendingCandidates.current.splice(0);
+        for (const candidate of candidates) {
+          await peer.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+      } else if (data.type === "candidate" && data.candidate) {
+        if (peer.remoteDescription) {
+          await peer.addIceCandidate(
+            new RTCIceCandidate(data.candidate)
+          );
+        } else {
+          pendingCandidates.current.push(data.candidate);
+        }
+      }
+    } catch (error) {
+      console.error("[WebRTC] Signal processing failed:", error);
+      setStatus(
+        "WebRTC signaling failed. End the call and try again."
+      );
+    } finally {
+      signalLockRef.current = false;
+
+      // Drain signals that arrived while an SDP operation was running.
+      if (pendingSignals.current.length && peerRef.current) {
+        const next = pendingSignals.current.shift();
+        if (next) {
+          queueMicrotask(() => {
+            void handleSignal(next);
           });
         }
-      };
-
-      peer.onconnectionstatechange = () => {
-        if (peerRef.current !== peer) return;
-
-        if (peer.connectionState === "connected") {
-          setPhase("connected");
-          setStatus(
-            isCreatorCall
-              ? `Connected with ${creatorUsername}`
-              : "Live connection established"
-          );
-        } else if (peer.connectionState === "failed") {
-          setStatus(
-            "Connection failed. Try again; this network may require a TURN server."
-          );
-        } else if (peer.connectionState === "disconnected") {
-          setStatus("Connection interrupted. Waiting for the connection...");
-        } else if (peer.connectionState === "closed") {
-          setPhase("idle");
-        }
-      };
-
-      return peer;
-    },
-    [cleanupPeer, creatorUsername, isCreatorCall]
-  );
-
-  const flushCandidates = useCallback(async (peer) => {
-    const candidates = pendingCandidates.current.splice(0);
-
-    for (const candidate of candidates) {
-      await peer.addIceCandidate(new RTCIceCandidate(candidate));
+      }
     }
   }, []);
 
-  const handleSignal = useCallback(
-    async (data) => {
-      const peer = peerRef.current;
-      if (!peer || !data) return;
+  const createPeer = useCallback((socket, initiator) => {
+    if (peerRef.current) return peerRef.current;
 
-      try {
-        if (data.type === "offer" && data.offer) {
-          await peer.setRemoteDescription(
-            new RTCSessionDescription(data.offer)
-          );
+    const peer = new RTCPeerConnection(ICE_SERVERS);
+    peerRef.current = peer;
 
-          await flushCandidates(peer);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        peer.addTrack(track, streamRef.current);
+      });
+    }
 
-          const answer = await peer.createAnswer();
-          await peer.setLocalDescription(answer);
+    peer.ontrack = (event) => {
+      const remoteStream =
+        event.streams?.[0] || new MediaStream([event.track]);
 
-          socketRef.current?.emit("signal", {
-            type: "answer",
-            answer: peer.localDescription,
-          });
-        } else if (data.type === "answer" && data.answer) {
-          await peer.setRemoteDescription(
-            new RTCSessionDescription(data.answer)
-          );
-
-          await flushCandidates(peer);
-        } else if (data.type === "candidate" && data.candidate) {
-          if (peer.remoteDescription) {
-            await peer.addIceCandidate(
-              new RTCIceCandidate(data.candidate)
-            );
-          } else {
-            pendingCandidates.current.push(data.candidate);
-          }
-        }
-      } catch (error) {
-        console.error("WebRTC signaling error:", error);
-        setStatus("A connection error occurred. Please try again.");
+      if (remoteVideo.current) {
+        remoteVideo.current.srcObject = remoteStream;
+        remoteVideo.current.play().catch((error) => {
+          console.warn("[WebRTC] Remote video autoplay blocked:", error);
+        });
       }
-    },
-    [flushCandidates]
-  );
+
+      setStatus("Remote media received. Establishing connection...");
+    };
+
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("signal", {
+          type: "candidate",
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    peer.onconnectionstatechange = () => {
+      if (peerRef.current !== peer) return;
+
+      console.log("[WebRTC] connectionState:", peer.connectionState);
+      console.log("[WebRTC] iceConnectionState:", peer.iceConnectionState);
+
+      if (peer.connectionState === "connected") {
+        setPhase("connected");
+        setStatus("Video connection established.");
+      } else if (peer.connectionState === "failed") {
+        setPhase("waiting");
+        setStatus(
+          "WebRTC connection failed. A TURN server may be needed for this network."
+        );
+      } else if (peer.connectionState === "disconnected") {
+        setStatus("Connection interrupted. Waiting for recovery...");
+      } else if (peer.connectionState === "closed") {
+        setPhase("idle");
+      }
+    };
+
+    peer.oniceconnectionstatechange = () => {
+      console.log("[WebRTC] ICE state:", peer.iceConnectionState);
+    };
+
+    if (initiator) {
+      peer.createOffer()
+        .then((offer) => peer.setLocalDescription(offer))
+        .then(() => {
+          socket.emit("signal", {
+            type: "offer",
+            offer: peer.localDescription,
+          });
+        })
+        .catch((error) => {
+          console.error("[WebRTC] Offer creation failed:", error);
+          setStatus("Could not create a video offer. Please try again.");
+        });
+    }
+
+    return peer;
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -223,96 +277,91 @@ function CallPage() {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      setStatus((current) =>
-        current.startsWith("Server connection failed")
-          ? "Ready when you are"
-          : current
-      );
+      console.log("[Socket] Connected:", socket.id);
+      setStatus("Connected to server. Ready when you are.");
     });
 
     socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-      setStatus("Server connection failed. Please reload and try again.");
+      console.error("[Socket] Connection error:", error);
+      setStatus("Server connection failed. Please try again.");
     });
 
     socket.on("waiting", () => {
       if (!activeRef.current || isCreatorCall) return;
-
       setPhase("waiting");
       setStatus("Looking for someone new...");
     });
 
-    socket.on("matched", async (data = {}) => {
-      if (!activeRef.current) return;
+    socket.on("matched", (data = {}) => {
+      console.log("[Socket] Matched:", data);
 
-      // Creator calls must have been accepted before WebRTC starts.
-      if (isCreatorCall && requestPendingRef.current) return;
+      if (!activeRef.current) {
+        console.warn("[WebRTC] Ignoring match because call is inactive.");
+        return;
+      }
 
-      const peer = createPeer(socket);
+      if (isCreatorCall && requestPendingRef.current) {
+        console.warn("[WebRTC] Waiting for creator-call acceptance.");
+        return;
+      }
+
+      const peer = createPeer(socket, Boolean(data.initiator));
 
       setPhase("waiting");
       setStatus(
         isCreatorCall
           ? `Connecting to ${creatorUsername}...`
-          : "Connecting..."
+          : "Matched. Establishing video connection..."
       );
 
-      try {
-        if (data.initiator) {
-          const offer = await peer.createOffer();
-          await peer.setLocalDescription(offer);
+      // FIX: process any offer/candidate that arrived before this peer
+      // was created by the matched event.
+      const queuedSignals = pendingSignals.current.splice(0);
 
-          socket.emit("signal", {
-            type: "offer",
-            offer: peer.localDescription,
-          });
-        }
-      } catch (error) {
-        console.error("Could not create WebRTC offer:", error);
-        setStatus("Could not start the call. Please try again.");
+      queuedSignals.forEach((signal) => {
+        queueMicrotask(() => {
+          void handleSignal(signal);
+        });
+      });
+
+      if (!peer) {
+        setStatus("Could not initialize the video connection.");
       }
     });
 
-    socket.on("creator-call-accepted", () => {
+    socket.on("creator-call-accepted", (data = {}) => {
+      console.log("[Socket] Creator call accepted:", data);
       requestPendingRef.current = false;
       activeRef.current = true;
       setPhase("waiting");
-      setStatus(`${creatorUsername} accepted. Connecting...`);
+      setStatus(
+        `Call accepted by ${data.creatorUsername || creatorUsername}. Connecting...`
+      );
     });
 
-    socket.on("creator-call-rejected", (data) => {
+    socket.on("creator-call-rejected", (data = {}) => {
+      console.log("[Socket] Creator call rejected:", data);
       requestPendingRef.current = false;
-      activeRef.current = false;
-
-      cleanupPeer();
-      stopMedia();
-
-      setPhase("idle");
-      setStatus(
-        data?.message ||
+      resetCall(
+        data.message ||
+          data.reason ||
           `${creatorUsername} declined the call or is unavailable.`
       );
     });
 
-    socket.on("creator-call-request-cancelled", () => {
-      requestPendingRef.current = false;
-      activeRef.current = false;
-      cleanupPeer();
-      stopMedia();
-      setPhase("idle");
-      setStatus("The call request was cancelled.");
+    socket.on("creator-call-request-cancelled", (data = {}) => {
+      console.log("[Socket] Creator call cancelled:", data);
+      resetCall("The call request was cancelled.");
     });
 
     socket.on("creator-call-cancelled", () => {
-      requestPendingRef.current = false;
-      activeRef.current = false;
-      cleanupPeer();
-      stopMedia();
-      setPhase("idle");
-      setStatus("The call request was cancelled.");
+      resetCall("The call request was cancelled.");
     });
 
-    socket.on("signal", handleSignal);
+    socket.on("signal", (data) => {
+      console.log("[WebRTC] Signal received:", data?.type);
+      void handleSignal(data);
+    });
 
     socket.on("chat-message", (text) => {
       setMessages((old) => [
@@ -330,6 +379,7 @@ function CallPage() {
     });
 
     socket.on("partner-left", () => {
+      console.log("[Socket] Partner left.");
       resetCall(
         isCreatorCall
           ? `${creatorUsername} ended the call.`
@@ -340,8 +390,8 @@ function CallPage() {
     return () => {
       mountedRef.current = false;
       activeRef.current = false;
-
       clearTimeout(typingTimeout.current);
+
       socket.removeAllListeners();
       socket.disconnect();
 
@@ -355,19 +405,18 @@ function CallPage() {
   }, [
     cleanupPeer,
     createPeer,
-    creatorUsername,
     handleSignal,
     isCreatorCall,
+    creatorUsername,
     resetCall,
     stopMedia,
   ]);
 
   useEffect(() => {
-    const area = messagesArea.current;
-    if (!area) return;
+    if (!messagesArea.current) return;
 
-    area.scrollTo({
-      top: area.scrollHeight,
+    messagesArea.current.scrollTo({
+      top: messagesArea.current.scrollHeight,
       behavior: "smooth",
     });
   }, [messages, partnerTyping]);
@@ -381,7 +430,7 @@ function CallPage() {
     }
 
     if (!socketRef.current?.connected) {
-      setStatus("Connecting to the server. Please try again in a moment.");
+      setStatus("Connecting to server. Please try again in a moment.");
       return;
     }
 
@@ -401,24 +450,21 @@ function CallPage() {
       }
     }
 
-    const generation = ++callGenerationRef.current;
+    const generation = ++generationRef.current;
 
     try {
       setStatus("Waiting for camera permission...");
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: { ideal: facing },
+          facingMode: { ideal: "user" },
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
         audio: true,
       });
 
-      if (
-        !mountedRef.current ||
-        generation !== callGenerationRef.current
-      ) {
+      if (!mountedRef.current || generation !== generationRef.current) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
@@ -445,16 +491,14 @@ function CallPage() {
           },
           (response) => {
             if (!response?.ok) {
-              requestPendingRef.current = false;
-              activeRef.current = false;
-              stopMedia();
-              setPhase("idle");
-              setStatus(
+              console.error("[Creator call] Request failed:", response);
+              resetCall(
                 response?.error ||
                   response?.message ||
                   `${creatorUsername} is unavailable right now.`
               );
             } else {
+              console.log("[Creator call] Request sent:", response.requestId);
               setStatus(
                 response.message ||
                   `Call request sent to ${creatorUsername}.`
@@ -468,7 +512,7 @@ function CallPage() {
         socketRef.current.emit("find-stranger");
       }
     } catch (error) {
-      console.error("Camera permission error:", error);
+      console.error("[Media] Could not start camera:", error);
       activeRef.current = false;
       requestPendingRef.current = false;
 
@@ -487,19 +531,17 @@ function CallPage() {
     }
 
     if (!activeRef.current) {
-      startChat();
+      void startChat();
       return;
     }
 
     cleanupPeer();
+    pendingSignals.current = [];
     setMessages([]);
     setMessage("");
     setPartnerTyping(false);
     setPhase("waiting");
     setStatus("Finding someone new...");
-
-    // The server removes the current pairing and places this socket
-    // back in the matchmaking queue.
     socketRef.current?.emit("find-stranger");
   }
 
@@ -509,7 +551,7 @@ function CallPage() {
     }
 
     socketRef.current?.emit("stop-chat");
-    resetCall("Chat stopped. Ready when you are?");
+    resetCall("Chat stopped. Ready when you are.");
   }
 
   function handleMessageChange(event) {
@@ -539,6 +581,7 @@ function CallPage() {
 
     clearTimeout(typingTimeout.current);
     typingRef.current = false;
+
     socketRef.current?.emit("typing", false);
     socketRef.current?.emit("chat-message", text);
 
@@ -577,7 +620,9 @@ function CallPage() {
   async function switchCamera() {
     if (!streamRef.current || phase === "idle") return;
 
-    const nextFacing = facing === "user" ? "environment" : "user";
+    const currentFacing =
+      streamRef.current.getVideoTracks()[0]?.getSettings()?.facingMode;
+    const nextFacing = currentFacing === "environment" ? "user" : "environment";
 
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
@@ -597,9 +642,7 @@ function CallPage() {
         ?.getSenders()
         .find((item) => item.track?.kind === "video");
 
-      if (sender) {
-        await sender.replaceTrack(newTrack);
-      }
+      if (sender) await sender.replaceTrack(newTrack);
 
       if (oldTrack) {
         streamRef.current.removeTrack(oldTrack);
@@ -612,10 +655,9 @@ function CallPage() {
         localVideo.current.srcObject = streamRef.current;
       }
 
-      setFacing(nextFacing);
       setCameraOff(false);
     } catch (error) {
-      console.error("Camera switch error:", error);
+      console.error("[Media] Camera switch failed:", error);
       setStatus("Couldn't switch camera on this device.");
     }
   }
@@ -633,7 +675,7 @@ function CallPage() {
         video.webkitEnterFullscreen();
       }
     } catch (error) {
-      console.error("Fullscreen error:", error);
+      console.error("[Video] Fullscreen failed:", error);
     }
   }
 
@@ -757,20 +799,13 @@ function CallPage() {
               )}
             </div>
 
-            <div
-              className={`video-card local-card ${
-                expanded ? "local-card-expanded" : ""
-              }`}
-            >
+            <div className="video-card local-card">
               <video
                 ref={localVideo}
                 autoPlay
                 muted
                 playsInline
-                onClick={() => setExpanded((value) => !value)}
-                className={`video-feed local-feed ${
-                  cameraOff ? "camera-off" : ""
-                }`}
+                className={`video-feed local-feed ${cameraOff ? "camera-off" : ""}`}
               />
 
               {(!isActive || cameraOff) && (
@@ -794,9 +829,7 @@ function CallPage() {
                 type="button"
               >
                 <Video size={19} strokeWidth={2.2} />
-                <span>
-                  {isCreatorCall ? "Call Creator" : "Start Chatting"}
-                </span>
+                <span>{isCreatorCall ? "Call Creator" : "Start Chatting"}</span>
               </button>
 
               <button
@@ -917,9 +950,7 @@ function CallPage() {
             <input
               value={message}
               onChange={handleMessageChange}
-              placeholder={
-                phase === "connected" ? "Write a message..." : "Connect first..."
-              }
+              placeholder={phase === "connected" ? "Write a message..." : "Connect first..."}
               maxLength={1000}
               disabled={phase !== "connected"}
               aria-label="Chat message"
@@ -938,9 +969,7 @@ function CallPage() {
 
       <footer className="footer">
         <span>OnlyStream © {new Date().getFullYear()}</span>
-        <span>
-          Made for spontaneous connections <b />
-        </span>
+        <span>Made for spontaneous connections <b /></span>
       </footer>
     </div>
   );
