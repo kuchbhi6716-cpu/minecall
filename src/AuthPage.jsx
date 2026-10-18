@@ -11,6 +11,7 @@ import {
 
 const ACCOUNTS_KEY = "onlystream-test-accounts-v1";
 const SESSION_KEY = "onlystream-test-session-v1";
+const API_BASE = "";
 
 function readAccounts() {
   try {
@@ -28,6 +29,49 @@ async function hashPassword(password) {
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function getSafeNextPath(role) {
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get("next");
+
+  if (role === "creator") return "/creator";
+
+  if (
+    next &&
+    next.startsWith("/") &&
+    !next.startsWith("//") &&
+    !next.includes("\\") &&
+    !/^\/(?:login|signup|creator)(?:[/?#]|$)/i.test(next)
+  ) {
+    return next;
+  }
+
+  return "/";
+}
+
+async function initializeTestAccount(username, role) {
+  const response = await fetch(`${API_BASE}/api/test-account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, role }),
+  });
+
+  let data = {};
+
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("The server returned an invalid response.");
+  }
+
+  if (!response.ok || !data.account) {
+    throw new Error(
+      data.error || "Could not initialize the test account."
+    );
+  }
+
+  return data.account;
 }
 
 export default function AuthPage({ initialMode = "login" }) {
@@ -48,8 +92,10 @@ export default function AuthPage({ initialMode = "login" }) {
 
     const cleanUsername = username.trim().toLowerCase();
 
-    if (cleanUsername.length < 3) {
-      setMessage("Username must contain at least 3 characters.");
+    if (!/^[a-z0-9_.-]{3,30}$/.test(cleanUsername)) {
+      setMessage(
+        "Username must be 3–30 characters and use only letters, numbers, dots, underscores or hyphens."
+      );
       return;
     }
 
@@ -73,63 +119,73 @@ export default function AuthPage({ initialMode = "login" }) {
         (account) => account.username === cleanUsername
       );
 
+      let account;
+
       if (mode === "signup") {
         if (existing) {
           setMessage("That username already exists. Please log in.");
           return;
         }
 
-        const account = {
+        account = {
           username: cleanUsername,
           role,
           passwordHash,
-          ...(role === "user" ? { testCoins: 0 } : {}),
           createdAt: new Date().toISOString(),
         };
 
+        // Store the local demo account.
         localStorage.setItem(
           ACCOUNTS_KEY,
           JSON.stringify([...accounts, account])
         );
+      } else {
+        if (!existing || existing.passwordHash !== passwordHash) {
+          setMessage("Incorrect username or password.");
+          return;
+        }
 
-        localStorage.setItem(
-          SESSION_KEY,
-          JSON.stringify({
-            username: account.username,
-            role: account.role,
-            loggedInAt: new Date().toISOString(),
-          })
+        if (existing.role !== role) {
+          setMessage(
+            `This account is registered as ${existing.role}. Choose the correct account type.`
+          );
+          return;
+        }
+
+        account = existing;
+      }
+
+      // Initialize the server-side test economy account.
+      // This does not charge money or make a real payment.
+      let economyAccount;
+
+      try {
+        economyAccount = await initializeTestAccount(
+          account.username,
+          account.role
         );
-
-        window.location.href = role === "creator" ? "/creator" : "/";
-        return;
-      }
-
-      if (!existing || existing.passwordHash !== passwordHash) {
-        setMessage("Incorrect username or password.");
-        return;
-      }
-
-      if (existing.role !== role) {
+      } catch (error) {
         setMessage(
-          `This account is registered as ${existing.role}. Choose the correct account type.`
+          `Your local account was ${mode === "signup" ? "created" : "verified"}, but the test server could not initialize it. Check that Render has deployed the updated index.js, then try again. Details: ${error.message}`
         );
         return;
       }
 
-      localStorage.setItem(
-        SESSION_KEY,
-        JSON.stringify({
-          username: existing.username,
-          role: existing.role,
-          loggedInAt: new Date().toISOString(),
-        })
-      );
+      const session = {
+        username: account.username,
+        role: account.role,
+        loggedInAt: new Date().toISOString(),
+        testMode: true,
+        coins: economyAccount.coins ?? 0,
+      };
 
-      window.location.href = existing.role === "creator" ? "/creator" : "/";
-    } catch {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+
+      window.location.replace(getSafeNextPath(account.role));
+    } catch (error) {
       setMessage(
-        "Browser storage is unavailable. Please try another browser or session."
+        error?.message ||
+          "Browser storage is unavailable. Please try again."
       );
     } finally {
       setBusy(false);
@@ -139,10 +195,15 @@ export default function AuthPage({ initialMode = "login" }) {
   function changeMode(nextMode) {
     setMode(nextMode);
     setMessage("");
+    setPassword("");
     setConfirmPassword("");
 
     const nextPath = nextMode === "signup" ? "/signup" : "/login";
-    window.history.replaceState({}, "", nextPath);
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+
+    const query = next ? `?next=${encodeURIComponent(next)}` : "";
+    window.history.replaceState({}, "", `${nextPath}${query}`);
   }
 
   return (
@@ -187,6 +248,7 @@ export default function AuthPage({ initialMode = "login" }) {
               setRole("user");
               setMessage("");
             }}
+            disabled={busy}
           >
             <UserRound size={19} />
             <span>User</span>
@@ -199,6 +261,7 @@ export default function AuthPage({ initialMode = "login" }) {
               setRole("creator");
               setMessage("");
             }}
+            disabled={busy}
           >
             <Video size={19} />
             <span>Creator</span>
@@ -217,7 +280,9 @@ export default function AuthPage({ initialMode = "login" }) {
             placeholder="Enter a username"
             minLength={3}
             maxLength={30}
+            pattern="[a-zA-Z0-9_.-]+"
             required
+            disabled={busy}
           />
 
           <label htmlFor="auth-password">Password</label>
@@ -234,6 +299,7 @@ export default function AuthPage({ initialMode = "login" }) {
               placeholder="At least 6 characters"
               minLength={6}
               required
+              disabled={busy}
             />
 
             <button
@@ -241,6 +307,7 @@ export default function AuthPage({ initialMode = "login" }) {
               className="auth-show-password"
               onClick={() => setShowPassword((value) => !value)}
               aria-label={showPassword ? "Hide password" : "Show password"}
+              disabled={busy}
             >
               {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
             </button>
@@ -261,6 +328,7 @@ export default function AuthPage({ initialMode = "login" }) {
                 placeholder="Enter password again"
                 minLength={6}
                 required
+                disabled={busy}
               />
             </>
           )}
@@ -291,14 +359,16 @@ export default function AuthPage({ initialMode = "login" }) {
             onClick={() =>
               changeMode(mode === "signup" ? "login" : "signup")
             }
+            disabled={busy}
           >
             {mode === "signup" ? "Log in" : "Sign up"}
           </button>
         </p>
 
         <p className="auth-testing-note">
-          Testing version: accounts are stored only in this browser. Do not
-          use a real or reused password. This is not production authentication.
+          Testing version: accounts are stored in this browser and the test
+          economy is stored in server memory. Do not use a real or reused
+          password. No real payments or withdrawals are enabled.
         </p>
       </section>
     </main>
