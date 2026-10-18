@@ -599,3 +599,81 @@
   }
 }
 
+
+/* OnlyStream — Premium Refresh Earnings Button */
+.creator-dashboard .creator-refresh-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 16px;
+  padding: 12px 18px;
+
+  color: #f5efff;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 55%, #5b21b6 100%);
+  border: 1px solid rgba(196, 181, 253, 0.35);
+  border-radius: 14px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+
+  cursor: pointer;
+  box-shadow:
+    0 4px 14px rgba(124, 58, 237, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.creator-dashboard .creator-refresh-button svg {
+  flex-shrink: 0;
+  transition: transform 0.45s ease;
+}
+
+.creator-dashboard .creator-refresh-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 55%, #6d28d9 100%);
+  border-color: rgba(221, 214, 254, 0.7);
+  box-shadow:
+    0 7px 22px rgba(124, 58, 237, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+}
+
+.creator-dashboard .creator-refresh-button:hover:not(:disabled) svg {
+  transform: rotate(45deg);
+}
+
+.creator-dashboard .creator-refresh-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.creator-dashboard .creator-refresh-button:disabled {
+  opacity: 0.75;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
+.creator-dashboard .creator-refresh-button:focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+  .creator-dashboard .creator-refresh-button {
+    min-height: 48px;
+    border-radius: 13px;
+    font-size: 13px;
+  }
+}
+
+
