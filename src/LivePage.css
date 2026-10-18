@@ -1022,3 +1022,236 @@
     transition: none;
   }
 }
+
+/* ================================
+   ONLYSTREAM — LIVE PAGE FOOTER
+================================ */
+
+.live-footer.site-footer {
+  position: relative;
+  width: 100%;
+  margin-top: 64px;
+  padding: 38px 24px 20px;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: #f5f3ff;
+  background:
+    radial-gradient(
+      ellipse at 15% 0%,
+      rgba(139, 92, 246, 0.16),
+      transparent 48%
+    ),
+    linear-gradient(180deg, #100d1b 0%, #09070f 100%);
+  border-top: 1px solid rgba(167, 139, 250, 0.2);
+  font-family: inherit;
+}
+
+.live-footer.site-footer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8%;
+  width: 84%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(167, 139, 250, 0.65),
+    transparent
+  );
+}
+
+.live-footer .footer-main {
+  max-width: 1200px;
+  margin: 0 auto 30px;
+}
+
+.live-footer .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #fff;
+  font-size: 27px;
+  font-weight: 900;
+  letter-spacing: -1.2px;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.live-footer .logo span {
+  color: #a78bfa;
+}
+
+.live-footer .logo:hover {
+  opacity: 0.8;
+}
+
+.live-footer .footer-tagline {
+  margin: 9px 0 0;
+  color: #a7a1b8;
+  font-size: 13px;
+  line-height: 1.7;
+  letter-spacing: 0.3px;
+}
+
+.live-footer .footer-about {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.live-footer .footer-about-card {
+  min-width: 0;
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(167, 139, 250, 0.13);
+  border-radius: 16px;
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.live-footer .footer-about-card:hover {
+  transform: translateY(-3px);
+  background: rgba(139, 92, 246, 0.07);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.live-footer .footer-about-card h3 {
+  margin: 0 0 12px;
+  color: #c4b5fd;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+.live-footer .footer-about-card p {
+  margin: 0;
+  color: #a7a1b8;
+  font-size: 13px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+
+.live-footer .footer-contact a {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 15px;
+  color: #ddd6fe;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color 0.2s ease;
+}
+
+.live-footer .footer-contact a:hover {
+  color: #fff;
+}
+
+.live-footer .footer-contact a svg {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.live-footer .footer-contact a:hover svg {
+  transform: translate(2px, -2px);
+}
+
+.live-footer .footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  max-width: 1200px;
+  margin: 28px auto 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(167, 139, 250, 0.12);
+  color: #777186;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+/* Tablet */
+@media (max-width: 800px) {
+  .live-footer.site-footer {
+    margin-top: 44px;
+    padding: 32px 18px 18px;
+  }
+
+  .live-footer .footer-about {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .live-footer .footer-contact {
+    grid-column: 1 / -1;
+  }
+
+  .live-footer .footer-about-card {
+    padding: 18px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 520px) {
+  .live-footer.site-footer {
+    margin-top: 36px;
+    padding: 28px 14px 16px;
+  }
+
+  .live-footer .footer-main {
+    margin-bottom: 23px;
+  }
+
+  .live-footer .logo {
+    font-size: 25px;
+  }
+
+  .live-footer .footer-about {
+    grid-template-columns: 1fr;
+    gap: 11px;
+  }
+
+  .live-footer .footer-contact {
+    grid-column: auto;
+  }
+
+  .live-footer .footer-about-card {
+    padding: 17px;
+    border-radius: 13px;
+  }
+
+  .live-footer .footer-about-card h3 {
+    font-size: 13px;
+  }
+
+  .live-footer .footer-about-card p,
+  .live-footer .footer-contact a {
+    font-size: 12px;
+  }
+
+  .live-footer .footer-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 22px;
+    padding-top: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-footer *,
+  .live-footer *::before,
+  .live-footer *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+
