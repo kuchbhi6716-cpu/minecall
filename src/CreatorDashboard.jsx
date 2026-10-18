@@ -1,5 +1,3 @@
-
-
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
@@ -7,6 +5,7 @@ import {
   Camera,
   CameraOff,
   Coins,
+  Gift,
   LogOut,
   Phone,
   Radio,
@@ -99,17 +98,23 @@ export default function CreatorDashboard() {
     }
 
     try {
+      setEconomyLoading(true);
       setEconomyError("");
 
       const response = await fetch(
-        `${API_BASE}/api/economy/me?username=${encodeURIComponent(session.username)}`,
+        `${API_BASE}/api/economy/me?username=${encodeURIComponent(
+          session.username
+        )}`,
         { headers: { Accept: "application/json" } }
       );
 
       const data = await readJson(response);
 
       if (mountedRef.current) {
-        setEconomy(data);
+        // Support either a direct account response or a nested account.
+        const account = data.account ?? data.economy ?? data;
+
+        setEconomy(account);
       }
     } catch (error) {
       if (mountedRef.current) {
@@ -826,12 +831,17 @@ export default function CreatorDashboard() {
     economy?.wallet?.coins ??
     0;
 
+  // FIX: Read the actual revenue field returned by the backend.
   const creatorRevenue =
+    economy?.testRevenueInr ??
     economy?.creatorRevenue ??
     economy?.revenue ??
     economy?.earnings ??
     economy?.wallet?.revenue ??
     0;
+
+  // FIX: Read the test signup bonus recorded by the backend.
+  const signupBonus = Number(economy?.testBonusInr ?? 0);
 
   const elapsedLabel =
     `${String(Math.floor(callElapsed / 60)).padStart(2, "0")}:` +
@@ -1011,6 +1021,20 @@ export default function CreatorDashboard() {
             </div>
             <p className="creator-stat-footnote">
               Demo balance · refreshes from the server
+            </p>
+          </div>
+
+          {/* NEW: Creator signup bonus */}
+          <div className="creator-stat-card">
+            <div className="creator-stat-icon">
+              <Gift size={22} />
+            </div>
+            <p className="creator-stat-label">Creator signup bonus</p>
+            <div className="creator-stat-value">
+              {economyLoading ? "…" : `₹${formatNumber(signupBonus)}`}
+            </div>
+            <p className="creator-stat-footnote">
+              Test signup bonus · not withdrawable
             </p>
           </div>
 
