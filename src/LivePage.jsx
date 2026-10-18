@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Users,
   ShieldCheck,
+  ArrowUpRight,
 } from "lucide-react";
 import "./LivePage.css";
 
@@ -23,6 +24,10 @@ const API_URL = "/api/aw-models";
 const PLAYER_SCRIPT = "https://edwmcr.com/embed/lf";
 const COMMENT_DURATION = 12000;
 const MAX_VISIBLE_COMMENTS = 12;
+
+// ------------------------------------
+// PROVIDER CONNECTION
+// ------------------------------------
 
 function warmUpProvider() {
   ["https://atwmcd.com", "https://edwmcr.com"].forEach((url) => {
@@ -37,6 +42,10 @@ function warmUpProvider() {
     document.head.appendChild(link);
   });
 }
+
+// ------------------------------------
+// MODEL HELPERS
+// ------------------------------------
 
 function getUsername(item) {
   return String(
@@ -99,7 +108,6 @@ function getModelThumbnail(item) {
 
 function extractModels(response) {
   if (Array.isArray(response)) return response;
-
   if (!response || typeof response !== "object") return [];
 
   const candidates = [
@@ -246,7 +254,6 @@ function AWLivePlayer({ username }) {
       if (cancelled) return false;
 
       const player = container.querySelector("iframe, video, object, embed");
-
       if (!player) return false;
 
       setPlayerReady(true);
@@ -269,7 +276,7 @@ function AWLivePlayer({ username }) {
       timeoutId = window.setTimeout(() => {
         if (!cancelled && !checkPlayer()) {
           setPlayerError(
-            "The player is taking too long to load. Check the provider or retry."
+            "Player load nahi hua. Provider embed settings check karo."
           );
         }
       }, 20000);
@@ -278,7 +285,7 @@ function AWLivePlayer({ username }) {
     script.onerror = () => {
       if (!cancelled) {
         setPlayerError(
-          "The player script could not load. Check your connection and retry."
+          "Player script load nahi hua. Connection check karke retry karo."
         );
       }
     };
@@ -298,22 +305,25 @@ function AWLivePlayer({ username }) {
         ref={containerRef}
         id="object_container"
         className="onlystream-embed"
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: 0,
+          position: "relative",
+          overflow: "hidden",
+        }}
       />
 
       {!playerReady && !playerError && (
         <div className="video-skeleton" aria-live="polite">
           <div className="skeleton-glow" />
-
           <div className="skeleton-content">
-            <div className="skeleton-orb">
-              <Radio size={24} />
-            </div>
+            <div className="skeleton-orb">▶</div>
             <div className="skeleton-line" />
             <div className="skeleton-caption">
               Connecting to live stream...
             </div>
           </div>
-
           <div className="skeleton-progress">
             <div />
           </div>
@@ -322,17 +332,13 @@ function AWLivePlayer({ username }) {
 
       {playerError && (
         <div className="player-error">
-          <div className="player-error-icon">
-            <Radio size={25} />
-          </div>
-          <h3>Stream unavailable</h3>
+          <Radio size={26} />
           <p>{playerError}</p>
-
           <button
             type="button"
             onClick={() => setRetry((value) => value + 1)}
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={15} />
             Retry player
           </button>
         </div>
@@ -463,9 +469,7 @@ function useLiveComments(username) {
 
       timersRef.current.set(
         comment.id,
-        window.setTimeout(() => {
-          removeComment(comment.id);
-        }, COMMENT_DURATION)
+        window.setTimeout(() => removeComment(comment.id), COMMENT_DURATION)
       );
     }
 
@@ -520,7 +524,7 @@ function useLiveComments(username) {
       try {
         localStorage.setItem("onlystream-guest-name", name);
       } catch {
-        // Continue if browser storage is unavailable.
+        // Continue if storage is unavailable.
       }
 
       socketRef.current.emit("live-comment", {
@@ -574,75 +578,49 @@ function LiveCommentOverlay({ comments }) {
 function LiveCommentComposer({ chat }) {
   return (
     <div className="live-comments-card">
-      <div className="live-chat-heading">
-        <div className="live-chat-heading-icon">
-          <MessageCircle size={17} />
-        </div>
-
-        <div>
-          <h3>Live chat</h3>
-          <p>Join the conversation</p>
-        </div>
-      </div>
-
-      <form className="live-comment-form" onSubmit={chat.sendComment}>
-        <label className="live-input-label" htmlFor="live-guest-name">
-          Guest name
-        </label>
-
-        <input
-          id="live-guest-name"
-          type="text"
-          value={chat.guestName}
-          onChange={(event) => chat.setGuestName(event.target.value)}
-          placeholder="Enter your name"
-          maxLength={24}
-          autoComplete="nickname"
-        />
-
-        <label className="live-input-label" htmlFor="live-comment-message">
-          Your comment
-        </label>
-
-        <div className="live-comment-input-row">
+      <div className="live-comment-composer">
+        <form className="live-comment-form" onSubmit={chat.sendComment}>
           <input
-            id="live-comment-message"
             type="text"
-            value={chat.message}
-            onChange={(event) => chat.setMessage(event.target.value)}
-            placeholder="Write a comment..."
-            maxLength={180}
+            value={chat.guestName}
+            onChange={(event) => chat.setGuestName(event.target.value)}
+            placeholder="Your guest name"
+            aria-label="Guest name"
+            maxLength={24}
+            autoComplete="nickname"
           />
 
-          <button
-            type="submit"
-            aria-label="Send comment"
-            disabled={!chat.message.trim()}
-          >
-            <Send size={17} />
-          </button>
+          <div className="live-comment-input-row">
+            <input
+              type="text"
+              value={chat.message}
+              onChange={(event) => chat.setMessage(event.target.value)}
+              placeholder="Write a comment..."
+              aria-label="Write a live comment"
+              maxLength={180}
+            />
+
+            <button
+              type="submit"
+              aria-label="Send comment"
+              disabled={!chat.message.trim()}
+            >
+              <Send size={16} />
+            </button>
+          </div>
+        </form>
+
+        <div className="live-comment-status">
+          <span
+            className={`live-status-dot ${
+              chat.chatStatus === "Live chat connected" ? "is-online" : ""
+            }`}
+          />
+          <span>{chat.chatStatus}</span>
+          {chat.notice && (
+            <span className="live-comment-notice">{chat.notice}</span>
+          )}
         </div>
-      </form>
-
-      <div className="live-comment-status">
-        <span
-          className={`live-status-dot ${
-            chat.chatStatus === "Live chat connected" ? "is-online" : ""
-          }`}
-        />
-
-        <span>{chat.chatStatus}</span>
-      </div>
-
-      {chat.notice && (
-        <div className="live-comment-notice" role="status">
-          {chat.notice}
-        </div>
-      )}
-
-      <div className="live-chat-safety">
-        <ShieldCheck size={14} />
-        <span>Be respectful. Keep personal information private.</span>
       </div>
     </div>
   );
@@ -684,8 +662,6 @@ function LiveRecommendationCard({ item }) {
         </span>
       )}
 
-      <span className="live-explore-shade" />
-
       <span className="live-recommendation-info">
         <span className="live-recommendation-status">
           <span className="live-recommendation-dot" />
@@ -693,12 +669,64 @@ function LiveRecommendationCard({ item }) {
         </span>
 
         <span className="live-recommendation-name">{item.name}</span>
-
-        <span className="live-recommendation-action">
-          Watch stream <ExternalLink size={13} />
-        </span>
       </span>
     </button>
+  );
+}
+
+// ------------------------------------
+// ABOUT + CONTACT FOOTER
+// ------------------------------------
+
+function LiveFooter() {
+  return (
+    <footer className="live-footer site-footer">
+      <div className="footer-main">
+        <a className="logo" href="/">
+          OnlyStream<span>.</span>
+        </a>
+
+        <p className="footer-tagline">
+          Meet respectfully. Connect safely.
+        </p>
+      </div>
+
+      <div className="footer-about">
+        <section className="footer-about-card">
+          <h3>About OnlyStream</h3>
+          <p>
+            OnlyStream is a platform built to help people discover live
+            creators and connect with others through online conversations.
+          </p>
+        </section>
+
+        <section className="footer-about-card">
+          <h3>About the Owner</h3>
+          <p>
+            OnlyStream is an independent online project. The goal is to build
+            a simple and accessible place to discover live streams and
+            connect with others.
+          </p>
+        </section>
+
+        <section className="footer-about-card footer-contact">
+          <h3>Contact</h3>
+          <p>
+            Have a question, suggestion, or business enquiry? Get in touch.
+          </p>
+
+          <a href="mailto:kuchbhi6716@gmail.com">
+            kuchbhi6716@gmail.com
+            <ArrowUpRight size={16} />
+          </a>
+        </section>
+      </div>
+
+      <div className="footer-bottom">
+        <span>© {new Date().getFullYear()} OnlyStream</span>
+        <span>Meet respectfully. Connect safely.</span>
+      </div>
+    </footer>
   );
 }
 
@@ -792,8 +820,8 @@ export default function LivePage() {
   return (
     <main className="live-page">
       <header className="live-topbar">
-        <a className="live-back" href="/" aria-label="Back to homepage">
-          <ArrowLeft size={19} />
+        <a className="live-back" href="/">
+          <ArrowLeft size={20} />
           <span>Home</span>
         </a>
 
@@ -802,7 +830,7 @@ export default function LivePage() {
         </a>
 
         <span className="live-status">
-          <span className="live-status-dot is-online" />
+          <Radio size={15} />
           LIVE
         </span>
       </header>
@@ -817,60 +845,29 @@ export default function LivePage() {
           <h1>
             Watch <span>live.</span>
           </h1>
-
-          <p>Discover live creators and join the conversation.</p>
         </div>
 
         {loading ? (
           <div className="live-player-message">
-            <div className="live-loading-spinner" />
-            <h3>Finding your stream</h3>
-            <p>Connecting to the live model feed...</p>
+            Loading model...
           </div>
         ) : error ? (
-          <div className="live-player-message live-error-card">
-            <div className="player-error-icon">
-              <Radio size={25} />
-            </div>
-
-            <h3>Unable to open this stream</h3>
+          <div className="live-player-message">
             <p>{error}</p>
 
             <button
               type="button"
               onClick={() => setReload((value) => value + 1)}
             >
-              <RefreshCw size={16} />
-              Try again
+              Retry
             </button>
 
-            <a className="live-secondary-link" href="/">
-              <ArrowLeft size={15} />
-              Back to live models
-            </a>
+            <p>
+              <a href="/">Back to live models</a>
+            </p>
           </div>
         ) : model ? (
           <>
-            <div className="live-stream-titlebar">
-              <div className="live-stream-avatar">
-                {model.thumbnail ? (
-                  <img src={model.thumbnail} alt="" />
-                ) : (
-                  <Radio size={22} />
-                )}
-              </div>
-
-              <div className="live-stream-title">
-                <span className="live-stream-kicker">NOW STREAMING</span>
-                <h2>{model.name}</h2>
-              </div>
-
-              <span className="live-viewer-badge">
-                <Radio size={14} />
-                Live
-              </span>
-            </div>
-
             <article className="live-player-card">
               <div className="live-player">
                 <AWLivePlayer
@@ -893,7 +890,6 @@ export default function LivePage() {
                     aria-label="Open provider room"
                   >
                     <ExternalLink size={18} />
-                    <span>Open original room</span>
                   </a>
                 )}
               </div>
@@ -909,12 +905,12 @@ export default function LivePage() {
                   <h3>More live models</h3>
 
                   <p>
-                    Find another creator and jump into their live stream.
+                    Discover another creator and jump straight into their
+                    live stream.
                   </p>
                 </div>
 
                 <span className="live-recommendations-count">
-                  <Users size={15} />
                   {recommendations.length} available
                 </span>
               </div>
@@ -937,13 +933,7 @@ export default function LivePage() {
           </>
         ) : null}
 
-        <footer className="live-footer">
-          <a href="/" className="live-footer-brand">
-            OnlyStream<span>.</span>
-          </a>
-          <p>Meet respectfully. Connect safely.</p>
-          <span>© {new Date().getFullYear()} OnlyStream</span>
-        </footer>
+        <LiveFooter />
       </section>
     </main>
   );
