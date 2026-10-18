@@ -168,15 +168,6 @@ function normalizeModels(list) {
   );
 }
 
-/*
- * Stable card behaviour:
- * - Existing cards never shuffle.
- * - Updated model details retain the existing card position.
- * - New models are appended at the end.
- * - A missing model is removed after two successful API refreshes.
- * - Explicitly offline models are filtered immediately.
- * - Failed API requests do not count as missing refreshes.
- */
 function mergeModels(previous, incoming, missingCounts) {
   const incomingMap = new Map(
     incoming.map((model) => [
@@ -197,7 +188,6 @@ function mergeModels(previous, incoming, missingCounts) {
 
     if (freshModel) {
       missingCounts.delete(key);
-
       next.push({
         ...oldModel,
         ...freshModel,
@@ -247,7 +237,6 @@ function AgeDisclaimer({ onConfirm }) {
           <span className="age-gate-brand-icon">
             <ShieldCheck size={24} />
           </span>
-
           <span>
             OnlyStream<span className="age-gate-dot">.</span>
           </span>
@@ -257,9 +246,7 @@ function AgeDisclaimer({ onConfirm }) {
           <LockKeyhole size={31} />
         </div>
 
-        <span className="age-gate-eyebrow">
-          AGE VERIFICATION
-        </span>
+        <span className="age-gate-eyebrow">AGE VERIFICATION</span>
 
         <h2 id="age-gate-title">
           Before you
@@ -355,11 +342,40 @@ function ModelCard({ model }) {
   );
 }
 
+function OnlyStreamCreatorCard({ creator }) {
+  return (
+    <article
+      className="stream-card model-card onlystream-creator-card"
+      key={creator.username.toLowerCase()}
+    >
+      <div className="model-card-click">
+        <div
+          className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"
+          aria-hidden="true"
+        >
+          <Radio size={34} />
+        </div>
+
+        <span className="model-online">● LIVE</span>
+
+        <div className="stream-info">
+          <h3>{creator.username}</h3>
+          <p>ONLYSTREAM CREATOR · LIVE NOW</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function Home() {
   const [models, setModels] = useState([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
   const [showMoreSections, setShowMoreSections] = useState(false);
+
+  const [onlyStreamCreators, setOnlyStreamCreators] = useState([]);
+  const [creatorsLoading, setCreatorsLoading] = useState(true);
+  const [creatorsError, setCreatorsError] = useState("");
 
   const [ageConfirmed, setAgeConfirmed] = useState(() => {
     try {
@@ -372,6 +388,65 @@ export default function Home() {
   });
 
   const missingCountsRef = useRef(new Map());
+
+  // Load OnlyStream's own live creators.
+  useEffect(() => {
+    let active = true;
+    let requestInProgress = false;
+
+    async function loadOnlyStreamCreators() {
+      if (requestInProgress) return;
+      requestInProgress = true;
+
+      try {
+        const response = await fetch("/api/live-creators", {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        const creators = Array.isArray(data.creators)
+          ? data.creators.filter(
+              (creator) =>
+                creator &&
+                typeof creator.username === "string" &&
+                creator.username.trim()
+            )
+          : [];
+
+        if (active) {
+          setOnlyStreamCreators(creators);
+          setCreatorsError("");
+        }
+      } catch (error) {
+        if (active) {
+          setCreatorsError(
+            error.message || "Could not load OnlyStream creators."
+          );
+        }
+      } finally {
+        requestInProgress = false;
+        if (active) setCreatorsLoading(false);
+      }
+    }
+
+    loadOnlyStreamCreators();
+
+    const interval = window.setInterval(
+      loadOnlyStreamCreators,
+      5000
+    );
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   function confirmAge() {
     try {
@@ -394,13 +469,13 @@ export default function Home() {
     };
   }, [ageConfirmed]);
 
+  // Load the existing external model feed without replacing its behaviour.
   useEffect(() => {
     let active = true;
     let requestInProgress = false;
 
     async function loadModels() {
       if (requestInProgress) return;
-
       requestInProgress = true;
 
       try {
@@ -433,7 +508,6 @@ export default function Home() {
         );
       } catch (error) {
         if (active) {
-          // Preserve the current cards on temporary API errors.
           setModelsError(
             error.message || "Could not refresh live models."
           );
@@ -441,9 +515,7 @@ export default function Home() {
       } finally {
         requestInProgress = false;
 
-        if (active) {
-          setModelsLoading(false);
-        }
+        if (active) setModelsLoading(false);
       }
     }
 
@@ -601,6 +673,50 @@ export default function Home() {
       </section>
 
       <section className="discovery">
+        <section className="category-section onlystream-live-section">
+          <div className="category-heading">
+            <div className="category-title-wrap">
+              <span className="category-icon pink">
+                <Radio size={19} />
+              </span>
+
+              <div>
+                <h2>OnlyStream Creators Live</h2>
+                <p>
+                  Creators broadcasting on OnlyStream right now
+                </p>
+              </div>
+            </div>
+
+            <span className="online-status">
+              ● {onlyStreamCreators.length} live
+            </span>
+          </div>
+
+          {creatorsLoading ? (
+            <p>Checking live creators...</p>
+          ) : creatorsError && onlyStreamCreators.length === 0 ? (
+            <p>
+              Could not refresh OnlyStream creators.
+              Retrying automatically.
+            </p>
+          ) : onlyStreamCreators.length === 0 ? (
+            <p>
+              No OnlyStream creators are live right now.
+              Check back soon.
+            </p>
+          ) : (
+            <div className="category-track">
+              {onlyStreamCreators.map((creator) => (
+                <OnlyStreamCreatorCard
+                  key={creator.username.toLowerCase()}
+                  creator={creator}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
         {modelsLoading ? (
           <p>Loading live models...</p>
         ) : modelsError && models.length === 0 ? (
@@ -649,7 +765,9 @@ export default function Home() {
           </>
         )}
       </section>
-<hr></hr>
+
+      <hr />
+
       <footer className="site-footer">
         <div className="footer-main">
           <a className="logo" href="/">
@@ -690,7 +808,9 @@ export default function Home() {
             </a>
           </section>
         </div>
-<hr></hr>
+
+        <hr />
+
         <div className="footer-bottom">
           <span>
             © {new Date().getFullYear()} OnlyStream
