@@ -649,7 +649,7 @@ export default function Home() {
           </>
         )}
       </section>
-
+<hr></hr>
       <footer className="site-footer">
         <div className="footer-main">
           <a className="logo" href="/">
@@ -690,12 +690,12 @@ export default function Home() {
             </a>
           </section>
         </div>
-
+<hr></hr>
         <div className="footer-bottom">
           <span>
             © {new Date().getFullYear()} OnlyStream
           </span>
-          <span>Meet respectfully. Connect safely.</span>
+          <span>Meet & Connect safely.</span>
         </div>
       </footer>
     </main>
