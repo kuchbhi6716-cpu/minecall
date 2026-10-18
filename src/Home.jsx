@@ -8,13 +8,17 @@ import {
   ChevronDown,
   ShieldCheck,
   LockKeyhole,
+  RefreshCw,
 } from "lucide-react";
 import "./Home.css";
 
 const API_URL = "/api/aw-models";
+const CREATORS_URL = "/api/live-creators";
 const REFRESH_INTERVAL = 45000;
+const CREATORS_REFRESH_INTERVAL = 5000;
 const MISSING_REFRESH_LIMIT = 2;
 const AGE_CONFIRMATION_KEY = "onlystream-age-confirmed-v1";
+const SESSION_KEY = "onlystream-test-session-v1";
 
 function normalizeImageUrl(url) {
   if (typeof url !== "string") return "";
@@ -151,10 +155,7 @@ function normalizeModels(list) {
         username: getModelUsername(model),
         name: getModelName(model),
         thumbnail: getModelThumbnail(model),
-        age:
-          Number.isFinite(rawAge) && rawAge > 0
-            ? rawAge
-            : 0,
+        age: Number.isFinite(rawAge) && rawAge > 0 ? rawAge : 0,
       };
     });
 
@@ -343,12 +344,22 @@ function ModelCard({ model }) {
 }
 
 function OnlyStreamCreatorCard({ creator }) {
+  function openCreator() {
+    // The current LivePage supports external models, not
+    // a playable OnlyStream creator broadcast yet.
+    // Send visitors to the call page instead of a broken live URL.
+    window.location.href =
+      "/call?creator=" + encodeURIComponent(creator.username);
+  }
+
   return (
-    <article
-      className="stream-card model-card onlystream-creator-card"
-      key={creator.username.toLowerCase()}
-    >
-      <div className="model-card-click">
+    <article className="stream-card model-card onlystream-creator-card">
+      <button
+        type="button"
+        className="model-card-click"
+        onClick={openCreator}
+        aria-label={`Connect with OnlyStream creator ${creator.username}`}
+      >
         <div
           className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"
           aria-hidden="true"
@@ -360,9 +371,9 @@ function OnlyStreamCreatorCard({ creator }) {
 
         <div className="stream-info">
           <h3>{creator.username}</h3>
-          <p>ONLYSTREAM CREATOR · LIVE NOW</p>
+          <p>ONLYSTREAM CREATOR · AVAILABLE</p>
         </div>
-      </div>
+      </button>
     </article>
   );
 }
@@ -389,7 +400,6 @@ export default function Home() {
 
   const missingCountsRef = useRef(new Map());
 
-  // Load OnlyStream's own live creators.
   useEffect(() => {
     let active = true;
     let requestInProgress = false;
@@ -399,7 +409,7 @@ export default function Home() {
       requestInProgress = true;
 
       try {
-        const response = await fetch("/api/live-creators", {
+        const response = await fetch(CREATORS_URL, {
           headers: { Accept: "application/json" },
           cache: "no-store",
         });
@@ -409,7 +419,6 @@ export default function Home() {
         }
 
         const data = await response.json();
-
         const creators = Array.isArray(data.creators)
           ? data.creators.filter(
               (creator) =>
@@ -439,7 +448,7 @@ export default function Home() {
 
     const interval = window.setInterval(
       loadOnlyStreamCreators,
-      5000
+      CREATORS_REFRESH_INTERVAL
     );
 
     return () => {
@@ -452,14 +461,14 @@ export default function Home() {
     try {
       window.localStorage.setItem(AGE_CONFIRMATION_KEY, "true");
     } catch {
-      // The current session can continue if storage is unavailable.
+      // Continue for the current session if storage is unavailable.
     }
 
     setAgeConfirmed(true);
   }
 
   useEffect(() => {
-    if (ageConfirmed) return;
+    if (ageConfirmed) return undefined;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -469,7 +478,6 @@ export default function Home() {
     };
   }, [ageConfirmed]);
 
-  // Load the existing external model feed without replacing its behaviour.
   useEffect(() => {
     let active = true;
     let requestInProgress = false;
@@ -514,7 +522,6 @@ export default function Home() {
         }
       } finally {
         requestInProgress = false;
-
         if (active) setModelsLoading(false);
       }
     }
@@ -596,6 +603,28 @@ export default function Home() {
     window.location.href = "/call";
   }
 
+  function openCreatorStudio() {
+    try {
+      const session = JSON.parse(
+        localStorage.getItem(SESSION_KEY) || "null"
+      );
+
+      if (session?.role === "creator") {
+        window.location.href = "/creator";
+        return;
+      }
+
+      if (session?.role === "user") {
+        window.location.href = "/creator";
+        return;
+      }
+    } catch {
+      // Continue to login if session data is invalid.
+    }
+
+    window.location.href = "/login?next=%2Fcreator";
+  }
+
   function renderLiveSection(section) {
     return (
       <section className="category-section" key={section.title}>
@@ -643,7 +672,17 @@ export default function Home() {
           OnlyStream<span>.</span>
         </a>
 
-        <span className="online-status">● We're online</span>
+        <div className="home-nav-actions">
+          <span className="online-status">● We're online</span>
+          <button
+            type="button"
+            className="creator-studio-link"
+            onClick={openCreatorStudio}
+          >
+            Creator Studio
+            <ArrowUpRight size={15} />
+          </button>
+        </div>
       </nav>
 
       <section className="hero">
@@ -697,13 +736,11 @@ export default function Home() {
             <p>Checking live creators...</p>
           ) : creatorsError && onlyStreamCreators.length === 0 ? (
             <p>
-              Could not refresh OnlyStream creators.
-              Retrying automatically.
+              Could not refresh OnlyStream creators. Retrying automatically.
             </p>
           ) : onlyStreamCreators.length === 0 ? (
             <p>
-              No OnlyStream creators are live right now.
-              Check back soon.
+              No OnlyStream creators are live right now. Check back soon.
             </p>
           ) : (
             <div className="category-track">
@@ -715,15 +752,27 @@ export default function Home() {
               ))}
             </div>
           )}
+
+          {creatorsError && onlyStreamCreators.length > 0 && (
+            <p className="models-error">
+              Live list refresh failed temporarily. Showing the last result.
+            </p>
+          )}
         </section>
 
         {modelsLoading ? (
           <p>Loading live models...</p>
         ) : modelsError && models.length === 0 ? (
           <div className="models-error">
-            <p>
-              Couldn't load live models. {modelsError}
-            </p>
+            <p>Couldn't load live models. {modelsError}</p>
+            <button
+              type="button"
+              className="creator-refresh-button"
+              onClick={() => window.location.reload()}
+            >
+              <RefreshCw size={14} />
+              Retry
+            </button>
           </div>
         ) : models.length === 0 ? (
           <p>No models available right now.</p>
@@ -812,9 +861,7 @@ export default function Home() {
         <hr />
 
         <div className="footer-bottom">
-          <span>
-            © {new Date().getFullYear()} OnlyStream
-          </span>
+          <span>© {new Date().getFullYear()} OnlyStream</span>
           <span>Meet & Connect safely.</span>
         </div>
       </footer>
