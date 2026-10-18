@@ -8,9 +8,7 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: {
-    origin: process.env.CLIENT_ORIGIN || true,
-  },
+  cors: { origin: process.env.CLIENT_ORIGIN || true },
   maxHttpBufferSize: 1e6,
 });
 
@@ -18,37 +16,61 @@ const PORT = process.env.PORT || 3000;
 const distPath = path.join(__dirname, "dist");
 
 app.set("trust proxy", 1);
+app.use(express.json({ limit: "100kb" }));
 app.use(express.static(distPath));
 
-// ------------------------------------
-// HEALTH CHECK
-// ------------------------------------
+const TEST_MODE = process.env.TEST_MODE !== "false";
+const COINS_PER_MINUTE = Math.max(
+  1,
+  Number(process.env.TEST_CALL_COINS_PER_MINUTE) || 60
+);
+const CREATOR_REVENUE_SHARE = Math.min(
+  1,
+  Math.max(0, Number(process.env.TEST_CREATOR_REVENUE_SHARE) || 0.7)
+);
+const CREATOR_SIGNUP_BONUS_INR = 1200;
+const CREATOR_WITHDRAWAL_THRESHOLD_INR = 12000;
+
+const COIN_PACKAGES = [
+  { id: "coins_1000", coins: 1000, priceInr: 400, label: "1,000 Coins" },
+  { id: "coins_2500", coins: 2500, priceInr: 900, label: "2,500 Coins" },
+  { id: "coins_5000", coins: 5000, priceInr: 1700, label: "5,000 Coins" },
+  { id: "coins_10000", coins: 10000, priceInr: 3200, label: "10,000 Coins" },
+  { id: "coins_25000", coins: 25000, priceInr: 7500, label: "25,000 Coins" },
+  { id: "coins_50000", coins: 50000, priceInr: 14000, label: "50,000 Coins" },
+];
+
+// DEMO ONLY: memory-based storage; not suitable for real money or production auth.
+const testAccounts = new Map();
+const economyLedger = [];
+const activeBillableCalls = new Map();
+
+const liveCreators = new Map();
+const waiting = [];
+const partners = new Map();
+const pendingCreatorCalls = new Map();
+const liveRoomPrefix = "live:";
+const commentRateLimits = new Map();
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", app: "OnlyStream" });
+  res.json({ status: "ok", app: "OnlyStream", testMode: true });
 });
 
-// ------------------------------------
-// HELPERS
-// ------------------------------------
+// -------------------- Helpers --------------------
 
 function getClientIp(req) {
-  return (req.ip || req.socket.remoteAddress || "")
-    .replace(/^::ffff:/, "");
+  return (req.ip || req.socket.remoteAddress || "").replace(/^::ffff:/, "");
 }
 
 function redactUrl(rawUrl) {
   try {
     const url = new URL(rawUrl);
-
     for (const key of [...url.searchParams.keys()]) {
       if (/key|token|secret|auth|password|signature|psid/i.test(key)) {
         url.searchParams.set(key, "[REDACTED]");
       }
     }
-
-    return url.origin + url.pathname +
-      (url.search ? url.search : "");
+    return url.origin + url.pathname + (url.search ? url.search : "");
   } catch {
     return "[invalid URL]";
   }
@@ -56,7 +78,6 @@ function redactUrl(rawUrl) {
 
 function parseProviderUrl(rawUrl, allowedHost) {
   const url = new URL(rawUrl);
-
   if (
     url.protocol !== "https:" ||
     url.hostname !== allowedHost ||
@@ -65,7 +86,6 @@ function parseProviderUrl(rawUrl, allowedHost) {
   ) {
     throw new Error("Invalid provider URL");
   }
-
   return url;
 }
 
@@ -82,22 +102,18 @@ async function fetchJson(url) {
   const contentType = response.headers.get("content-type") || "";
   const body = await response.text();
 
-  console.log("[AW Provider] URL:", redactUrl(url));
-  console.log("[AW Provider] HTTP status:", response.status);
-  console.log("[AW Provider] Content-Type:", contentType);
+  console.log("[Provider] URL:", redactUrl(url));
+  console.log("[Provider] HTTP:", response.status);
+  console.log("[Provider] Content-Type:", contentType);
 
   if (!response.ok) {
     throw new Error(`Provider returned HTTP ${response.status}`);
   }
-
   if (!contentType.toLowerCase().includes("json")) {
-    throw new Error(
-      `Provider returned non-JSON content (HTTP ${response.status}, type: ${contentType || "unknown"})`
-    );
+    throw new Error("Provider returned non-JSON content");
   }
 
   let data;
-
   try {
     data = JSON.parse(body);
   } catch {
@@ -105,23 +121,207 @@ async function fetchJson(url) {
   }
 
   if (data && typeof data === "object") {
-    const details = data.data ?? data;
-
-    if (details && typeof details === "object") {
-      console.log("[AW Provider] Response fields:", Object.keys(details));
-    }
+    console.log("[Provider] Response fields:", Object.keys(data.data ?? data));
   }
-
   return data;
 }
 
-// ------------------------------------
-// RECORDED VIDEO HELPERS
-// ------------------------------------
+function safeUsername(value) {
+  return typeof value === "string"
+    ? value.trim().replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 30)
+    : "";
+}
+
+function normalizeCreatorName(value) {
+  return typeof value === "string"
+    ? value.trim().replace(/\s+/g, " ").slice(0, 30)
+    : "";
+}
+
+function normalizeRoomName(value) {
+  return typeof value === "string"
+    ? value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 80)
+    : "";
+}
+
+function getTestAccount(username, role = "user") {
+  const name = safeUsername(username);
+  if (!name) return null;
+
+  if (!testAccounts.has(name)) {
+    testAccounts.set(name, {
+      username: name,
+      role: role === "creator" ? "creator" : "user",
+      coins: 0,
+      testRevenueInr: 0,
+      testBonusInr: 0,
+      bonusGranted: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  const account = testAccounts.get(name);
+  if (role === "creator") account.role = "creator";
+  return account;
+}
+
+function publicAccount(account) {
+  if (!account) return null;
+  return {
+    username: account.username,
+    role: account.role,
+    coins: account.coins,
+    testRevenueInr: account.testRevenueInr,
+    testBonusInr: account.testBonusInr,
+    withdrawalThresholdInr: CREATOR_WITHDRAWAL_THRESHOLD_INR,
+    withdrawalEligible:
+      account.role === "creator" &&
+      account.testRevenueInr > CREATOR_WITHDRAWAL_THRESHOLD_INR,
+    testMode: true,
+  };
+}
+
+function ledgerEntry(entry) {
+  const row = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    at: new Date().toISOString(),
+    testMode: true,
+    ...entry,
+  };
+  economyLedger.push(row);
+  if (economyLedger.length > 10000) economyLedger.shift();
+  return row;
+}
+
+function grantCreatorBonus(account) {
+  if (!account || account.role !== "creator" || account.bonusGranted) return;
+
+  account.bonusGranted = true;
+  account.testBonusInr += CREATOR_SIGNUP_BONUS_INR;
+
+  ledgerEntry({
+    type: "creator-test-signup-bonus",
+    username: account.username,
+    amountInr: CREATOR_SIGNUP_BONUS_INR,
+    note: "Test-only bonus. Not real money and not withdrawable.",
+  });
+}
+
+// -------------------- Test Economy APIs --------------------
+
+app.get("/api/test-mode", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({
+    testMode: true,
+    realPaymentsEnabled: false,
+    realWithdrawalsEnabled: false,
+    callCoinsPerMinute: COINS_PER_MINUTE,
+    creatorRevenueShare: CREATOR_REVENUE_SHARE,
+    withdrawalThresholdInr: CREATOR_WITHDRAWAL_THRESHOLD_INR,
+  });
+});
+
+app.get("/api/coin-packages", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ testMode: true, packages: COIN_PACKAGES });
+});
+
+// Demo bootstrap endpoint. Username is NOT authenticated; testing only.
+app.post("/api/test-account", (req, res) => {
+  if (!TEST_MODE) {
+    return res.status(403).json({ error: "Testing economy is disabled." });
+  }
+
+  const username = safeUsername(req.body?.username);
+  const role = req.body?.role === "creator" ? "creator" : "user";
+
+  if (!username) {
+    return res.status(400).json({ error: "A valid username is required." });
+  }
+
+  const account = getTestAccount(username, role);
+  if (role === "creator") grantCreatorBonus(account);
+
+  res.set("Cache-Control", "no-store");
+  res.json({ account: publicAccount(account), testMode: true });
+});
+
+app.get("/api/economy/me", (req, res) => {
+  const username = safeUsername(req.query.username);
+  if (!username) {
+    return res.status(400).json({ error: "username query is required." });
+  }
+
+  const account = testAccounts.get(username);
+  if (!account) {
+    return res.status(404).json({ error: "Test account not found." });
+  }
+
+  res.set("Cache-Control", "no-store");
+  res.json({
+    account: publicAccount(account),
+    recentLedger: economyLedger
+      .filter((row) => row.username === username || row.creatorUsername === username)
+      .slice(-50)
+      .reverse(),
+    testMode: true,
+  });
+});
+
+// Simulates a purchase. No payment is collected.
+app.post("/api/coins/buy-test", (req, res) => {
+  if (!TEST_MODE) {
+    return res.status(403).json({ error: "Testing economy is disabled." });
+  }
+
+  const username = safeUsername(req.body?.username);
+  const packageId = String(req.body?.packageId || "");
+  const account = testAccounts.get(username);
+  const pack = COIN_PACKAGES.find((item) => item.id === packageId);
+
+  if (!account || account.role !== "user") {
+    return res.status(404).json({ error: "Test user account not found." });
+  }
+  if (!pack) {
+    return res.status(400).json({ error: "Invalid coin package." });
+  }
+
+  account.coins += pack.coins;
+  ledgerEntry({
+    type: "test-coin-credit",
+    username,
+    coins: pack.coins,
+    testPriceInr: pack.priceInr,
+    note: "Simulated purchase. No real payment was taken.",
+  });
+
+  res.json({
+    ok: true,
+    account: publicAccount(account),
+    message: `Added ${pack.coins} test coins. No real payment was taken.`,
+  });
+});
+
+app.get("/api/creator-revenue-test", (req, res) => {
+  const username = safeUsername(req.query.username);
+  const account = testAccounts.get(username);
+
+  if (!account || account.role !== "creator") {
+    return res.status(404).json({ error: "Test creator account not found." });
+  }
+
+  res.set("Cache-Control", "no-store");
+  res.json({
+    account: publicAccount(account),
+    realPayoutEnabled: false,
+    message: "Revenue is simulated test accounting only.",
+  });
+});
+
+// -------------------- Existing A.W. Empire APIs --------------------
 
 async function getVideoList(req) {
   const configuredUrl = process.env.AW_VIDEO_LIST_URL;
-
   if (!configuredUrl) {
     const error = new Error("Recorded video API is not configured");
     error.status = 503;
@@ -129,12 +329,10 @@ async function getVideoList(req) {
   }
 
   const clientIp = getClientIp(req);
-
   const replacedUrl = configuredUrl.replace(
     /CLIENT_IP/g,
     encodeURIComponent(clientIp)
   );
-
   const url = new URL(replacedUrl);
 
   if (
@@ -161,35 +359,23 @@ function findVideoById(value, wantedId) {
       const found = findVideoById(item, wantedId);
       if (found) return found;
     }
-
     return null;
   }
 
   if (!value || typeof value !== "object") return null;
 
-  const id = String(
-    value.id ?? value.videoId ?? value.video_id ?? ""
-  );
-
-  if (id === wantedId && typeof value.detailsUrl === "string") {
-    return value;
-  }
+  const id = String(value.id ?? value.videoId ?? value.video_id ?? "");
+  if (id === wantedId && typeof value.detailsUrl === "string") return value;
 
   for (const child of Object.values(value)) {
     const found = findVideoById(child, wantedId);
     if (found) return found;
   }
-
   return null;
 }
 
-// ------------------------------------
-// A.W. EMPIRE: MODEL FEED API
-// ------------------------------------
-
 app.get("/api/aw-models", async (req, res) => {
   const feedUrl = process.env.AW_MODEL_FEED_URL;
-
   if (!feedUrl) {
     return res.status(503).json({
       error: "A.W. Empire Model Feed is not configured",
@@ -199,24 +385,15 @@ app.get("/api/aw-models", async (req, res) => {
 
   try {
     const url = new URL(feedUrl);
-
-    if (
-      url.protocol !== "https:" ||
-      url.username ||
-      url.password
-    ) {
-      return res.status(400).json({
-        error: "The Model Feed URL must use HTTPS",
-      });
+    if (url.protocol !== "https:" || url.username || url.password) {
+      return res.status(400).json({ error: "The Model Feed URL must use HTTPS" });
     }
 
     const data = await fetchJson(url);
-
     res.set("Cache-Control", "public, max-age=30");
     return res.json(data);
   } catch (error) {
     console.error("A.W. Empire models error:", error.message);
-
     return res.status(error.status || 502).json({
       error: "Could not load A.W. Empire models",
       details: error.message,
@@ -224,19 +401,13 @@ app.get("/api/aw-models", async (req, res) => {
   }
 });
 
-// ------------------------------------
-// A.W. EMPIRE: RECORDED VIDEO LIST API
-// ------------------------------------
-
 app.get("/api/aw-videos", async (req, res) => {
   try {
     const data = await getVideoList(req);
-
     res.set("Cache-Control", "private, no-store");
     return res.json(data);
   } catch (error) {
     console.error("A.W. Empire videos error:", error.message);
-
     return res.status(error.status || 502).json({
       error:
         error.message === "Recorded video API is not configured"
@@ -247,34 +418,22 @@ app.get("/api/aw-videos", async (req, res) => {
   }
 });
 
-// ------------------------------------
-// A.W. EMPIRE: RECORDED VIDEO DETAILS API
-// ------------------------------------
-
 app.get("/api/aw-video-details", async (req, res) => {
   const videoId = String(req.query.video || "").trim();
-
   if (!videoId || videoId.length > 200) {
-    return res.status(400).json({
-      error: "A valid video ID is required",
-    });
+    return res.status(400).json({ error: "A valid video ID is required" });
   }
 
   try {
     const videoList = await getVideoList(req);
     const video = findVideoById(videoList, videoId);
-
     if (!video) {
       return res.status(404).json({
         error: "Video not found in the current video list",
       });
     }
 
-    const detailsUrl = parseProviderUrl(
-      video.detailsUrl,
-      "atwmcd.com"
-    );
-
+    const detailsUrl = parseProviderUrl(video.detailsUrl, "atwmcd.com");
     const details = await fetchJson(detailsUrl);
     const videoDetails = details?.data ?? details;
 
@@ -283,9 +442,7 @@ app.get("/api/aw-video-details", async (req, res) => {
       typeof videoDetails !== "object" ||
       Array.isArray(videoDetails)
     ) {
-      return res.status(502).json({
-        error: "Invalid provider details response",
-      });
+      return res.status(502).json({ error: "Invalid provider details response" });
     }
 
     const detailFields = Object.keys(videoDetails);
@@ -297,19 +454,16 @@ app.get("/api/aw-video-details", async (req, res) => {
     console.log("[AW Video Details] Embed-related fields:", embedFields);
 
     res.set("Cache-Control", "private, no-store");
-
     return res.json({
       ...videoDetails,
       _diagnostics: {
         availableFields: detailFields,
         embedRelatedFields: embedFields,
-        playerEmbedUrlPresent:
-          typeof videoDetails.playerEmbedUrl === "string",
+        playerEmbedUrlPresent: typeof videoDetails.playerEmbedUrl === "string",
       },
     });
   } catch (error) {
     console.error("A.W. Empire video details error:", error.message);
-
     return res.status(error.status || 502).json({
       error: "Could not load video details",
       details: error.message,
@@ -317,17 +471,7 @@ app.get("/api/aw-video-details", async (req, res) => {
   }
 });
 
-// ------------------------------------
-// CREATOR LIVE REGISTRY — TEST MODE
-// ------------------------------------
-
-const liveCreators = new Map();
-
-function normalizeCreatorName(value) {
-  if (typeof value !== "string") return "";
-
-  return value.trim().replace(/\s+/g, " ").slice(0, 30);
-}
+// -------------------- Creator Live Registry --------------------
 
 function getPublicLiveCreators() {
   return Array.from(liveCreators.values()).map((creator) => ({
@@ -340,39 +484,30 @@ function broadcastLiveCreators() {
   io.emit("live-creators-updated", getPublicLiveCreators());
 }
 
-// ------------------------------------
-// RANDOM CHAT + CREATOR CALL STATE
-// ------------------------------------
-
-const waiting = [];
-const partners = new Map();
-
-// requestId -> { callerId, creatorId, creatorUsername, callerName }
-const pendingCreatorCalls = new Map();
-
 function removeFromQueue(id) {
   let index;
-
-  while ((index = waiting.indexOf(id)) !== -1) {
-    waiting.splice(index, 1);
-  }
+  while ((index = waiting.indexOf(id)) !== -1) waiting.splice(index, 1);
 }
 
 function isSocketBusy(id) {
   if (partners.has(id)) return true;
-
   for (const request of pendingCreatorCalls.values()) {
-    if (request.callerId === id || request.creatorId === id) {
-      return true;
-    }
+    if (request.callerId === id || request.creatorId === id) return true;
   }
-
   return false;
+}
+
+function disconnectPartner(id) {
+  const partnerId = partners.get(id);
+  if (!partnerId) return;
+
+  partners.delete(id);
+  partners.delete(partnerId);
+  io.to(partnerId).emit("partner-left");
 }
 
 function cancelPendingRequest(requestId, reason, notifyCaller = true) {
   const request = pendingCreatorCalls.get(requestId);
-
   if (!request) return;
 
   pendingCreatorCalls.delete(requestId);
@@ -398,69 +533,99 @@ function cancelPendingCallsForSocket(socketId, reason) {
   }
 }
 
-function disconnectPartner(id) {
-  const partnerId = partners.get(id);
-
-  if (!partnerId) return;
-
-  partners.delete(id);
-  partners.delete(partnerId);
-
-  io.to(partnerId).emit("partner-left");
-}
-
-function stopSearching(socket) {
-  removeFromQueue(socket.id);
-  disconnectPartner(socket.id);
-}
-
 function removeCreatorLive(socket) {
   const username = socket.data.creatorLiveUsername;
-
   if (!username) return;
 
-  cancelPendingCallsForSocket(
-    socket.id,
-    "The creator is no longer available."
-  );
-
+  cancelPendingCallsForSocket(socket.id, "The creator is no longer available.");
   disconnectPartner(socket.id);
 
   const current = liveCreators.get(username);
-
-  // Do not remove a newer session with the same username.
   if (current?.socketId === socket.id) {
     liveCreators.delete(username);
     broadcastLiveCreators();
-
     console.log("Creator ended live:", username);
   }
 
   socket.data.creatorLiveUsername = null;
 }
 
-// Read the currently live creator list.
 app.get("/api/live-creators", (req, res) => {
   res.set("Cache-Control", "no-store");
   res.json({ creators: getPublicLiveCreators() });
 });
 
-// ------------------------------------
-// LIVE COMMENTS HELPERS
-// ------------------------------------
+// -------------------- Test Call Billing --------------------
 
-const liveRoomPrefix = "live:";
-const commentRateLimits = new Map();
+function finishBillableCall(callId) {
+  const call = activeBillableCalls.get(callId);
+  if (!call) return null;
 
-function normalizeRoomName(value) {
-  if (typeof value !== "string") return "";
-
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, "")
-    .slice(0, 80);
+  clearInterval(call.timer);
+  activeBillableCalls.delete(callId);
+  return call;
 }
+
+function billCallMinute(callId) {
+  const call = activeBillableCalls.get(callId);
+  if (!call) return;
+
+  const user = testAccounts.get(call.username);
+  const creator = testAccounts.get(call.creatorUsername);
+
+  if (!user || user.role !== "user" || user.coins < COINS_PER_MINUTE) {
+    finishBillableCall(callId);
+
+    io.to(call.userSocketId).emit("call-billing-stopped", {
+      reason: "insufficient-coins",
+      balance: user?.coins ?? 0,
+      testMode: true,
+    });
+    io.to(call.creatorSocketId).emit("call-billing-stopped", {
+      reason: "user-insufficient-coins",
+      testMode: true,
+    });
+
+    disconnectPartner(call.userSocketId);
+    return;
+  }
+
+  user.coins -= COINS_PER_MINUTE;
+
+  const estimatedValueInr = COINS_PER_MINUTE * 0.4;
+  const creatorShareInr =
+    Math.round(estimatedValueInr * CREATOR_REVENUE_SHARE * 100) / 100;
+
+  if (creator?.role === "creator") {
+    creator.testRevenueInr =
+      Math.round((creator.testRevenueInr + creatorShareInr) * 100) / 100;
+  }
+
+  ledgerEntry({
+    type: "test-call-billing",
+    username: user.username,
+    creatorUsername: call.creatorUsername,
+    coins: COINS_PER_MINUTE,
+    estimatedValueInr,
+    creatorShareInr,
+    callId,
+    note: "Simulated call billing; not a real purchase or payout.",
+  });
+
+  io.to(call.userSocketId).emit("call-billing-update", {
+    coinsDeducted: COINS_PER_MINUTE,
+    balance: user.coins,
+    testMode: true,
+  });
+
+  io.to(call.creatorSocketId).emit("call-billing-update", {
+    coinsCollected: COINS_PER_MINUTE,
+    testRevenueAddedInr: creatorShareInr,
+    testMode: true,
+  });
+}
+
+// -------------------- Live Comments --------------------
 
 function getLiveRoom(model) {
   return liveRoomPrefix + model;
@@ -469,10 +634,7 @@ function getLiveRoom(model) {
 function canPostComment(socket) {
   const now = Date.now();
   const previous = commentRateLimits.get(socket.id) || [];
-
-  const recent = previous.filter(
-    (timestamp) => now - timestamp < 10000
-  );
+  const recent = previous.filter((timestamp) => now - timestamp < 10000);
 
   if (recent.length >= 5) {
     commentRateLimits.set(socket.id, recent);
@@ -481,56 +643,33 @@ function canPostComment(socket) {
 
   recent.push(now);
   commentRateLimits.set(socket.id, recent);
-
   return true;
 }
 
-// ------------------------------------
-// SOCKET CONNECTION
-// ------------------------------------
+// -------------------- Socket.IO --------------------
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
-
-  // ----------------------------------
-  // CREATOR: GET LIVE LIST
-  // ----------------------------------
 
   socket.on("get-live-creators", () => {
     socket.emit("live-creators-updated", getPublicLiveCreators());
   });
 
-  // ----------------------------------
-  // CREATOR: GO LIVE
-  // ----------------------------------
-
   socket.on("creator-go-live", (payload, acknowledge) => {
+    const reply = (result) => {
+      if (typeof acknowledge === "function") acknowledge(result);
+    };
     const username = normalizeCreatorName(payload?.username);
 
-    if (!username) {
-      if (typeof acknowledge === "function") {
-        acknowledge({
-          ok: false,
-          error: "A valid creator username is required.",
-        });
-      }
-      return;
-    }
+    if (!username) return reply({ ok: false, error: "A valid creator username is required." });
 
     removeCreatorLive(socket);
-
     const previous = liveCreators.get(username);
 
-    // A duplicate username replaces the previous test session.
     if (previous && previous.socketId !== socket.id) {
       const oldSocket = io.sockets.sockets.get(previous.socketId);
-
       if (oldSocket) {
-        cancelPendingCallsForSocket(
-          oldSocket.id,
-          "The creator's live session was replaced."
-        );
-
+        cancelPendingCallsForSocket(oldSocket.id, "The creator's live session was replaced.");
         disconnectPartner(oldSocket.id);
         oldSocket.data.creatorLiveUsername = null;
         oldSocket.emit("creator-live-replaced");
@@ -545,79 +684,46 @@ io.on("connection", (socket) => {
 
     liveCreators.set(username, creator);
     socket.data.creatorLiveUsername = username;
-
     broadcastLiveCreators();
 
     console.log("Creator went live:", username);
-
-    if (typeof acknowledge === "function") {
-      acknowledge({
-        ok: true,
-        creator: {
-          username: creator.username,
-          startedAt: creator.startedAt,
-        },
-      });
-    }
+    reply({ ok: true, creator: { username, startedAt: creator.startedAt } });
   });
-
-  // ----------------------------------
-  // CREATOR: END LIVE
-  // ----------------------------------
 
   socket.on("creator-end-live", (acknowledge) => {
     removeCreatorLive(socket);
-
-    if (typeof acknowledge === "function") {
-      acknowledge({ ok: true });
-    }
+    if (typeof acknowledge === "function") acknowledge({ ok: true });
   });
 
-  // ----------------------------------
-  // USER: REQUEST A CREATOR CALL
-  // ----------------------------------
-
+  // User requests a call with a live creator.
   socket.on("creator-call-request", (payload, acknowledge) => {
+    const reply = (result) => {
+      if (typeof acknowledge === "function") acknowledge(result);
+    };
+
     const username = normalizeCreatorName(payload?.username);
     const callerName =
       typeof payload?.callerName === "string"
         ? payload.callerName.trim().replace(/\s+/g, " ").slice(0, 30)
         : "Viewer";
 
-    const reply = (result) => {
-      if (typeof acknowledge === "function") acknowledge(result);
-    };
-
-    if (!username) {
-      reply({ ok: false, error: "Invalid creator username." });
-      return;
-    }
-
+    if (!username) return reply({ ok: false, error: "Invalid creator username." });
     if (socket.data.creatorLiveUsername) {
-      reply({ ok: false, error: "Creators cannot call themselves as viewers." });
-      return;
+      return reply({ ok: false, error: "Creators cannot call themselves as viewers." });
     }
-
     if (isSocketBusy(socket.id)) {
-      reply({ ok: false, error: "You already have an active call or request." });
-      return;
+      return reply({ ok: false, error: "You already have an active call or request." });
     }
 
     const creator = liveCreators.get(username);
-
     if (!creator || !io.sockets.sockets.has(creator.socketId)) {
-      reply({ ok: false, error: "This creator is no longer live." });
-      return;
+      return reply({ ok: false, error: "This creator is no longer live." });
     }
-
     if (isSocketBusy(creator.socketId)) {
-      reply({ ok: false, error: "This creator is busy right now." });
-      return;
+      return reply({ ok: false, error: "This creator is busy right now." });
     }
 
-    const requestId =
-      `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const request = {
       requestId,
       callerId: socket.id,
@@ -642,198 +748,211 @@ io.on("connection", (socket) => {
       message: "Call request sent. Waiting for the creator.",
     });
 
-    console.log(
-      "Creator call requested:",
-      request.callerName,
-      "->",
-      creator.username
-    );
+    console.log("Creator call requested:", request.callerName, "->", username);
   });
 
-  // ----------------------------------
-  // CREATOR: ACCEPT CALL REQUEST
-  // ----------------------------------
-
   socket.on("creator-call-accept", (payload, acknowledge) => {
-    const requestId =
-      typeof payload?.requestId === "string"
-        ? payload.requestId
-        : "";
-
     const reply = (result) => {
       if (typeof acknowledge === "function") acknowledge(result);
     };
 
+    const requestId =
+      typeof payload?.requestId === "string" ? payload.requestId : "";
     const request = pendingCreatorCalls.get(requestId);
 
     if (!request || request.creatorId !== socket.id) {
-      reply({ ok: false, error: "This call request is no longer available." });
-      return;
+      return reply({ ok: false, error: "This call request is no longer available." });
     }
 
     if (
       !io.sockets.sockets.has(request.callerId) ||
       !io.sockets.sockets.has(request.creatorId)
     ) {
-      cancelPendingRequest(
-        requestId,
-        "The viewer or creator disconnected."
-      );
-      reply({ ok: false, error: "One participant has disconnected." });
-      return;
+      cancelPendingRequest(requestId, "The viewer or creator disconnected.");
+      return reply({ ok: false, error: "One participant has disconnected." });
     }
 
     if (partners.has(request.callerId) || partners.has(request.creatorId)) {
       cancelPendingRequest(requestId, "One participant is already in a call.");
-      reply({ ok: false, error: "One participant is already in a call." });
-      return;
+      return reply({ ok: false, error: "One participant is already in a call." });
     }
 
     pendingCreatorCalls.delete(requestId);
-
     partners.set(request.callerId, request.creatorId);
     partners.set(request.creatorId, request.callerId);
 
-    // Tell the viewer first so its client can activate the call state.
     io.to(request.callerId).emit("creator-call-accepted", {
       creatorUsername: request.creatorUsername,
     });
-
     io.to(request.creatorId).emit("creator-call-accepted", {
       callerName: request.callerName,
       creatorUsername: request.creatorUsername,
     });
 
-    // Existing WebRTC clients can use their matched/offer flow.
     io.to(request.callerId).emit("matched", {
       initiator: request.callerId < request.creatorId,
       callType: "creator",
       creatorUsername: request.creatorUsername,
     });
-
     io.to(request.creatorId).emit("matched", {
       initiator: request.creatorId < request.callerId,
       callType: "creator",
       callerName: request.callerName,
     });
 
-    reply({
-      ok: true,
-      message: "Call accepted.",
-    });
-
-    console.log(
-      "Creator call accepted:",
-      request.callerName,
-      "<->",
-      request.creatorUsername
-    );
+    reply({ ok: true, message: "Call accepted." });
+    console.log("Creator call accepted:", request.callerName, "<->", request.creatorUsername);
   });
-
-  // ----------------------------------
-  // CREATOR: REJECT CALL REQUEST
-  // ----------------------------------
 
   socket.on("creator-call-reject", (payload, acknowledge) => {
     const requestId =
-      typeof payload?.requestId === "string"
-        ? payload.requestId
-        : "";
-
+      typeof payload?.requestId === "string" ? payload.requestId : "";
     const request = pendingCreatorCalls.get(requestId);
 
     if (!request || request.creatorId !== socket.id) {
       if (typeof acknowledge === "function") {
-        acknowledge({
-          ok: false,
-          error: "This call request is no longer available.",
-        });
+        acknowledge({ ok: false, error: "This call request is no longer available." });
       }
       return;
     }
 
-    cancelPendingRequest(
-      requestId,
-      "The creator declined your call request."
-    );
-
-    if (typeof acknowledge === "function") {
-      acknowledge({ ok: true });
-    }
-
+    cancelPendingRequest(requestId, "The creator declined your call request.");
+    if (typeof acknowledge === "function") acknowledge({ ok: true });
     console.log("Creator rejected call:", request.creatorUsername);
   });
 
-  // ----------------------------------
-  // USER: CANCEL A PENDING CALL REQUEST
-  // ----------------------------------
-
   socket.on("creator-call-cancel", (payload, acknowledge) => {
     const requestId =
-      typeof payload?.requestId === "string"
-        ? payload.requestId
-        : "";
-
+      typeof payload?.requestId === "string" ? payload.requestId : "";
     const request = pendingCreatorCalls.get(requestId);
 
     if (!request || request.callerId !== socket.id) {
-      if (typeof acknowledge === "function") {
-        acknowledge({ ok: false });
-      }
+      if (typeof acknowledge === "function") acknowledge({ ok: false });
       return;
     }
 
-    cancelPendingRequest(
-      requestId,
-      "The viewer cancelled the call request.",
-      false
-    );
-
-    if (typeof acknowledge === "function") {
-      acknowledge({ ok: true });
-    }
+    cancelPendingRequest(requestId, "The viewer cancelled the call request.", false);
+    if (typeof acknowledge === "function") acknowledge({ ok: true });
   });
 
-  // ----------------------------------
-  // LIVE COMMENTS: JOIN A MODEL ROOM
-  // ----------------------------------
+  // Start per-minute test billing for a connected creator call.
+  socket.on("call-billing-start", (payload, acknowledge) => {
+    const reply = (result) => {
+      if (typeof acknowledge === "function") acknowledge(result);
+    };
 
-  socket.on("live-join", (rawModel) => {
-    const model = normalizeRoomName(rawModel);
+    if (!TEST_MODE) return reply({ ok: false, error: "Test billing is disabled." });
 
-    if (!model) {
-      socket.emit("live-error", "Invalid stream name.");
-      return;
+    const username = safeUsername(payload?.username);
+    const creatorUsername = safeUsername(payload?.creatorUsername);
+    const user = testAccounts.get(username);
+    const partnerId = partners.get(socket.id);
+    const creator = liveCreators.get(creatorUsername);
+
+    if (!user || user.role !== "user") {
+      return reply({ ok: false, error: "Create a test user account first." });
+    }
+    if (
+      !creator ||
+      !partnerId ||
+      creator.socketId !== partnerId ||
+      partners.get(partnerId) !== socket.id
+    ) {
+      return reply({ ok: false, error: "A connected creator call is required." });
+    }
+    if (user.coins < COINS_PER_MINUTE) {
+      return reply({ ok: false, error: "Not enough test coins to start the call." });
     }
 
-    for (const room of socket.rooms) {
-      if (room.startsWith(liveRoomPrefix)) {
-        socket.leave(room);
+    const callId = `${socket.id}:${partnerId}`;
+    if (activeBillableCalls.has(callId)) {
+      return reply({ ok: true, alreadyRunning: true, callId });
+    }
+
+    const call = {
+      callId,
+      username,
+      creatorUsername,
+      userSocketId: socket.id,
+      creatorSocketId: partnerId,
+      timer: null,
+    };
+
+    activeBillableCalls.set(callId, call);
+    billCallMinute(callId);
+
+    if (!activeBillableCalls.has(callId)) {
+      return reply({ ok: false, error: "Not enough test coins." });
+    }
+
+    call.timer = setInterval(() => billCallMinute(callId), 60000);
+    reply({
+      ok: true,
+      callId,
+      coinsPerMinute: COINS_PER_MINUTE,
+      balance: testAccounts.get(username)?.coins ?? 0,
+      testMode: true,
+    });
+  });
+
+  socket.on("call-billing-stop", (payload, acknowledge) => {
+    const requestedId =
+      typeof payload?.callId === "string" ? payload.callId : "";
+
+    const ids = requestedId
+      ? [requestedId]
+      : [...activeBillableCalls.keys()].filter((id) => {
+          const call = activeBillableCalls.get(id);
+          return call?.userSocketId === socket.id || call?.creatorSocketId === socket.id;
+        });
+
+    let stopped = 0;
+    for (const id of ids) {
+      const call = activeBillableCalls.get(id);
+      if (
+        !call ||
+        (call.userSocketId !== socket.id && call.creatorSocketId !== socket.id)
+      ) {
+        continue;
       }
+
+      finishBillableCall(id);
+      io.to(call.userSocketId).emit("call-billing-stopped", {
+        reason: "ended",
+        balance: testAccounts.get(call.username)?.coins ?? 0,
+        testMode: true,
+      });
+      io.to(call.creatorSocketId).emit("call-billing-stopped", {
+        reason: "ended",
+        testMode: true,
+      });
+      stopped++;
+    }
+
+    if (typeof acknowledge === "function") acknowledge({ ok: true, stopped });
+  });
+
+  // Live comments.
+  socket.on("live-join", (rawModel) => {
+    const model = normalizeRoomName(rawModel);
+    if (!model) return socket.emit("live-error", "Invalid stream name.");
+
+    for (const room of socket.rooms) {
+      if (room.startsWith(liveRoomPrefix)) socket.leave(room);
     }
 
     socket.data.liveModel = model;
     socket.join(getLiveRoom(model));
-
     socket.emit("live-joined", { model });
-
     console.log("Live comment room joined:", socket.id, model);
   });
 
-  // ----------------------------------
-  // LIVE COMMENTS: BROADCAST
-  // ----------------------------------
-
   socket.on("live-comment", (payload) => {
     const model = socket.data.liveModel;
-
     if (!model || !payload || typeof payload !== "object") return;
 
     if (!canPostComment(socket)) {
-      socket.emit(
-        "live-error",
-        "Slow down a little before posting another comment."
-      );
+      socket.emit("live-error", "Slow down a little before posting another comment.");
       return;
     }
 
@@ -841,7 +960,6 @@ io.on("connection", (socket) => {
       typeof payload.name === "string"
         ? payload.name.trim().replace(/\s+/g, " ").slice(0, 24)
         : "";
-
     const message =
       typeof payload.message === "string"
         ? payload.message.trim().replace(/\s+/g, " ").slice(0, 180)
@@ -849,22 +967,15 @@ io.on("connection", (socket) => {
 
     if (!name || !message) return;
 
-    const comment = {
-      id: `${socket.id}-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`,
+    io.to(getLiveRoom(model)).emit("live-comment", {
+      id: `${socket.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name,
       message,
       createdAt: Date.now(),
-    };
-
-    io.to(getLiveRoom(model)).emit("live-comment", comment);
+    });
   });
 
-  // ----------------------------------
-  // RANDOM VIDEO CHAT: MATCHING
-  // ----------------------------------
-
+  // Random video chat.
   socket.on("find-stranger", () => {
     stopSearching(socket);
 
@@ -873,9 +984,8 @@ io.on("connection", (socket) => {
       return;
     }
 
-    while (waiting.length > 0) {
+    while (waiting.length) {
       const partnerId = waiting.shift();
-
       if (
         partnerId === socket.id ||
         !io.sockets.sockets.has(partnerId) ||
@@ -891,7 +1001,6 @@ io.on("connection", (socket) => {
         initiator: socket.id < partnerId,
         callType: "random",
       });
-
       io.to(partnerId).emit("matched", {
         initiator: partnerId < socket.id,
         callType: "random",
@@ -903,49 +1012,46 @@ io.on("connection", (socket) => {
 
     waiting.push(socket.id);
     socket.emit("waiting");
-
     console.log("Waiting in queue:", socket.id);
   });
 
   socket.on("stop-chat", () => {
     stopSearching(socket);
-    cancelPendingCallsForSocket(
-      socket.id,
-      "The participant ended the call request."
-    );
+    cancelPendingCallsForSocket(socket.id, "The participant ended the call request.");
+
+    for (const [callId, call] of activeBillableCalls.entries()) {
+      if (call.userSocketId === socket.id || call.creatorSocketId === socket.id) {
+        finishBillableCall(callId);
+        io.to(call.userSocketId).emit("call-billing-stopped", {
+          reason: "ended",
+          balance: testAccounts.get(call.username)?.coins ?? 0,
+          testMode: true,
+        });
+        io.to(call.creatorSocketId).emit("call-billing-stopped", {
+          reason: "ended",
+          testMode: true,
+        });
+      }
+    }
 
     console.log("Chat stopped:", socket.id);
   });
 
   socket.on("typing", (isTyping) => {
     const partnerId = partners.get(socket.id);
-
-    if (!partnerId || typeof isTyping !== "boolean") return;
-
-    io.to(partnerId).emit("typing", isTyping);
+    if (partnerId && typeof isTyping === "boolean") {
+      io.to(partnerId).emit("typing", isTyping);
+    }
   });
 
   socket.on("chat-message", (message) => {
     const partnerId = partners.get(socket.id);
-
-    if (
-      !partnerId ||
-      typeof message !== "string" ||
-      !message.trim()
-    ) {
-      return;
-    }
-
-    io.to(partnerId).emit(
-      "chat-message",
-      message.trim().slice(0, 1000)
-    );
+    if (!partnerId || typeof message !== "string" || !message.trim()) return;
+    io.to(partnerId).emit("chat-message", message.trim().slice(0, 1000));
   });
 
-  // WebRTC signaling is forwarded only to the paired socket.
   socket.on("signal", (data) => {
     const partnerId = partners.get(socket.id);
-
     if (
       !partnerId ||
       !data ||
@@ -954,43 +1060,44 @@ io.on("connection", (socket) => {
     ) {
       return;
     }
-
     io.to(partnerId).emit("signal", data);
   });
 
-  // ----------------------------------
-  // DISCONNECT
-  // ----------------------------------
-
   socket.on("disconnect", () => {
+    for (const [callId, call] of activeBillableCalls.entries()) {
+      if (call.userSocketId === socket.id || call.creatorSocketId === socket.id) {
+        finishBillableCall(callId);
+        io.to(call.userSocketId).emit("call-billing-stopped", {
+          reason: "disconnected",
+          balance: testAccounts.get(call.username)?.coins ?? 0,
+          testMode: true,
+        });
+        io.to(call.creatorSocketId).emit("call-billing-stopped", {
+          reason: "disconnected",
+          testMode: true,
+        });
+      }
+    }
+
     removeFromQueue(socket.id);
-
-    cancelPendingCallsForSocket(
-      socket.id,
-      "A participant disconnected."
-    );
-
+    cancelPendingCallsForSocket(socket.id, "A participant disconnected.");
     disconnectPartner(socket.id);
     removeCreatorLive(socket);
     commentRateLimits.delete(socket.id);
-
     console.log("User disconnected:", socket.id);
   });
 });
 
-// ------------------------------------
-// REACT CLIENT-SIDE FALLBACK
-// Keep AFTER all API routes.
-// ------------------------------------
+function stopSearching(socket) {
+  removeFromQueue(socket.id);
+  disconnectPartner(socket.id);
+}
 
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
-// ------------------------------------
-// START SERVER
-// ------------------------------------
-
 server.listen(PORT, "0.0.0.0", () => {
   console.log("OnlyStream server running on port", PORT);
+  console.log("Testing economy:", TEST_MODE ? "enabled" : "disabled");
 });
