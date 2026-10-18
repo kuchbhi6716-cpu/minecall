@@ -14,6 +14,11 @@ import {
   RotateCw,
   Send,
   Maximize2,
+  Coins,
+  X,
+  Sparkles,
+  Check,
+  LoaderCircle,
 } from "lucide-react";
 
 const SESSION_KEY = "onlystream-test-session-v1";
@@ -24,6 +29,16 @@ const ICE_SERVERS = {
     { urls: "stun:stun1.l.google.com:19302" },
   ],
 };
+
+const API_BASE = "";
+
+function getStoredSession() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
 
 function CallPage() {
   const params = new URLSearchParams(window.location.search);
@@ -37,6 +52,17 @@ function CallPage() {
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+
+  // Wallet and test coin store.
+  const [session, setSession] = useState(() => getStoredSession());
+  const [walletBalance, setWalletBalance] = useState(null);
+  const [coinPackages, setCoinPackages] = useState([]);
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [buyingPackage, setBuyingPackage] = useState("");
+  const [walletNotice, setWalletNotice] = useState("");
+  const [walletError, setWalletError] = useState("");
+  const [lastCoinsDeducted, setLastCoinsDeducted] = useState(0);
 
   const socketRef = useRef(null);
   const localVideo = useRef(null);
@@ -53,6 +79,74 @@ function CallPage() {
   const mountedRef = useRef(false);
   const generationRef = useRef(0);
   const signalLockRef = useRef(false);
+
+  // Prevent repeated billing-start events for one connection.
+  const billingStartedRef = useRef(false);
+  const billingCallIdRef = useRef("");
+  const billingStartPendingRef = useRef(false);
+
+  const username = session?.username || "";
+
+  const refreshWallet = useCallback(async (targetUsername = "") => {
+    const name = targetUsername || getStoredSession()?.username;
+
+    if (!name) {
+      setWalletBalance(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/economy/me?username=${encodeURIComponent(name)}`,
+        { cache: "no-store" }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setWalletBalance(0);
+          return;
+        }
+
+        throw new Error(data.error || "Could not load wallet.");
+      }
+
+      setWalletBalance(Number(data.account?.coins ?? 0));
+    } catch (error) {
+      console.error("[Wallet] Refresh failed:", error);
+    }
+  }, []);
+
+  const loadCoinPackages = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/coin-packages`, {
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not load coin packages.");
+      }
+
+      setCoinPackages(Array.isArray(data.packages) ? data.packages : []);
+    } catch (error) {
+      console.error("[Wallet] Package loading failed:", error);
+      setWalletError(error.message || "Could not load coin packages.");
+    }
+  }, []);
+
+  useEffect(() => {
+    const currentSession = getStoredSession();
+    setSession(currentSession);
+
+    if (currentSession?.role === "user" && currentSession?.username) {
+      void refreshWallet(currentSession.username);
+    }
+
+    void loadCoinPackages();
+  }, [refreshWallet, loadCoinPackages]);
 
   const cleanupPeer = useCallback(() => {
     const peer = peerRef.current;
@@ -92,6 +186,10 @@ function CallPage() {
       requestPendingRef.current = false;
       generationRef.current += 1;
 
+      billingStartedRef.current = false;
+      billingStartPendingRef.current = false;
+      billingCallIdRef.current = "";
+
       cleanupPeer();
       stopMedia();
 
@@ -111,15 +209,11 @@ function CallPage() {
       return;
     }
 
-    // FIX: do not discard a signal just because matched has not
-    // created the RTCPeerConnection yet.
     if (!peerRef.current) {
       pendingSignals.current.push(data);
       return;
     }
 
-    // Serialize incoming signaling so candidates and SDP are processed
-    // in order rather than racing one another.
     if (signalLockRef.current) {
       pendingSignals.current.push(data);
       return;
@@ -129,6 +223,7 @@ function CallPage() {
 
     try {
       const peer = peerRef.current;
+
       if (!peer) {
         pendingSignals.current.push(data);
         return;
@@ -140,6 +235,7 @@ function CallPage() {
         );
 
         const candidates = pendingCandidates.current.splice(0);
+
         for (const candidate of candidates) {
           await peer.addIceCandidate(new RTCIceCandidate(candidate));
         }
@@ -157,6 +253,7 @@ function CallPage() {
         );
 
         const candidates = pendingCandidates.current.splice(0);
+
         for (const candidate of candidates) {
           await peer.addIceCandidate(new RTCIceCandidate(candidate));
         }
@@ -171,15 +268,13 @@ function CallPage() {
       }
     } catch (error) {
       console.error("[WebRTC] Signal processing failed:", error);
-      setStatus(
-        "WebRTC signaling failed. End the call and try again."
-      );
+      setStatus("WebRTC signaling failed. End the call and try again.");
     } finally {
       signalLockRef.current = false;
 
-      // Drain signals that arrived while an SDP operation was running.
       if (pendingSignals.current.length && peerRef.current) {
         const next = pendingSignals.current.shift();
+
         if (next) {
           queueMicrotask(() => {
             void handleSignal(next);
@@ -207,6 +302,7 @@ function CallPage() {
 
       if (remoteVideo.current) {
         remoteVideo.current.srcObject = remoteStream;
+
         remoteVideo.current.play().catch((error) => {
           console.warn("[WebRTC] Remote video autoplay blocked:", error);
         });
@@ -233,6 +329,67 @@ function CallPage() {
       if (peer.connectionState === "connected") {
         setPhase("connected");
         setStatus("Video connection established.");
+
+        // Only the signed-in viewer/user pays. The creator's device
+        // must never initiate a second billing session.
+        const currentSession = getStoredSession();
+
+        if (
+          currentSession?.role === "user" &&
+          currentSession?.username &&
+          !billingStartedRef.current &&
+          !billingStartPendingRef.current
+        ) {
+          billingStartPendingRef.current = true;
+
+          socket.emit(
+            "call-billing-start",
+            {
+              username: currentSession.username,
+              ...(isCreatorCall ? { creatorUsername } : {}),
+            },
+            (result = {}) => {
+              billingStartPendingRef.current = false;
+
+              if (!result.ok) {
+                console.warn("[Billing] Could not start:", result);
+
+                if (typeof result.balance === "number") {
+                  setWalletBalance(result.balance);
+                }
+
+                setWalletError(
+                  result.error ||
+                    "Billing could not start. Please check your coin balance."
+                );
+                setWalletOpen(true);
+
+                socket.emit("stop-chat");
+                resetCall(
+                  result.error ||
+                    "Not enough coins to start this call."
+                );
+
+                return;
+              }
+
+              billingStartedRef.current = true;
+              billingCallIdRef.current = result.callId || "";
+
+              if (typeof result.balance === "number") {
+                setWalletBalance(result.balance);
+              }
+
+              setWalletNotice(
+                result.alreadyRunning
+                  ? "Your call billing is already active."
+                  : "Call billing started. Your balance is up to date."
+              );
+
+              void refreshWallet(currentSession.username);
+            }
+          );
+        }
       } else if (peer.connectionState === "failed") {
         setPhase("waiting");
         setStatus(
@@ -250,7 +407,8 @@ function CallPage() {
     };
 
     if (initiator) {
-      peer.createOffer()
+      peer
+        .createOffer()
         .then((offer) => peer.setLocalDescription(offer))
         .then(() => {
           socket.emit("signal", {
@@ -265,7 +423,7 @@ function CallPage() {
     }
 
     return peer;
-  }, []);
+  }, [creatorUsername, isCreatorCall, refreshWallet, resetCall]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -288,6 +446,7 @@ function CallPage() {
 
     socket.on("waiting", () => {
       if (!activeRef.current || isCreatorCall) return;
+
       setPhase("waiting");
       setStatus("Looking for someone new...");
     });
@@ -314,8 +473,6 @@ function CallPage() {
           : "Matched. Establishing video connection..."
       );
 
-      // FIX: process any offer/candidate that arrived before this peer
-      // was created by the matched event.
       const queuedSignals = pendingSignals.current.splice(0);
 
       queuedSignals.forEach((signal) => {
@@ -342,6 +499,7 @@ function CallPage() {
     socket.on("creator-call-rejected", (data = {}) => {
       console.log("[Socket] Creator call rejected:", data);
       requestPendingRef.current = false;
+
       resetCall(
         data.message ||
           data.reason ||
@@ -349,8 +507,7 @@ function CallPage() {
       );
     });
 
-    socket.on("creator-call-request-cancelled", (data = {}) => {
-      console.log("[Socket] Creator call cancelled:", data);
+    socket.on("creator-call-request-cancelled", () => {
       resetCall("The call request was cancelled.");
     });
 
@@ -378,13 +535,64 @@ function CallPage() {
       setPartnerTyping(Boolean(value));
     });
 
+    socket.on("call-billing-update", (data = {}) => {
+      const currentSession = getStoredSession();
+
+      if (
+        currentSession?.role === "user" &&
+        typeof data.balance === "number"
+      ) {
+        setWalletBalance(data.balance);
+        setLastCoinsDeducted(Number(data.coinsDeducted || 0));
+        setWalletNotice(
+          data.coinsDeducted
+            ? `-${data.coinsDeducted} coins charged for your call.`
+            : ""
+        );
+      }
+
+      if (currentSession?.role === "user") {
+        void refreshWallet(currentSession.username);
+      }
+    });
+
+    socket.on("call-billing-stopped", (data = {}) => {
+      const currentSession = getStoredSession();
+
+      if (
+        currentSession?.role === "user" &&
+        typeof data.balance === "number"
+      ) {
+        setWalletBalance(data.balance);
+      }
+
+      billingStartedRef.current = false;
+      billingStartPendingRef.current = false;
+      billingCallIdRef.current = "";
+
+      if (data.reason === "insufficient-coins") {
+        setWalletError("You have run out of coins. Add test coins to continue.");
+        setWalletOpen(true);
+        resetCall("Call ended because your coin balance is too low.");
+      } else if (data.reason === "account-unavailable") {
+        resetCall("Your test account is unavailable. Please sign in again.");
+      }
+    });
+
     socket.on("partner-left", () => {
       console.log("[Socket] Partner left.");
+
       resetCall(
         isCreatorCall
           ? `${creatorUsername} ended the call.`
           : "They left. Tap Start Chatting to meet someone new."
       );
+
+      const currentSession = getStoredSession();
+
+      if (currentSession?.role === "user") {
+        void refreshWallet(currentSession.username);
+      }
     });
 
     return () => {
@@ -410,6 +618,7 @@ function CallPage() {
     creatorUsername,
     resetCall,
     stopMedia,
+    refreshWallet,
   ]);
 
   useEffect(() => {
@@ -424,6 +633,24 @@ function CallPage() {
   async function startChat() {
     if (activeRef.current || requestPendingRef.current) return;
 
+    // Both random and creator calls require a user test account.
+    const currentSession = getStoredSession();
+
+    if (
+      !currentSession ||
+      currentSession.role !== "user" ||
+      !currentSession.username
+    ) {
+      const next = isCreatorCall
+        ? `/call?creator=${encodeURIComponent(creatorUsername)}`
+        : "/call";
+
+      window.location.href = `/login?next=${encodeURIComponent(next)}`;
+      return;
+    }
+
+    setSession(currentSession);
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus("Open this website over HTTPS to use your camera.");
       return;
@@ -434,20 +661,31 @@ function CallPage() {
       return;
     }
 
-    let session = null;
+    // Make sure the demo account exists before using billing.
+    try {
+      const accountResponse = await fetch(`${API_BASE}/api/test-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: currentSession.username,
+          role: "user",
+        }),
+      });
 
-    if (isCreatorCall) {
-      try {
-        session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-      } catch {
-        session = null;
+      const accountData = await accountResponse.json();
+
+      if (!accountResponse.ok) {
+        throw new Error(
+          accountData.error || "Could not prepare your test account."
+        );
       }
 
-      if (!session || session.role !== "user") {
-        const next = `/call?creator=${encodeURIComponent(creatorUsername)}`;
-        window.location.href = `/login?next=${encodeURIComponent(next)}`;
-        return;
-      }
+      setWalletBalance(Number(accountData.account?.coins ?? 0));
+    } catch (error) {
+      setStatus(error.message || "Could not prepare your wallet.");
+      setWalletError(error.message || "Could not prepare your wallet.");
+      setWalletOpen(true);
+      return;
     }
 
     const generation = ++generationRef.current;
@@ -487,11 +725,12 @@ function CallPage() {
           "creator-call-request",
           {
             username: creatorUsername,
-            callerName: session?.username || "User",
+            callerName: currentSession.username || "User",
           },
           (response) => {
             if (!response?.ok) {
               console.error("[Creator call] Request failed:", response);
+
               resetCall(
                 response?.error ||
                   response?.message ||
@@ -499,6 +738,7 @@ function CallPage() {
               );
             } else {
               console.log("[Creator call] Request sent:", response.requestId);
+
               setStatus(
                 response.message ||
                   `Call request sent to ${creatorUsername}.`
@@ -513,6 +753,7 @@ function CallPage() {
       }
     } catch (error) {
       console.error("[Media] Could not start camera:", error);
+
       activeRef.current = false;
       requestPendingRef.current = false;
 
@@ -535,6 +776,17 @@ function CallPage() {
       return;
     }
 
+    // Tell the server to stop billing before moving to another stranger.
+    socketRef.current?.emit("call-billing-stop", {
+      callId: billingCallIdRef.current || undefined,
+    });
+
+    socketRef.current?.emit("stop-chat");
+
+    billingStartedRef.current = false;
+    billingStartPendingRef.current = false;
+    billingCallIdRef.current = "";
+
     cleanupPeer();
     pendingSignals.current = [];
     setMessages([]);
@@ -542,6 +794,7 @@ function CallPage() {
     setPartnerTyping(false);
     setPhase("waiting");
     setStatus("Finding someone new...");
+
     socketRef.current?.emit("find-stranger");
   }
 
@@ -550,8 +803,21 @@ function CallPage() {
       socketRef.current?.emit("creator-call-cancel");
     }
 
+    socketRef.current?.emit("call-billing-stop", {
+      callId: billingCallIdRef.current || undefined,
+    });
+
     socketRef.current?.emit("stop-chat");
+
+    billingStartedRef.current = false;
+    billingStartPendingRef.current = false;
+    billingCallIdRef.current = "";
+
     resetCall("Chat stopped. Ready when you are.");
+
+    if (getStoredSession()?.role === "user") {
+      void refreshWallet(getStoredSession().username);
+    }
   }
 
   function handleMessageChange(event) {
@@ -622,7 +888,9 @@ function CallPage() {
 
     const currentFacing =
       streamRef.current.getVideoTracks()[0]?.getSettings()?.facingMode;
-    const nextFacing = currentFacing === "environment" ? "user" : "environment";
+
+    const nextFacing =
+      currentFacing === "environment" ? "user" : "environment";
 
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
@@ -679,6 +947,64 @@ function CallPage() {
     }
   }
 
+  async function buyCoins(packageId) {
+    const currentSession = getStoredSession();
+
+    if (
+      !currentSession ||
+      currentSession.role !== "user" ||
+      !currentSession.username
+    ) {
+      setWalletError("Please sign in with a user account first.");
+      return;
+    }
+
+    setBuyingPackage(packageId);
+    setWalletError("");
+    setWalletNotice("");
+
+    try {
+      const response = await fetch(`${API_BASE}/api/coins/buy-test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: currentSession.username,
+          packageId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Could not add test coins.");
+      }
+
+      const balance = Number(data.account?.coins ?? 0);
+
+      setWalletBalance(balance);
+      setWalletNotice(data.message || "Test coins added.");
+      setWalletError("");
+    } catch (error) {
+      setWalletError(error.message || "Coin purchase simulation failed.");
+    } finally {
+      setBuyingPackage("");
+    }
+  }
+
+  function openWallet() {
+    setWalletError("");
+    setWalletNotice("");
+    setWalletOpen(true);
+
+    const currentSession = getStoredSession();
+
+    if (currentSession?.role === "user") {
+      void refreshWallet(currentSession.username);
+    }
+
+    void loadCoinPackages();
+  }
+
   const isActive = phase !== "idle";
 
   return (
@@ -689,6 +1015,23 @@ function CallPage() {
         </a>
 
         <div className="topbar-right">
+          {session?.role === "user" && (
+            <button
+              type="button"
+              className="wallet-button"
+              onClick={openWallet}
+              aria-label="Open coin wallet"
+            >
+              <Coins size={17} />
+              <span>
+                {walletBalance === null
+                  ? "Wallet"
+                  : `${walletBalance.toLocaleString()} coins`}
+              </span>
+              <span className="wallet-add">+</span>
+            </button>
+          )}
+
           <span className="online-dot" />
           <span className="topbar-label">
             {isCreatorCall ? "CREATOR VIDEO CALL" : "MEET SOMEONE NEW"}
@@ -886,6 +1229,24 @@ function CallPage() {
             </div>
           </div>
 
+          {session?.role === "user" && (
+            <div className="call-wallet-note">
+              <Coins size={15} />
+              <span>
+                {phase === "connected"
+                  ? "Call charges: 10 coins to start, then 100 coins per 60 seconds."
+                  : "Your demo coin balance is used for calls."}
+              </span>
+              {phase === "connected" && (
+                <span className="call-wallet-balance">
+                  {walletBalance === null
+                    ? "Loading..."
+                    : `${walletBalance.toLocaleString()} coins`}
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="privacy-note">
             <span>◇</span>
             Be kind!
@@ -950,7 +1311,11 @@ function CallPage() {
             <input
               value={message}
               onChange={handleMessageChange}
-              placeholder={phase === "connected" ? "Write a message..." : "Connect first..."}
+              placeholder={
+                phase === "connected"
+                  ? "Write a message..."
+                  : "Connect first..."
+              }
               maxLength={1000}
               disabled={phase !== "connected"}
               aria-label="Chat message"
@@ -969,8 +1334,113 @@ function CallPage() {
 
       <footer className="footer">
         <span>OnlyStream © {new Date().getFullYear()}</span>
-        <span>Made for spontaneous connections <b /></span>
+        <span>
+          Made for spontaneous connections <b />
+        </span>
       </footer>
+
+      {walletOpen && (
+        <div
+          className="coin-modal-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setWalletOpen(false);
+            }
+          }}
+          role="presentation"
+        >
+          <section
+            className="coin-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="coin-modal-title"
+          >
+            <button
+              type="button"
+              className="coin-modal-close"
+              onClick={() => setWalletOpen(false)}
+              aria-label="Close wallet"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="coin-modal-icon">
+              <Sparkles size={25} />
+            </div>
+
+            <p className="eyebrow">ONLYSTREAM EXCLUSIVE</p>
+            <h2 id="coin-modal-title">Your coin wallet</h2>
+            <p className="coin-modal-description">
+              Keep the conversation going with coins.
+            </p>
+
+            <div className="coin-balance-card">
+              <span>AVAILABLE BALANCE</span>
+              <strong>
+                <Coins size={22} />
+                {walletBalance === null
+                  ? "—"
+                  : walletBalance.toLocaleString()}
+              </strong>
+              <small>Demo coins · No real payment is collected</small>
+            </div>
+
+            {walletNotice && (
+              <div className="coin-notice">
+                <Check size={16} />
+                <span>{walletNotice}</span>
+              </div>
+            )}
+
+            {walletError && (
+              <div className="coin-error" role="alert">
+                {walletError}
+              </div>
+            )}
+
+            <div className="coin-package-heading">
+              <h3>Choose a coin package</h3>
+              <span>TEST MODE</span>
+            </div>
+
+            <div className="coin-packages">
+              {coinPackages.map((pack, index) => (
+                <button
+                  type="button"
+                  className={`coin-package ${index === 2 ? "coin-package-featured" : ""}`}
+                  key={pack.id}
+                  onClick={() => buyCoins(pack.id)}
+                  disabled={Boolean(buyingPackage)}
+                >
+                  <span className="coin-package-icon">
+                    <Coins size={20} />
+                  </span>
+
+                  <span className="coin-package-info">
+                    <strong>{Number(pack.coins).toLocaleString()} coins</strong>
+                    <small>Simulated package</small>
+                  </span>
+
+                  <span className="coin-package-price">
+                    ₹{Number(pack.priceInr).toLocaleString("en-IN")}
+                  </span>
+
+                  {buyingPackage === pack.id && (
+                    <span className="coin-package-loading">
+                      <LoaderCircle size={17} />
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <p className="coin-modal-disclaimer">
+              These buttons only add test coins to your demo account. They do
+              not charge money. Real payments are not enabled.
+            </p>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
