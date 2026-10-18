@@ -20,8 +20,10 @@ app.use(express.json({ limit: "100kb" }));
 app.use(express.static(distPath));
 
 const TEST_MODE = process.env.TEST_MODE !== "false";
-const COINS_PER_BILLING_TICK = 20;
-const BILLING_INTERVAL_MS = 5000;
+
+const CONNECTION_START_COINS = 10;
+const COINS_PER_BILLING_TICK = 100;
+const BILLING_INTERVAL_MS = 60_000;
 
 const CREATOR_REVENUE_SHARE = Math.min(
   1,
@@ -41,7 +43,7 @@ const COIN_PACKAGES = [
 ];
 
 // DEMO ONLY: memory-based accounts and ledger.
-// This is not production authentication or real payment infrastructure.
+// Not production authentication or real payment infrastructure.
 const testAccounts = new Map();
 const economyLedger = [];
 const activeBillableCalls = new Map();
@@ -236,6 +238,7 @@ app.get("/api/test-mode", (req, res) => {
     testMode: true,
     realPaymentsEnabled: false,
     realWithdrawalsEnabled: false,
+    connectionCoins: CONNECTION_START_COINS,
     callCoinsPerTick: COINS_PER_BILLING_TICK,
     billingIntervalMs: BILLING_INTERVAL_MS,
     creatorRevenueShare: CREATOR_REVENUE_SHARE,
@@ -342,6 +345,8 @@ app.post("/api/coins/buy-test", (req, res) => {
     testPriceInr: pack.priceInr,
     note: "Simulated purchase. No real payment was taken.",
   });
+
+  res.set("Cache-Control", "no-store");
 
   res.json({
     ok: true,
@@ -654,6 +659,7 @@ function finishBillableCall(callId) {
 
   if (call.timer) {
     clearInterval(call.timer);
+    call.timer = null;
   }
 
   activeBillableCalls.delete(callId);
@@ -701,18 +707,19 @@ function stopBillingAndDisconnect(callId, reason) {
 
   notifyBillingStopped(call, reason, user?.coins ?? 0);
 
+  // Disconnect both participants from the call pairing.
   disconnectPartner(call.userSocketId);
 }
 
-function billCallTick(callId) {
+function billCallTick(callId, coinsToCharge = COINS_PER_BILLING_TICK) {
   const call = activeBillableCalls.get(callId);
-  if (!call) return;
+  if (!call) return false;
 
   const user = testAccounts.get(call.username);
 
   if (!user || user.role !== "user") {
     stopBillingAndDisconnect(callId, "account-unavailable");
-    return;
+    return false;
   }
 
   // Stop if either participant has left the call.
@@ -723,28 +730,24 @@ function billCallTick(callId) {
     const finishedCall = finishBillableCall(callId);
 
     if (finishedCall) {
-      notifyBillingStopped(
-        finishedCall,
-        "ended",
-        user.coins
-      );
+      notifyBillingStopped(finishedCall, "ended", user.coins);
     }
 
-    return;
+    return false;
   }
 
-  // Every billing tick costs 20 coins.
-  if (user.coins < COINS_PER_BILLING_TICK) {
+  // Do not allow a negative balance.
+  if (user.coins < coinsToCharge) {
     stopBillingAndDisconnect(callId, "insufficient-coins");
-    return;
+    return false;
   }
 
-  user.coins -= COINS_PER_BILLING_TICK;
+  user.coins -= coinsToCharge;
 
   let creatorShareInr = 0;
-  let estimatedValueInr = COINS_PER_BILLING_TICK * 0.4;
+  let estimatedValueInr = coinsToCharge * 0.4;
 
-  // Creator revenue is credited only for an actual creator call.
+  // Only creator calls earn creator demo revenue.
   if (call.callType === "creator" && call.creatorUsername) {
     const creator = testAccounts.get(call.creatorUsername);
 
@@ -768,7 +771,7 @@ function billCallTick(callId) {
     username: user.username,
     creatorUsername: call.creatorUsername || null,
     callType: call.callType,
-    coins: COINS_PER_BILLING_TICK,
+    coins: coinsToCharge,
     estimatedValueInr,
     creatorShareInr,
     callId,
@@ -776,14 +779,14 @@ function billCallTick(callId) {
   });
 
   io.to(call.userSocketId).emit("call-billing-update", {
-    coinsDeducted: COINS_PER_BILLING_TICK,
+    coinsDeducted: coinsToCharge,
     balance: user.coins,
     callType: call.callType,
     testMode: true,
   });
 
   io.to(call.otherSocketId).emit("call-billing-update", {
-    coinsCollected: COINS_PER_BILLING_TICK,
+    coinsCollected: coinsToCharge,
     testRevenueAddedInr: creatorShareInr,
     creatorUsername: call.creatorUsername || null,
     callType: call.callType,
@@ -791,11 +794,10 @@ function billCallTick(callId) {
   });
 
   console.log(
-    `[Billing] ${user.username}: -${COINS_PER_BILLING_TICK} coins; balance=${user.coins}; type=${call.callType}`
+    `[Billing] ${user.username}: -${coinsToCharge} coins; balance=${user.coins}; type=${call.callType}`
   );
 
-  // The current tick was successful. If the balance is now zero,
-  // the next tick will stop and disconnect the call.
+  return true;
 }
 
 function startBillableCall({
@@ -803,7 +805,6 @@ function startBillableCall({
   creatorUsername = "",
   userSocketId,
   otherSocketId,
-  callType,
 }) {
   if (!TEST_MODE) {
     return { ok: false, error: "Test billing is disabled." };
@@ -833,7 +834,7 @@ function startBillableCall({
 
   const callId = getBillableCallId(userSocketId, otherSocketId);
 
-  // Prevent both participants from starting duplicate billing timers.
+  // Prevent duplicate billing timers for the same call.
   const existingCall = activeBillableCalls.get(callId);
 
   if (existingCall) {
@@ -859,11 +860,8 @@ function startBillableCall({
     };
   }
 
-  // A socket must not be charged for multiple simultaneous calls.
-  const userExistingCall = findCallForSocket(userSocketId);
-  const otherExistingCall = findCallForSocket(otherSocketId);
-
-  if (userExistingCall || otherExistingCall) {
+  // One socket cannot be charged for multiple simultaneous calls.
+  if (findCallForSocket(userSocketId) || findCallForSocket(otherSocketId)) {
     return {
       ok: false,
       error: "Billing is already active for this call.",
@@ -877,19 +875,14 @@ function startBillableCall({
     const creatorName = normalizeCreatorName(creatorUsername);
     const creatorLive = liveCreators.get(creatorName);
 
-    if (
-      !creatorLive ||
-      creatorLive.socketId !== otherSocketId
-    ) {
+    if (!creatorLive || creatorLive.socketId !== otherSocketId) {
       return {
         ok: false,
         error: "A connected creator call is required.",
       };
     }
 
-    const creatorAccount = testAccounts.get(
-      safeUsername(creatorName)
-    );
+    const creatorAccount = testAccounts.get(safeUsername(creatorName));
 
     if (!creatorAccount || creatorAccount.role !== "creator") {
       return {
@@ -902,12 +895,13 @@ function startBillableCall({
     resolvedCallType = "creator";
   }
 
-  if (user.coins < COINS_PER_BILLING_TICK) {
+  // The first charge is only 10 coins.
+  if (user.coins < CONNECTION_START_COINS) {
     return {
       ok: false,
       error: "Not enough test coins to start the call.",
       balance: user.coins,
-      requiredCoins: COINS_PER_BILLING_TICK,
+      requiredCoins: CONNECTION_START_COINS,
     };
   }
 
@@ -924,10 +918,8 @@ function startBillableCall({
 
   activeBillableCalls.set(callId, call);
 
-  // Charge the first 20 coins immediately on connection.
-  billCallTick(callId);
-
-  if (!activeBillableCalls.has(callId)) {
+  // Charge 10 coins immediately when billing starts.
+  if (!billCallTick(callId, CONNECTION_START_COINS)) {
     return {
       ok: false,
       error: "Could not start billing.",
@@ -935,14 +927,16 @@ function startBillableCall({
     };
   }
 
+  // Charge 100 coins every 60 seconds after the initial charge.
   call.timer = setInterval(() => {
-    billCallTick(callId);
+    billCallTick(callId, COINS_PER_BILLING_TICK);
   }, BILLING_INTERVAL_MS);
 
   return {
     ok: true,
     callId,
     callType: resolvedCallType,
+    connectionCoins: CONNECTION_START_COINS,
     coinsPerTick: COINS_PER_BILLING_TICK,
     billingIntervalMs: BILLING_INTERVAL_MS,
     balance: testAccounts.get(username)?.coins ?? 0,
@@ -1012,9 +1006,7 @@ io.on("connection", (socket) => {
 
   socket.on("creator-go-live", (payload, acknowledge) => {
     const reply = (result) => {
-      if (typeof acknowledge === "function") {
-        acknowledge(result);
-      }
+      if (typeof acknowledge === "function") acknowledge(result);
     };
 
     const username = normalizeCreatorName(payload?.username);
@@ -1080,9 +1072,7 @@ io.on("connection", (socket) => {
   // User requests a call with a live creator.
   socket.on("creator-call-request", (payload, acknowledge) => {
     const reply = (result) => {
-      if (typeof acknowledge === "function") {
-        acknowledge(result);
-      }
+      if (typeof acknowledge === "function") acknowledge(result);
     };
 
     const username = normalizeCreatorName(payload?.username);
@@ -1115,10 +1105,7 @@ io.on("connection", (socket) => {
 
     const creator = liveCreators.get(username);
 
-    if (
-      !creator ||
-      !io.sockets.sockets.has(creator.socketId)
-    ) {
+    if (!creator || !io.sockets.sockets.has(creator.socketId)) {
       return reply({
         ok: false,
         error: "This creator is no longer live.",
@@ -1170,15 +1157,11 @@ io.on("connection", (socket) => {
 
   socket.on("creator-call-accept", (payload, acknowledge) => {
     const reply = (result) => {
-      if (typeof acknowledge === "function") {
-        acknowledge(result);
-      }
+      if (typeof acknowledge === "function") acknowledge(result);
     };
 
     const requestId =
-      typeof payload?.requestId === "string"
-        ? payload.requestId
-        : "";
+      typeof payload?.requestId === "string" ? payload.requestId : "";
 
     const request = pendingCreatorCalls.get(requestId);
 
@@ -1193,10 +1176,7 @@ io.on("connection", (socket) => {
       !io.sockets.sockets.has(request.callerId) ||
       !io.sockets.sockets.has(request.creatorId)
     ) {
-      cancelPendingRequest(
-        requestId,
-        "The viewer or creator disconnected."
-      );
+      cancelPendingRequest(requestId, "The viewer or creator disconnected.");
 
       return reply({
         ok: false,
@@ -1204,14 +1184,8 @@ io.on("connection", (socket) => {
       });
     }
 
-    if (
-      partners.has(request.callerId) ||
-      partners.has(request.creatorId)
-    ) {
-      cancelPendingRequest(
-        requestId,
-        "One participant is already in a call."
-      );
+    if (partners.has(request.callerId) || partners.has(request.creatorId)) {
+      cancelPendingRequest(requestId, "One participant is already in a call.");
 
       return reply({
         ok: false,
@@ -1245,10 +1219,7 @@ io.on("connection", (socket) => {
       callerName: request.callerName,
     });
 
-    reply({
-      ok: true,
-      message: "Call accepted.",
-    });
+    reply({ ok: true, message: "Call accepted." });
 
     console.log(
       "Creator call accepted:",
@@ -1260,9 +1231,7 @@ io.on("connection", (socket) => {
 
   socket.on("creator-call-reject", (payload, acknowledge) => {
     const requestId =
-      typeof payload?.requestId === "string"
-        ? payload.requestId
-        : "";
+      typeof payload?.requestId === "string" ? payload.requestId : "";
 
     const request = pendingCreatorCalls.get(requestId);
 
@@ -1291,9 +1260,7 @@ io.on("connection", (socket) => {
 
   socket.on("creator-call-cancel", (payload, acknowledge) => {
     const requestId =
-      typeof payload?.requestId === "string"
-        ? payload.requestId
-        : "";
+      typeof payload?.requestId === "string" ? payload.requestId : "";
 
     const request = pendingCreatorCalls.get(requestId);
 
@@ -1316,13 +1283,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Start billing for either a creator call or a random call.
-  // The caller must supply its test username.
+  // Start billing for a connected random or creator call.
   socket.on("call-billing-start", (payload, acknowledge) => {
     const reply = (result) => {
-      if (typeof acknowledge === "function") {
-        acknowledge(result);
-      }
+      if (typeof acknowledge === "function") acknowledge(result);
     };
 
     const username = safeUsername(payload?.username);
@@ -1344,7 +1308,6 @@ io.on("connection", (socket) => {
       creatorUsername,
       userSocketId: socket.id,
       otherSocketId,
-      callType: creatorUsername ? "creator" : "random",
     });
 
     reply(result);
@@ -1352,9 +1315,7 @@ io.on("connection", (socket) => {
 
   socket.on("call-billing-stop", (payload, acknowledge) => {
     const requestedId =
-      typeof payload?.callId === "string"
-        ? payload.callId
-        : "";
+      typeof payload?.callId === "string" ? payload.callId : "";
 
     let stopped = 0;
 
@@ -1420,7 +1381,6 @@ io.on("connection", (socket) => {
         "live-error",
         "Slow down a little before posting another comment."
       );
-
       return;
     }
 
@@ -1513,18 +1473,11 @@ io.on("connection", (socket) => {
   socket.on("chat-message", (message) => {
     const partnerId = partners.get(socket.id);
 
-    if (
-      !partnerId ||
-      typeof message !== "string" ||
-      !message.trim()
-    ) {
+    if (!partnerId || typeof message !== "string" || !message.trim()) {
       return;
     }
 
-    io.to(partnerId).emit(
-      "chat-message",
-      message.trim().slice(0, 1000)
-    );
+    io.to(partnerId).emit("chat-message", message.trim().slice(0, 1000));
   });
 
   socket.on("signal", (data) => {
@@ -1563,7 +1516,7 @@ io.on("connection", (socket) => {
 function stopSearching(socket) {
   removeFromQueue(socket.id);
 
-  // If the socket was already in a call, stop its billing first.
+  // Stop active billing before ending the pairing.
   stopBillingForSocket(socket.id, "ended");
 
   disconnectPartner(socket.id);
@@ -1580,6 +1533,6 @@ server.listen(PORT, "0.0.0.0", () => {
     TEST_MODE ? "enabled" : "disabled"
   );
   console.log(
-    `Test billing: ${COINS_PER_BILLING_TICK} coins every ${BILLING_INTERVAL_MS / 1000} seconds`
+    `Test billing: ${CONNECTION_START_COINS} coins on connection, then ${COINS_PER_BILLING_TICK} coins every ${BILLING_INTERVAL_MS / 1000} seconds`
   );
 });
