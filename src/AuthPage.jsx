@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   ArrowLeft,
@@ -50,11 +49,11 @@ function getSafeNextPath(role) {
   return "/";
 }
 
-async function initializeTestAccount(username, role) {
+async function initializeTestAccount(username, role, gender = "") {
   const response = await fetch(`${API_BASE}/api/test-account`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, role }),
+    body: JSON.stringify({ username, role, gender }),
   });
 
   let data = {};
@@ -78,7 +77,9 @@ export default function AuthPage({ initialMode = "login" }) {
   const [mode, setMode] = useState(
     initialMode === "signup" ? "signup" : "login"
   );
+
   const [role, setRole] = useState("user");
+  const [gender, setGender] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -109,6 +110,13 @@ export default function AuthPage({ initialMode = "login" }) {
       return;
     }
 
+    if (mode === "signup" && role === "creator" && gender !== "female") {
+      setMessage(
+        "Creator signup is currently available only to users who select Female."
+      );
+      return;
+    }
+
     setBusy(true);
 
     try {
@@ -130,11 +138,11 @@ export default function AuthPage({ initialMode = "login" }) {
         account = {
           username: cleanUsername,
           role,
+          gender: role === "creator" ? gender : "",
           passwordHash,
           createdAt: new Date().toISOString(),
         };
 
-        // Store the local demo account.
         localStorage.setItem(
           ACCOUNTS_KEY,
           JSON.stringify([...accounts, account])
@@ -152,21 +160,29 @@ export default function AuthPage({ initialMode = "login" }) {
           return;
         }
 
+        if (existing.role === "creator" && existing.gender !== "female") {
+          setMessage(
+            "This creator account does not have the required gender information. Please contact support or create a new account with a different username."
+          );
+          return;
+        }
+
         account = existing;
       }
 
-      // Initialize the server-side test economy account.
-      // This does not charge money or make a real payment.
       let economyAccount;
 
       try {
         economyAccount = await initializeTestAccount(
           account.username,
-          account.role
+          account.role,
+          account.gender || ""
         );
       } catch (error) {
         setMessage(
-          `Your local account was ${mode === "signup" ? "created" : "verified"}, but the test server could not initialize it. Check that Render has deployed the updated index.js, then try again. Details: ${error.message}`
+          `Your local account was ${
+            mode === "signup" ? "created" : "verified"
+          }, but the test server could not initialize it. Check that Render has deployed the updated index.js, then try again. Details: ${error.message}`
         );
         return;
       }
@@ -177,6 +193,7 @@ export default function AuthPage({ initialMode = "login" }) {
         loggedInAt: new Date().toISOString(),
         testMode: true,
         coins: economyAccount.coins ?? 0,
+        testBonusInr: economyAccount.testBonusInr ?? 0,
       };
 
       localStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -201,9 +218,15 @@ export default function AuthPage({ initialMode = "login" }) {
     const nextPath = nextMode === "signup" ? "/signup" : "/login";
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
-
     const query = next ? `?next=${encodeURIComponent(next)}` : "";
+
     window.history.replaceState({}, "", `${nextPath}${query}`);
+  }
+
+  function changeRole(nextRole) {
+    setRole(nextRole);
+    setGender("");
+    setMessage("");
   }
 
   return (
@@ -244,10 +267,7 @@ export default function AuthPage({ initialMode = "login" }) {
           <button
             type="button"
             className={role === "user" ? "auth-role active" : "auth-role"}
-            onClick={() => {
-              setRole("user");
-              setMessage("");
-            }}
+            onClick={() => changeRole("user")}
             disabled={busy}
           >
             <UserRound size={19} />
@@ -257,10 +277,7 @@ export default function AuthPage({ initialMode = "login" }) {
           <button
             type="button"
             className={role === "creator" ? "auth-role active" : "auth-role"}
-            onClick={() => {
-              setRole("creator");
-              setMessage("");
-            }}
+            onClick={() => changeRole("creator")}
             disabled={busy}
           >
             <Video size={19} />
@@ -268,7 +285,43 @@ export default function AuthPage({ initialMode = "login" }) {
           </button>
         </div>
 
+        {role === "creator" && (
+          <div className="auth-creator-bonus">
+            <strong>₹1,200 Creator Welcome Bonus</strong>
+            <span>
+              Test/demo bonus only. It is not real money and cannot be
+              withdrawn.
+            </span>
+          </div>
+        )}
+
         <form className="auth-form" onSubmit={handleSubmit}>
+          {mode === "signup" && role === "creator" && (
+            <>
+              <label htmlFor="auth-gender">Gender</label>
+
+              <select
+                id="auth-gender"
+                value={gender}
+                onChange={(event) => {
+                  setGender(event.target.value);
+                  setMessage("");
+                }}
+                required
+                disabled={busy}
+              >
+                <option value="">Select gender</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other</option>
+              </select>
+
+              <p className="auth-gender-note">
+                Creator signup is currently available only for Female.
+              </p>
+            </>
+          )}
+
           <label htmlFor="auth-username">Username</label>
 
           <input
