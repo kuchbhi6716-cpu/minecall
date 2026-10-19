@@ -1939,4 +1939,169 @@ button:disabled {
 }
 
 
+/* ===== OnlyStream: final compact UI refinements ===== */
+
+/* Hide the "MEET SOMEONE NEW" / call-mode label */
+.topbar-label {
+  display: none !important;
+}
+
+/* Tighter spacing between call controls */
+.controls-panel {
+  padding: 12px;
+}
+
+.primary-controls {
+  gap: 8px;
+}
+
+.secondary-controls {
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.primary-controls button,
+.secondary-controls .utility-button {
+  min-height: 40px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  font-size: 12px;
+}
+
+.start-button {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.next-button,
+.stop-button {
+  flex: 0 0 auto;
+}
+
+/* Compact wallet information below the call area */
+.call-wallet-note {
+  gap: 6px;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.call-wallet-balance {
+  font-size: 11px;
+}
+
+/* Smaller, less bulky coin modal */
+.coin-modal {
+  width: min(100%, 420px);
+  padding: 22px;
+  border-radius: 20px;
+}
+
+.coin-modal-icon {
+  width: 43px;
+  height: 43px;
+  margin-bottom: 12px;
+  border-radius: 13px;
+}
+
+.coin-modal-description {
+  margin: 7px 0 14px;
+  font-size: 12px;
+}
+
+.coin-balance-card {
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 13px;
+  border-radius: 13px;
+}
+
+.coin-balance-card strong {
+  font-size: 26px;
+}
+
+.coin-packages {
+  gap: 7px;
+}
+
+.coin-package {
+  gap: 9px;
+  padding: 10px;
+  border-radius: 11px;
+}
+
+.coin-package-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.coin-package-info {
+  gap: 3px;
+}
+
+.coin-package-info strong,
+.coin-package-price {
+  font-size: 12px;
+}
+
+.coin-package-info small {
+  font-size: 10px;
+}
+
+.coin-notice,
+.coin-error {
+  margin: 9px 0;
+  padding: 9px 10px;
+  font-size: 11px;
+}
+
+/* Compact Creator Studio button, if this class is used */
+.creator-studio-button {
+  min-height: 36px;
+  padding: 8px 12px;
+  gap: 7px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+/* iPhone layout */
+@media (max-width: 760px) {
+  .controls-panel {
+    padding: 10px;
+  }
+
+  .primary-controls,
+  .secondary-controls {
+    gap: 6px;
+  }
+
+  .primary-controls button,
+  .secondary-controls .utility-button {
+    min-height: 38px;
+    padding: 8px 9px;
+    font-size: 11px;
+  }
+
+  .coin-modal {
+    padding: 19px 15px calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .coin-balance-card strong {
+    font-size: 24px;
+  }
+
+  .coin-package {
+    padding: 9px;
+  }
+
+  .creator-studio-button {
+    min-height: 33px;
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+}
+
 
