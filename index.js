@@ -1204,38 +1204,66 @@ io.on("connection", (socket) => {
       });
     }
 
-    const requestId = `${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 10)}`;
+    // Auto-connect directly: no incoming request or manual Accept click.
+    // Recheck both sockets immediately before pairing to avoid stale live status.
+    const callerSocket = io.sockets.sockets.get(socket.id);
+    const creatorSocket = io.sockets.sockets.get(creator.socketId);
+
+    if (!callerSocket || !creatorSocket) {
+      return reply({
+        ok: false,
+        error: "The viewer or creator disconnected. Please try again.",
+      });
+    }
+
+    if (isSocketBusy(socket.id) || isSocketBusy(creator.socketId)) {
+      return reply({
+        ok: false,
+        error: "The creator or viewer is busy right now.",
+      });
+    }
 
     const request = {
-      requestId,
       callerId: socket.id,
       creatorId: creator.socketId,
       creatorUsername: creator.username,
       callerName: callerName || "Viewer",
-      createdAt: Date.now(),
     };
 
-    pendingCreatorCalls.set(requestId, request);
+    partners.set(request.callerId, request.creatorId);
+    partners.set(request.creatorId, request.callerId);
 
-    io.to(creator.socketId).emit("incoming-creator-call", {
-      requestId,
+    // Emit accepted BEFORE matched. CreatorDashboard sets its call-ready flag
+    // on creator-call-accepted and then handles matched to create the WebRTC peer.
+    io.to(request.callerId).emit("creator-call-accepted", {
+      creatorUsername: request.creatorUsername,
+    });
+    io.to(request.creatorId).emit("creator-call-accepted", {
       callerName: request.callerName,
-      creatorUsername: creator.username,
+      creatorUsername: request.creatorUsername,
+    });
+
+    io.to(request.callerId).emit("matched", {
+      initiator: request.callerId < request.creatorId,
+      callType: "creator",
+      creatorUsername: request.creatorUsername,
+    });
+    io.to(request.creatorId).emit("matched", {
+      initiator: request.creatorId < request.callerId,
+      callType: "creator",
+      callerName: request.callerName,
     });
 
     reply({
       ok: true,
-      requestId,
       creatorUsername: creator.username,
-      message: "Call request sent. Waiting for the creator.",
+      message: `Connecting to ${creator.username} automatically...`,
     });
 
     console.log(
-      "Creator call requested:",
+      "Creator call auto-connected:",
       request.callerName,
-      "->",
+      "<->",
       username
     );
   });
