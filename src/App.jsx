@@ -84,6 +84,9 @@ function CallPage() {
   const billingStartedRef = useRef(false);
   const billingCallIdRef = useRef("");
   const billingStartPendingRef = useRef(false);
+  // If the user opens the wallet because the balance is too low, retry the
+  // requested call automatically after test coins are added.
+  const pendingConnectRef = useRef(false);
 
   const username = session?.username || "";
 
@@ -92,7 +95,7 @@ function CallPage() {
 
     if (!name) {
       setWalletBalance(null);
-      return;
+      return null;
     }
 
     try {
@@ -106,15 +109,18 @@ function CallPage() {
       if (!response.ok) {
         if (response.status === 404) {
           setWalletBalance(0);
-          return;
+          return 0;
         }
 
         throw new Error(data.error || "Could not load wallet.");
       }
 
-      setWalletBalance(Number(data.account?.coins ?? 0));
+      const balance = Number(data.account?.coins ?? 0);
+      setWalletBalance(balance);
+      return balance;
     } catch (error) {
       console.error("[Wallet] Refresh failed:", error);
+      return null;
     }
   }, []);
 
@@ -356,6 +362,7 @@ function CallPage() {
 
                 if (typeof result.balance === "number") {
                   setWalletBalance(result.balance);
+                  if (result.balance < 10) pendingConnectRef.current = true;
                 }
 
                 setWalletError(
@@ -680,7 +687,22 @@ function CallPage() {
         );
       }
 
-      setWalletBalance(Number(accountData.account?.coins ?? 0));
+      const balance = Number(accountData.account?.coins ?? 0);
+      setWalletBalance(balance);
+
+      // Use the server's actual balance before turning on camera or requesting
+      // a match. A stale UI balance must not trigger unnecessary coin prompts.
+      if (balance < 10) {
+        pendingConnectRef.current = true;
+        setWalletError("You need at least 10 coins to start a call. Add coins and your call will retry automatically.");
+        setWalletNotice("");
+        setWalletOpen(true);
+        setStatus("Add coins to start your call.");
+        await loadCoinPackages();
+        return;
+      }
+
+      pendingConnectRef.current = false;
     } catch (error) {
       setStatus(error.message || "Could not prepare your wallet.");
       setWalletError(error.message || "Could not prepare your wallet.");
@@ -979,11 +1001,21 @@ function CallPage() {
         throw new Error(data.error || "Could not add test coins.");
       }
 
-      const balance = Number(data.account?.coins ?? 0);
+      const balance = await refreshWallet(currentSession.username);
+      if (balance === null) {
+        throw new Error("Coins were added, but the wallet balance could not be refreshed. Please reopen the wallet.");
+      }
 
-      setWalletBalance(balance);
-      setWalletNotice(data.message || "Test coins added.");
+      setWalletNotice(`${data.message || "Test coins added."} Current balance: ${balance.toLocaleString()} coins.`);
       setWalletError("");
+
+      if (pendingConnectRef.current && balance >= 10) {
+        pendingConnectRef.current = false;
+        setWalletOpen(false);
+        setStatus("Coins added. Connecting now...");
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await startChat();
+      }
     } catch (error) {
       setWalletError(error.message || "Coin purchase simulation failed.");
     } finally {
