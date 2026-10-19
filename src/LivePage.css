@@ -1381,4 +1381,100 @@
 }
 
 
+/* ===== FIX: OnlyStream mobile call controls ===== */
+
+.controls-panel {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.primary-controls {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.38fr);
+  gap: 8px !important;
+  width: 100%;
+  align-items: stretch;
+}
+
+/* Keep Start and Next on the first row */
+.primary-controls .start-button,
+.primary-controls .next-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  margin: 0;
+  padding: 10px 8px;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: 13px;
+  border-radius: 12px;
+}
+
+/* End Call gets its own full-width row */
+.primary-controls .stop-button {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  margin: 0;
+  padding: 9px 12px;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+/* Neat two-column utility controls */
+.secondary-controls {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px !important;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.secondary-controls .utility-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 9px 6px;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: 12px;
+  border-radius: 12px;
+}
+
+/* Flip camera spans the full row */
+.secondary-controls .utility-button:last-child {
+  grid-column: 1 / -1;
+}
+
+/* Avoid oversized controls on small iPhones */
+@media (max-width: 380px) {
+  .controls-panel {
+    padding: 9px;
+  }
+
+  .primary-controls,
+  .secondary-controls {
+    gap: 6px !important;
+  }
+
+  .primary-controls .start-button,
+  .primary-controls .next-button {
+    min-height: 43px;
+    padding: 8px 5px;
+    font-size: 12px;
+  }
+
+  .primary-controls .stop-button,
+  .secondary-controls .utility-button {
+    min-height: 40px;
+    font-size: 11px;
+  }
+}
+
+
+
 
