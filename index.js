@@ -1,4 +1,3 @@
-
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -154,14 +153,26 @@ function normalizeRoomName(value) {
     : "";
 }
 
-function getTestAccount(username, role = "user") {
+// Create test accounts without silently changing an existing account's role.
+// Creator accounts must have gender set to "female".
+function getTestAccount(username, role = "user", gender = "") {
   const name = safeUsername(username);
+
   if (!name) return null;
+
+  const requestedRole = role === "creator" ? "creator" : "user";
+  const normalizedGender =
+    typeof gender === "string" ? gender.trim().toLowerCase() : "";
+
+  if (requestedRole === "creator" && normalizedGender !== "female") {
+    return null;
+  }
 
   if (!testAccounts.has(name)) {
     testAccounts.set(name, {
       username: name,
-      role: role === "creator" ? "creator" : "user",
+      role: requestedRole,
+      gender: requestedRole === "creator" ? "female" : "",
       coins: 0,
       testRevenueInr: 0,
       testBonusInr: 0,
@@ -172,8 +183,14 @@ function getTestAccount(username, role = "user") {
 
   const account = testAccounts.get(name);
 
-  if (role === "creator") {
-    account.role = "creator";
+  // Do not allow a user account to be upgraded to creator by this endpoint,
+  // or a creator account to be changed into a user account.
+  if (account.role !== requestedRole) {
+    return null;
+  }
+
+  if (requestedRole === "creator" && account.gender !== "female") {
+    return null;
   }
 
   return account;
@@ -185,6 +202,7 @@ function publicAccount(account) {
   return {
     username: account.username,
     role: account.role,
+    gender: account.gender || "",
     coins: account.coins,
     testRevenueInr: account.testRevenueInr,
     testBonusInr: account.testBonusInr,
@@ -251,7 +269,7 @@ app.get("/api/coin-packages", (req, res) => {
   res.json({ testMode: true, packages: COIN_PACKAGES });
 });
 
-// Demo bootstrap endpoint. Username is NOT authenticated; testing only.
+// Demo bootstrap endpoint. This is not production authentication.
 app.post("/api/test-account", (req, res) => {
   if (!TEST_MODE) {
     return res.status(403).json({
@@ -261,14 +279,50 @@ app.post("/api/test-account", (req, res) => {
 
   const username = safeUsername(req.body?.username);
   const role = req.body?.role === "creator" ? "creator" : "user";
+  const gender =
+    typeof req.body?.gender === "string"
+      ? req.body.gender.trim().toLowerCase()
+      : "";
 
-  if (!username) {
+  if (!username || !/^[a-zA-Z0-9_.-]{3,30}$/.test(username)) {
     return res.status(400).json({
       error: "A valid username is required.",
     });
   }
 
-  const account = getTestAccount(username, role);
+  // Server-side Creator gender check.
+  if (role === "creator" && gender !== "female") {
+    return res.status(403).json({
+      error: "Creator accounts are currently available only to users who select Female.",
+    });
+  }
+
+  // Prevent changing an existing account's role through this endpoint.
+  const existingAccount = testAccounts.get(username);
+
+  if (existingAccount && existingAccount.role !== role) {
+    return res.status(409).json({
+      error: `This username is already registered as ${existingAccount.role}.`,
+    });
+  }
+
+  if (
+    existingAccount &&
+    existingAccount.role === "creator" &&
+    existingAccount.gender !== "female"
+  ) {
+    return res.status(403).json({
+      error: "This creator account does not meet the current Creator requirements.",
+    });
+  }
+
+  const account = getTestAccount(username, role, gender);
+
+  if (!account) {
+    return res.status(403).json({
+      error: "Could not initialize this account with the requested account type.",
+    });
+  }
 
   if (role === "creator") {
     grantCreatorBonus(account);
@@ -884,10 +938,14 @@ function startBillableCall({
 
     const creatorAccount = testAccounts.get(safeUsername(creatorName));
 
-    if (!creatorAccount || creatorAccount.role !== "creator") {
+    if (
+      !creatorAccount ||
+      creatorAccount.role !== "creator" ||
+      creatorAccount.gender !== "female"
+    ) {
       return {
         ok: false,
-        error: "Create the creator's test account first.",
+        error: "Create a valid female creator test account first.",
       };
     }
 
@@ -1018,6 +1076,20 @@ io.on("connection", (socket) => {
       });
     }
 
+    // A live creator must have a matching female creator test account.
+    const creatorAccount = testAccounts.get(safeUsername(username));
+
+    if (
+      !creatorAccount ||
+      creatorAccount.role !== "creator" ||
+      creatorAccount.gender !== "female"
+    ) {
+      return reply({
+        ok: false,
+        error: "A valid female creator account is required to go live.",
+      });
+    }
+
     removeCreatorLive(socket);
 
     const previous = liveCreators.get(username);
@@ -1109,6 +1181,19 @@ io.on("connection", (socket) => {
       return reply({
         ok: false,
         error: "This creator is no longer live.",
+      });
+    }
+
+    const creatorAccount = testAccounts.get(safeUsername(username));
+
+    if (
+      !creatorAccount ||
+      creatorAccount.role !== "creator" ||
+      creatorAccount.gender !== "female"
+    ) {
+      return reply({
+        ok: false,
+        error: "This creator account is not eligible for calls.",
       });
     }
 
