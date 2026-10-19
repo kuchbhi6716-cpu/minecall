@@ -50,6 +50,7 @@ export default function CreatorDashboard() {
   const mountedRef = useRef(false);
   const cameraFacingRef = useRef("user");
   const switchCameraRef = useRef(false);
+  const acceptingRequestRef = useRef(null);
 
   const [username, setUsername] = useState("Creator");
   const [isLive, setIsLive] = useState(false);
@@ -65,7 +66,6 @@ export default function CreatorDashboard() {
   const [callElapsed, setCallElapsed] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
 
-  // New camera and microphone controls.
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [facingMode, setFacingMode] = useState("user");
@@ -143,6 +143,7 @@ export default function CreatorDashboard() {
     pendingCandidatesRef.current = [];
     processingSignalsRef.current = false;
     acceptedRef.current = false;
+    acceptingRequestRef.current = null;
 
     setCallConnected(false);
     setCallerName("");
@@ -375,17 +376,30 @@ export default function CreatorDashboard() {
 
     const clearIncomingRequest = () => {
       requestRef.current = null;
+      acceptingRequestRef.current = null;
       setIncomingCall(null);
     };
 
+    // Automatically accept calls as soon as an incoming request arrives.
     socket.on("incoming-creator-call", (request) => {
-      if (!isLiveRef.current || acceptedRef.current) {
-        socket.emit("creator-call-reject", { requestId: request?.requestId });
+      if (!request?.requestId) return;
+
+      if (
+        !isLiveRef.current ||
+        acceptedRef.current ||
+        acceptingRequestRef.current
+      ) {
+        socket.emit("creator-call-reject", {
+          requestId: request.requestId,
+        });
         return;
       }
 
       requestRef.current = request;
-      setIncomingCall(request);
+      acceptingRequestRef.current = request.requestId;
+
+      // Automatically accept; no manual button press is required.
+      acceptCall();
     });
 
     socket.on("creator-call-request-cancelled", clearIncomingRequest);
@@ -399,6 +413,7 @@ export default function CreatorDashboard() {
     socket.on("creator-call-accepted", (data) => {
       acceptedRef.current = true;
       requestRef.current = null;
+      acceptingRequestRef.current = null;
       setIncomingCall(null);
       setCallerName(data?.callerName || "Caller");
       setCameraError("");
@@ -552,7 +567,10 @@ export default function CreatorDashboard() {
     const request = requestRef.current;
     const socket = socketRef.current;
 
-    if (!request?.requestId || !socket) return;
+    if (!request?.requestId || !socket) {
+      acceptingRequestRef.current = null;
+      return;
+    }
 
     setCameraError("");
     acceptedRef.current = true;
@@ -561,8 +579,9 @@ export default function CreatorDashboard() {
 
     socket.emit("creator-call-accept", { requestId: request.requestId }, (response) => {
       if (response?.ok === false) {
-        closePeer();
+        acceptedRef.current = false;
         requestRef.current = null;
+        acceptingRequestRef.current = null;
         setCameraError(response.error || response.message ||
           "This call request is no longer available.");
       }
@@ -581,10 +600,10 @@ export default function CreatorDashboard() {
     }
 
     requestRef.current = null;
+    acceptingRequestRef.current = null;
     setIncomingCall(null);
   }
 
-  // Mute/unmute microphone without destroying the call.
   function toggleMic() {
     const tracks = streamRef.current?.getAudioTracks() || [];
     if (!tracks.length) return;
@@ -596,7 +615,6 @@ export default function CreatorDashboard() {
     setMicMuted(nextMuted);
   }
 
-  // Turn the camera off/on while keeping the call and microphone active.
   function toggleCamera() {
     const tracks = streamRef.current?.getVideoTracks() || [];
     if (!tracks.length) return;
@@ -608,7 +626,6 @@ export default function CreatorDashboard() {
     setCameraOff(nextOff);
   }
 
-  // Switch the physical camera and replace the outgoing WebRTC video track.
   async function switchCamera() {
     if (!streamRef.current || cameraSwitching) return;
 
@@ -656,7 +673,6 @@ export default function CreatorDashboard() {
         await videoRef.current.play().catch(() => {});
       }
 
-      // Stop any extra tracks created by getUserMedia.
       newStream.getTracks().forEach((track) => {
         if (track !== newTrack) track.stop();
       });
@@ -674,6 +690,7 @@ export default function CreatorDashboard() {
     closePeer();
     setIncomingCall(null);
     requestRef.current = null;
+    acceptingRequestRef.current = null;
     setCameraError("");
     refreshEconomy();
   }
@@ -692,6 +709,7 @@ export default function CreatorDashboard() {
     closePeer();
     setIncomingCall(null);
     requestRef.current = null;
+    acceptingRequestRef.current = null;
 
     isLiveRef.current = false;
     stopLocalStream();
@@ -746,7 +764,7 @@ export default function CreatorDashboard() {
         <p className="creator-eyebrow">CREATOR STUDIO</p>
         <h1>Welcome, {username}</h1>
         <p className="creator-subtitle">
-          Go live, accept incoming calls, and manage your test earnings.
+          Go live, receive automatically accepted calls, and manage your test earnings.
         </p>
       </div>
 
@@ -801,23 +819,7 @@ export default function CreatorDashboard() {
             <p className="creator-error" role="alert">{cameraError}</p>
           )}
 
-          {incomingCall && (
-            <div className="creator-incoming-call">
-              <div className="creator-incoming-icon"><Phone size={20} /></div>
-              <div className="creator-incoming-details">
-                <strong>Incoming call</strong>
-                <span>{incomingCall.callerName || "A user"} wants to call you.</span>
-              </div>
-              <div className="creator-incoming-actions">
-                <button className="creator-accept-call" onClick={acceptCall}>
-                  <Check size={18} /> Accept
-                </button>
-                <button className="creator-reject-call" onClick={rejectCall}>
-                  <X size={18} /> Reject
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Incoming call popup is intentionally hidden because calls auto-accept. */}
 
           {!isLive ? (
             <div className="creator-camera-actions">
@@ -940,7 +942,7 @@ export default function CreatorDashboard() {
             <h3>How it works</h3>
             <ul>
               <li>Go Live to publish your creator status.</li>
-              <li>Accept a call to connect video and audio.</li>
+              <li>Incoming calls are accepted automatically while you are live.</li>
               <li>Mute or disable your camera without ending the call.</li>
               <li>End Call stops the current call.</li>
               <li>End Live stops the camera and microphone.</li>
