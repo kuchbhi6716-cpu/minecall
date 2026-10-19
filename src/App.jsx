@@ -1,4 +1,3 @@
-
 import Home from "./Home";
 import LivePage from "./LivePage";
 import CategoryPage from "./CategoryPage";
@@ -360,21 +359,42 @@ function CallPage() {
               if (!result.ok) {
                 console.warn("[Billing] Could not start:", result);
 
-                if (typeof result.balance === "number") {
-                  setWalletBalance(result.balance);
-                  if (result.balance < 10) pendingConnectRef.current = true;
+                const balance =
+                  typeof result.balance === "number" ? result.balance : null;
+                const requiredCoins = Number(result.requiredCoins ?? 10);
+                const insufficientCoins =
+                  result.error === "Not enough test coins to start the call." ||
+                  (balance !== null && balance < requiredCoins);
+
+                if (balance !== null) {
+                  setWalletBalance(balance);
                 }
 
-                setWalletError(
-                  result.error ||
-                    "Billing could not start. Please check your coin balance."
-                );
-                setWalletOpen(true);
+                // Open the coin wallet ONLY when the server confirms the
+                // balance is below the required amount. Other failures (for
+                // example, a pairing or billing setup error) must not ask the
+                // user to buy coins when they already have enough.
+                if (insufficientCoins) {
+                  pendingConnectRef.current = true;
+                  setWalletError(
+                    `You need at least ${requiredCoins} coins to start this call. Your current balance is ${balance ?? "unknown"}. Add coins and the call will retry automatically.`
+                  );
+                  setWalletNotice("");
+                  setWalletOpen(true);
+                } else {
+                  pendingConnectRef.current = false;
+                  setWalletError("");
+                  setStatus(
+                    result.error ||
+                      "Billing could not start. Please try the call again."
+                  );
+                }
 
                 socket.emit("stop-chat");
                 resetCall(
-                  result.error ||
-                    "Not enough coins to start this call."
+                  insufficientCoins
+                    ? "Not enough coins to start this call. Add coins to retry."
+                    : result.error || "Billing could not start. Please try again."
                 );
 
                 return;
@@ -578,9 +598,12 @@ function CallPage() {
       billingCallIdRef.current = "";
 
       if (data.reason === "insufficient-coins") {
-        setWalletError("You have run out of coins. Add test coins to continue.");
+        const currentBalance = Number(data.balance ?? 0);
+        setWalletError(
+          `Your balance is ${currentBalance.toLocaleString()} coins, but this call needs 100 coins for the next 60-second billing period. Add coins if you want to continue.`
+        );
         setWalletOpen(true);
-        resetCall("Call ended because your coin balance is too low.");
+        resetCall("Call ended because there were not enough coins for the next billing period.");
       } else if (data.reason === "account-unavailable") {
         resetCall("Your test account is unavailable. Please sign in again.");
       }
@@ -704,9 +727,11 @@ function CallPage() {
 
       pendingConnectRef.current = false;
     } catch (error) {
-      setStatus(error.message || "Could not prepare your wallet.");
-      setWalletError(error.message || "Could not prepare your wallet.");
-      setWalletOpen(true);
+      // Account/server errors are not coin shortages. Do not open the buy-coins
+      // wallet for unrelated errors; tell the user what actually failed.
+      pendingConnectRef.current = false;
+      setStatus(error.message || "Could not prepare your account.");
+      setWalletError("");
       return;
     }
 
