@@ -1255,3 +1255,130 @@
 }
 
 
+/* =====================================
+   ONLYSTREAM LIVE PAGE — COMPACT LAYOUT
+===================================== */
+
+/* Remove the extra heading above the live player */
+.live-heading {
+  display: none !important;
+}
+
+/* Keep player and comment controls connected */
+.live-player-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0 !important;
+  overflow: hidden;
+}
+
+.live-player {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.onlystream-embed-wrap,
+.onlystream-embed {
+  width: 100%;
+  min-width: 0;
+  margin: 0 !important;
+}
+
+/* Compact controls below the player */
+.live-details-chat {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px !important;
+  padding: 10px !important;
+}
+
+.live-comments-card {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 !important;
+}
+
+.live-comment-composer {
+  width: 100%;
+  min-width: 0;
+}
+
+.live-comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 7px !important;
+}
+
+.live-comment-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.live-comment-input-row {
+  display: flex;
+  align-items: center;
+  gap: 7px !important;
+  min-width: 0;
+}
+
+.live-comment-input-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.live-comment-input-row button {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.live-open-twitch {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  margin: 0 !important;
+}
+
+/* Smaller screens */
+@media (max-width: 600px) {
+  .live-content {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .live-player-card {
+    border-radius: 16px;
+  }
+
+  .live-details-chat {
+    gap: 7px !important;
+    padding: 8px !important;
+  }
+
+  .live-comment-form {
+    gap: 6px !important;
+  }
+
+  .live-comment-input-row button {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .live-open-twitch {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+  }
+}
+
+
+
