@@ -1065,7 +1065,7 @@ function CallPage() {
   const isActive = phase !== "idle";
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isCreatorCall ? "creator-call-mode" : ""}`}>
       <header className="topbar">
         <a className="brand" href="/" aria-label="OnlyStream home">
           Only<span>Stream</span><i>.</i>
