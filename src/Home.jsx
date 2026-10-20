@@ -388,8 +388,9 @@ export default function Home() {
       const saved = JSON.parse(
         window.localStorage.getItem(SESSION_KEY) || "null"
       );
-      return saved && (saved.role === "user" || saved.role === "creator")
-        ? saved
+      const normalizedRole = String(saved?.role || "").trim().toLowerCase();
+      return saved && (normalizedRole === "user" || normalizedRole === "creator")
+        ? { ...saved, role: normalizedRole }
         : null;
     } catch {
       return null;
@@ -699,7 +700,7 @@ export default function Home() {
               Logout
               <LogOut size={15} />
             </button>
-          ) : (
+          ) : session?.role === "creator" ? (
             <button
               type="button"
               className="creator-studio-link"
@@ -708,6 +709,20 @@ export default function Home() {
               Creator Studio
               <ArrowUpRight size={15} />
             </button>
+          ) : (
+            <>
+              <a className="creator-studio-link" href="/login">
+                Login
+              </a>
+              <button
+                type="button"
+                className="creator-studio-link"
+                onClick={openCreatorStudio}
+              >
+                Creator Studio
+                <ArrowUpRight size={15} />
+              </button>
+            </>
           )}
         </div>
       </nav>
