@@ -343,11 +343,48 @@ function ModelCard({ model }) {
   );
 }
 
+function getCreatorPlan(creator) {
+  const candidates = [
+    creator?.creatorPlan,
+    creator?.creator_plan,
+    creator?.subscriptionPlan,
+    creator?.subscription_plan,
+    creator?.earningType,
+    creator?.earning_type,
+    creator?.monetizationType,
+    creator?.monetization_type,
+    creator?.plan,
+    creator?.account?.creatorPlan,
+    creator?.profile?.creatorPlan,
+  ];
+  for (const value of candidates) {
+    if (typeof value !== "string") continue;
+    const normalized = value.trim().toLowerCase().replace(/[\s_-]+/g, "");
+    if (["subscription", "subscriber", "subscriptionbased", "subscriptioncreator", "lifetimeaccess"].includes(normalized)) {
+      return "subscription";
+    }
+    if (["call", "paypercall", "callearnings", "paidcall"].includes(normalized)) {
+      return "call";
+    }
+  }
+  // Some older records store the plan as a boolean rather than a string.
+  if (creator?.isSubscriptionCreator === true || creator?.is_subscription_creator === true || creator?.subscriptionEnabled === true || creator?.subscription_enabled === true) {
+    return "subscription";
+  }
+  return "call";
+}
+
+function getSubscriptionPrice(creator) {
+  const raw = creator?.subscriptionPrice ?? creator?.subscription_price ?? creator?.subscriptionAmount ?? creator?.subscription_amount ?? creator?.price;
+  const price = Number(raw);
+  return Number.isFinite(price) && price > 0 ? price : 499;
+}
+
 function OnlyStreamCreatorCard({ creator, plan = "call" }) {
   const subscription = plan === "subscription";
   function openCreator() {
     if (subscription) {
-      const price = Math.max(1, Number(creator.subscriptionPrice || creator.subscription_price || 499));
+      const price = getSubscriptionPrice(creator);
       window.location.href = `/live?subscriptionCreator=${encodeURIComponent(creator.username)}&subscriptionPrice=${price}`;
     } else {
       window.location.href = "/call?creator=" + encodeURIComponent(creator.username);
@@ -359,7 +396,7 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
         <div className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"><Radio size={34} /></div>
         {subscription && <span className="subscription-card-ribbon">SUBSCRIPTION</span>}
         <span className="model-online">● {creator.isLive || creator.is_live ? "LIVE" : "AVAILABLE"}</span>
-        <div className="stream-info"><h3>{creator.username}</h3><p>{subscription ? `LIFETIME ACCESS · ₹${Math.max(1, Number(creator.subscriptionPrice || creator.subscription_price || 499))} ONCE` : "CALL EARNING · PAY PER CALL"}</p></div>
+        <div className="stream-info"><h3>{creator.username}</h3><p>{subscription ? `LIFETIME ACCESS · ₹${getSubscriptionPrice(creator)} ONCE` : "CALL EARNING · PAY PER CALL"}</p></div>
       </button>
     </article>
   );
@@ -732,8 +769,8 @@ export default function Home() {
 
       <section className="discovery">
         {(() => {
-          const subscriptionCreators = onlyStreamCreators.filter(c => String(c.creatorPlan || c.creator_plan || c.plan || "").toLowerCase() === "subscription");
-          const callCreators = onlyStreamCreators.filter(c => !subscriptionCreators.includes(c));
+          const subscriptionCreators = onlyStreamCreators.filter(c => getCreatorPlan(c) === "subscription");
+          const callCreators = onlyStreamCreators.filter(c => getCreatorPlan(c) !== "subscription");
           return <>
             <section className="category-section onlystream-live-section subscription-creators-section">
               <div className="category-heading"><div className="category-title-wrap"><span className="category-icon subscription-section-icon"><Radio size={19}/></span><div><span className="subscription-section-label">SUBSCRIPTION</span><h2>Subscription Creators</h2><p>Pay once for lifetime access to creator content and live streams</p></div></div><span className="online-status">● {subscriptionCreators.length} creators</span></div>
