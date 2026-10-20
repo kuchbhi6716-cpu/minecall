@@ -358,7 +358,6 @@ app.get("/api/economy/me", (req, res) => {
         (row) =>
           row.username === username || row.creatorUsername === username
       )
-      .slice(-50)
       .reverse(),
     testMode: true,
   });
