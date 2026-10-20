@@ -1133,6 +1133,7 @@ io.on("connection", (socket) => {
 
     liveCreators.set(username, creator);
     socket.data.creatorLiveUsername = username;
+    if (creatorPlan === "subscription") socket.join(`subscription-viewers:${username.toLowerCase()}`);
 
     broadcastLiveCreators();
 
@@ -1625,6 +1626,22 @@ io.on("connection", (socket) => {
     socket.emit("subscription-live-ready", { username, creatorSocketId: creator.socketId });
     io.to(creator.socketId).emit("subscription-viewer-joined", { viewerSocketId: socket.id, username });
     if (typeof acknowledge === "function") acknowledge({ ok: true, username, creatorSocketId: creator.socketId });
+  });
+
+  socket.on("subscription-chat-message", (payload) => {
+    if (!payload || typeof payload !== "object") return;
+    const username = normalizeCreatorName(payload.username);
+    const text = typeof payload.text === "string" ? payload.text.trim().slice(0, 500) : "";
+    if (!username || !text) return;
+    const room = `subscription-viewers:${username.toLowerCase()}`;
+    if (!socket.rooms.has(room)) return;
+    io.to(room).emit("subscription-chat-message", {
+      id: `${Date.now()}-${socket.id}`,
+      username,
+      name: String(payload.name || "Subscriber").slice(0, 40),
+      text,
+      sentAt: new Date().toISOString(),
+    });
   });
 
   socket.on("subscription-live-signal", (payload) => {
