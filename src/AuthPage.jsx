@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   ArrowLeft,
@@ -36,6 +35,9 @@ function getSafeNextPath(role) {
   const next = params.get("next");
 
   if (role === "creator") return "/creator";
+
+  // Normal users always land on the homepage after login/signup.
+  if (role === "user") return "/";
 
   if (
     next &&
@@ -199,14 +201,7 @@ export default function AuthPage({ initialMode = "login" }) {
 
       localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
-      // Newly registered users always go to the homepage.
-      // Creator signup and existing login redirects remain unchanged.
-      const destination =
-        mode === "signup" && account.role === "user"
-          ? "/"
-          : getSafeNextPath(account.role);
-
-      window.location.replace(destination);
+      window.location.replace(getSafeNextPath(account.role));
     } catch (error) {
       setMessage(
         error?.message ||
