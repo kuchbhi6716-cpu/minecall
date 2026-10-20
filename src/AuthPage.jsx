@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   ArrowLeft,
@@ -198,7 +199,14 @@ export default function AuthPage({ initialMode = "login" }) {
 
       localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
-      window.location.replace(getSafeNextPath(account.role));
+      // Newly registered users always go to the homepage.
+      // Creator signup and existing login redirects remain unchanged.
+      const destination =
+        mode === "signup" && account.role === "user"
+          ? "/"
+          : getSafeNextPath(account.role);
+
+      window.location.replace(destination);
     } catch (error) {
       setMessage(
         error?.message ||
