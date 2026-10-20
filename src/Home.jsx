@@ -385,7 +385,7 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
   function openCreator() {
     if (subscription) {
       const price = getSubscriptionPrice(creator);
-      window.location.href = `/live?subscriptionCreator=${encodeURIComponent(creator.username)}&subscriptionPrice=${price}`;
+      window.location.href = `/subscription-live?subscriptionCreator=${encodeURIComponent(creator.username)}&subscriptionPrice=${price}`;
     } else {
       window.location.href = "/call?creator=" + encodeURIComponent(creator.username);
     }
