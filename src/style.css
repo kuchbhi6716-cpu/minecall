@@ -1,3 +1,4 @@
+
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 :root {
@@ -2027,268 +2028,273 @@ button:disabled {
 }
 
 
-/* ========================================
-   CREATOR CALL VIEW — user-side creator call
-   Keeps call/chat controls and functionality unchanged.
-======================================== */
-
-.creator-call-mode {
-  width: min(1440px, 100%);
-  padding: 24px clamp(14px, 4vw, 48px) 40px;
-  background:
-    radial-gradient(ellipse at 5% 0%, rgba(117, 62, 200, 0.14), transparent 36%),
-    #100d19;
-}
-
-.creator-call-mode .topbar {
-  max-width: 1400px;
-  height: auto;
-  min-height: 52px;
-  margin: 0 auto 34px;
-  border-bottom: 0;
-}
-
-.creator-call-mode .brand {
-  font-size: 25px;
-  letter-spacing: -1px;
-}
-
-.creator-call-mode .layout {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0;
-  grid-template-columns: minmax(0, 1.65fr) minmax(270px, 0.85fr);
-  gap: 22px;
-  align-items: start;
-}
-
-.creator-call-mode .video-section,
-.creator-call-mode .chat-panel {
+/* ===== Mobile call controls + chat composer overflow fix ===== */
+.controls-panel,
+.primary-controls,
+.secondary-controls,
+.chat-panel,
+.chat-heading,
+.chat-form {
   min-width: 0;
-  padding: 22px;
-  border: 1px solid rgba(210, 190, 255, 0.12);
-  border-radius: 20px;
-  background: linear-gradient(145deg, #1c1728, #15111e);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.16);
+  max-width: 100%;
 }
 
-.creator-call-mode .section-heading {
-  align-items: flex-start;
-  margin-bottom: 18px;
+.primary-controls,
+.secondary-controls {
+  align-items: stretch;
 }
 
-.creator-call-mode .section-heading h1 {
-  font-size: clamp(25px, 3vw, 36px);
-  letter-spacing: -1.2px;
+.primary-controls > button,
+.secondary-controls > button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
-.creator-call-mode .eyebrow {
-  margin-bottom: 9px;
-  color: #b69aff;
-  font-size: 11px;
-  letter-spacing: 2px;
+.chat-panel {
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.creator-call-mode .call-status-text {
-  margin: 0 0 14px;
-  color: #9f96b1;
-  font-size: 12px;
-  line-height: 1.6;
+.chat-heading > div:first-child {
+  min-width: 0;
 }
 
-.creator-call-mode .video-grid {
-  position: relative;
-  display: block;
-  width: 100%;
-  padding: 0;
+.chat-heading h2 {
+  overflow-wrap: anywhere;
 }
 
-.creator-call-mode .remote-card {
-  width: 100%;
-  min-height: 0;
-  aspect-ratio: 16 / 10;
-  border-radius: 15px;
-  border-color: rgba(210, 190, 255, 0.1);
-  background: #09070e;
+.messages-area {
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
-.creator-call-mode .local-card {
-  position: absolute;
-  z-index: 3;
-  right: 13px;
-  bottom: 13px;
-  width: clamp(105px, 27%, 175px);
-  min-height: 0;
-  aspect-ratio: 3 / 4;
-  border: 2px solid rgba(255,255,255,.88);
-  border-radius: 13px;
-  background: #100d19;
-  box-shadow: 0 10px 28px rgba(0,0,0,.45);
-}
-
-.creator-call-mode .video-placeholder {
-  padding: 18px;
-}
-
-.creator-call-mode .placeholder-orb {
-  width: 60px;
-  height: 60px;
-  margin-bottom: 15px;
-}
-
-.creator-call-mode .video-placeholder h2 {
-  font-size: 17px;
-}
-
-.creator-call-mode .video-placeholder p {
-  max-width: 300px;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.creator-call-mode .video-top-label,
-.creator-call-mode .video-bottom-label {
-  font-size: 10px;
-}
-
-.creator-call-mode .controls-panel {
-  margin-top: 17px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.creator-call-mode .primary-controls,
-.creator-call-mode .secondary-controls {
-  gap: 9px;
-}
-
-.creator-call-mode .start-button,
-.creator-call-mode .next-button,
-.creator-call-mode .stop-button {
-  min-height: 46px;
-  border-radius: 12px;
-  font-size: 12px;
-}
-
-.creator-call-mode .utility-button {
-  min-height: 42px;
-  border-radius: 11px;
-  font-size: 11px;
-}
-
-.creator-call-mode .call-wallet-note {
-  margin-top: 14px;
-  padding: 11px 12px;
-  border-radius: 10px;
-}
-
-.creator-call-mode .chat-panel {
+.chat-form {
   display: flex;
-  flex-direction: column;
-  min-height: 520px;
-  max-height: 760px;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.creator-call-mode .chat-heading {
-  margin-bottom: 14px;
+.chat-form input {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-.creator-call-mode .messages-area {
-  flex: 1;
-  min-height: 240px;
+.chat-form button {
+  flex: 0 0 54px;
+  width: 54px;
+  min-width: 54px;
+  min-height: 54px;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.creator-call-mode .chat-form {
-  margin-top: 14px;
-}
-
-.creator-call-mode .footer {
-  max-width: 1200px;
-  margin: 28px auto 0;
-}
-
-@media (max-width: 850px) {
-  .creator-call-mode .layout {
-    grid-template-columns: minmax(0, 1fr);
+@media (max-width: 600px) {
+  .controls-panel {
+    width: 100%;
+    min-width: 0;
   }
 
-  .creator-call-mode .chat-panel {
-    min-height: 390px;
-    max-height: 560px;
-  }
-}
-
-@media (max-width: 540px) {
-  .creator-call-mode {
-    padding: 14px 12px 28px;
-  }
-
-  .creator-call-mode .topbar {
-    margin-bottom: 22px;
-    gap: 10px;
-  }
-
-  .creator-call-mode .brand {
-    font-size: 23px;
-  }
-
-  .creator-call-mode .topbar-label {
-    font-size: 8px;
-    letter-spacing: 1px;
-  }
-
-  .creator-call-mode .topbar-right {
-    gap: 7px;
-  }
-
-  .creator-call-mode .video-section,
-  .creator-call-mode .chat-panel {
-    padding: 14px;
-    border-radius: 16px;
-  }
-
-  .creator-call-mode .section-heading {
-    gap: 10px;
-  }
-
-  .creator-call-mode .section-heading h1 {
-    font-size: 27px;
-  }
-
-  .creator-call-mode .status-pill {
-    padding: 7px 9px;
-    font-size: 10px;
-  }
-
-  .creator-call-mode .remote-card {
-    aspect-ratio: 4 / 3;
-  }
-
-  .creator-call-mode .local-card {
-    right: 9px;
-    bottom: 9px;
-    width: clamp(96px, 31%, 135px);
-  }
-
-  .creator-call-mode .primary-controls {
+  .primary-controls {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .creator-call-mode .start-button,
-  .creator-call-mode .stop-button {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 9px;
     width: 100%;
   }
 
-  .creator-call-mode .secondary-controls {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .primary-controls .start-button,
+  .primary-controls .next-button {
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    padding: 10px 8px;
+    gap: 7px;
+    font-size: 13px;
   }
 
-  .creator-call-mode .utility-button {
-    padding: 9px 5px;
+  .primary-controls .stop-button {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    min-height: 50px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .secondary-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+  }
+
+  .secondary-controls .utility-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    padding: 9px 7px;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .secondary-controls .utility-button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .secondary-controls .utility-button svg {
+    flex: 0 0 auto;
+    width: 17px;
+    height: 17px;
+  }
+
+  .chat-panel {
+    width: 100%;
+    min-width: 0;
+    padding: 18px 14px;
+  }
+
+  .chat-form {
+    gap: 8px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .chat-form input {
+    min-height: 50px;
+    padding: 12px 13px;
+    font-size: 15px;
+  }
+
+  .chat-form input::placeholder {
+    font-size: 14px;
+  }
+
+  .chat-form button {
+    flex-basis: 48px;
+    width: 48px;
+    min-width: 48px;
+    min-height: 50px;
+    border-radius: 13px;
+  }
+
+  .chat-heading h2 {
+    font-size: clamp(22px, 6vw, 30px);
+  }
+
+  .chat-count {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .primary-controls .start-button,
+  .primary-controls .next-button {
+    font-size: 12px;
+    gap: 5px;
+  }
+
+  .secondary-controls .utility-button {
+    font-size: 11px;
+  }
+
+  .chat-panel {
+    padding-right: 11px;
+    padding-left: 11px;
+  }
+}
+
+/* FINAL MOBILE FIX: larger remote live player + contained call controls/chat */
+@media (max-width: 600px) {
+  .video-section {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .video-grid {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .video-card.remote-card {
+    width: 100%;
+    min-height: 0;
+    height: clamp(360px, 68svh, 620px);
+    aspect-ratio: auto;
+    overflow: hidden;
+  }
+
+  .video-card.remote-card .video-feed {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    object-fit: cover;
+  }
+
+  .video-card.local-card {
+    max-width: 38%;
+  }
+
+  .controls-panel,
+  .primary-controls,
+  .secondary-controls,
+  .call-wallet-note,
+  .chat-panel {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .chat-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 480px;
+    padding: 18px 14px;
+    overflow: hidden;
+  }
+
+  .chat-messages,
+  .chat-body,
+  .messages-list {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .chat-form {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    margin-top: auto;
+    padding-top: 14px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .chat-form input {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 52px;
+  }
+
+  .chat-form button {
+    flex: 0 0 52px;
+    width: 52px;
+    min-width: 52px;
+    min-height: 52px;
+    box-sizing: border-box;
   }
 }
