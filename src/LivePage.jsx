@@ -744,13 +744,85 @@ function SubscriptionCreatorExperience() {
   const [messages, setMessages] = useState([{ id: 1, name: "OnlyStream", text: "Welcome! Keep chat respectful." }]);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
+  const [streamStatus, setStreamStatus] = useState("Connecting to creator live…");
+  const viewerVideoRef = useRef(null);
+  const peerRef = useRef(null);
+  const socketRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
   const [media, setMedia] = useState(() => { try { return JSON.parse(localStorage.getItem(`onlystream-media-${username}`) || "[]"); } catch { return []; } });
+
+  useEffect(() => {
+    if (!unlocked) return undefined;
+    let disposed = false;
+    const socket = io({ transports: ["websocket", "polling"] });
+    socketRef.current = socket;
+    const closePeer = () => {
+      if (peerRef.current) { try { peerRef.current.close(); } catch {} peerRef.current = null; }
+      pendingCandidatesRef.current = [];
+      if (viewerVideoRef.current) viewerVideoRef.current.srcObject = null;
+    };
+    const join = () => socket.emit("subscription-live-join", { username }, (result) => {
+      if (disposed) return;
+      if (!result?.ok) setStreamStatus(result?.error || "Creator is not live right now. Please try again later.");
+      else setStreamStatus("Connecting to live video…");
+    });
+    socket.on("connect", join);
+    socket.on("subscription-live-ready", () => { if (!disposed) setStreamStatus("Creator is live. Connecting video…"); });
+    socket.on("subscription-live-signal", async (payload) => {
+      if (disposed || !payload || String(payload.username || "").toLowerCase() !== username.toLowerCase()) return;
+      try {
+        if (payload.type === "offer" && payload.offer) {
+          closePeer();
+          const peer = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }] });
+          peerRef.current = peer;
+          peer.ontrack = (event) => {
+            if (disposed || !viewerVideoRef.current) return;
+            const [remoteStream] = event.streams;
+            if (remoteStream) viewerVideoRef.current.srcObject = remoteStream;
+            setStreamStatus("LIVE NOW");
+            const playResult = viewerVideoRef.current.play();
+            if (playResult?.catch) playResult.catch(() => setStreamStatus("Tap the video to start playback."));
+          };
+          peer.onicecandidate = (event) => {
+            if (event.candidate && socket.connected) socket.emit("subscription-live-signal", { username, targetSocketId: payload.fromSocketId, type: "candidate", candidate: event.candidate });
+          };
+          peer.onconnectionstatechange = () => {
+            if (peer.connectionState === "connected") setStreamStatus("LIVE NOW");
+            else if (["failed", "disconnected", "closed"].includes(peer.connectionState)) setStreamStatus("Video connection interrupted. Waiting to reconnect…");
+          };
+          await peer.setRemoteDescription(new RTCSessionDescription(payload.offer));
+          for (const candidate of pendingCandidatesRef.current) { try { await peer.addIceCandidate(new RTCIceCandidate(candidate)); } catch {} }
+          pendingCandidatesRef.current = [];
+          const answer = await peer.createAnswer();
+          await peer.setLocalDescription(answer);
+          socket.emit("subscription-live-signal", { username, targetSocketId: payload.fromSocketId, type: "answer", answer: peer.localDescription });
+        } else if (payload.type === "candidate" && payload.candidate) {
+          if (peerRef.current?.remoteDescription) await peerRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          else pendingCandidatesRef.current.push(payload.candidate);
+        }
+      } catch (error) {
+        console.warn("Subscription viewer video setup failed:", error);
+        setStreamStatus("Could not connect to the live video. Refresh and try again.");
+      }
+    });
+    socket.on("disconnect", () => { if (!disposed) setStreamStatus("Reconnecting to live stream…"); });
+    socket.on("connect_error", () => { if (!disposed) setStreamStatus("Server connection failed. Please refresh and retry."); });
+    if (socket.connected) join();
+    return () => {
+      disposed = true;
+      socket.removeAllListeners();
+      socket.disconnect();
+      socketRef.current = null;
+      closePeer();
+    };
+  }, [unlocked, username]);
+
   function payDemo() { try { localStorage.setItem(accessKey, "paid-demo"); } catch {} setUnlocked(true); setShowPayment(false); setNotice("Demo payment successful. Lifetime access unlocked on this browser."); }
   function sendMessage(e) { e.preventDefault(); const text = message.trim(); if (!text) return; setMessages(old => [...old, { id: Date.now(), name: "You", text }]); setMessage(""); }
   return <main className="subscription-live-page"><header className="subscription-live-topbar"><a href="/">← Home</a><a href="/" className="subscription-live-brand">OnlyStream<span>.</span></a><span className="subscription-live-badge">SUBSCRIPTION</span></header>
     <section className="subscription-live-heading"><span className="subscription-pill">LIFETIME ACCESS</span><h1>{username}</h1><p>Creator subscription · One-time demo payment · No call coins required for viewing</p></section>
     {notice && <p className="subscription-access-notice">{notice}</p>}
-    <section className="subscription-live-layout"><div className="subscription-live-main"><div className="subscription-big-player">{unlocked ? <div className="subscription-player-placeholder"><Radio size={44}/><strong>{username}'s live player</strong><span>Creator live broadcast preview</span><small>Demo UI: real-time creator video broadcasting is not connected yet.</small></div> : <div className="subscription-locked-player"><span>🔒</span><h2>Subscriber-only live</h2><p>Unlock lifetime access to watch this creator's live streams, photos and videos.</p><button onClick={() => setShowPayment(true)}>Unlock for ₹{price}</button></div>}</div>
+    <section className="subscription-live-layout"><div className="subscription-live-main"><div className="subscription-big-player">{unlocked ? <div className="subscription-player-placeholder subscription-player-live"><video ref={viewerVideoRef} autoPlay playsInline controls className="subscription-viewer-live-video" aria-label={`${username} live video`} /><div className="subscription-viewer-stream-status"><span className="subscription-pill">{streamStatus}</span></div></div> : <div className="subscription-locked-player"><span>🔒</span><h2>Subscriber-only live</h2><p>Unlock lifetime access to watch this creator's live streams, photos and videos.</p><button onClick={() => setShowPayment(true)}>Unlock for ₹{price}</button></div>}</div>
       <div className="subscription-content-panel"><div className="subscription-content-title"><div><span className="subscription-pill">SUBSCRIPTION CONTENT</span><h2>Photos & videos</h2></div><span>{unlocked ? media.length + " items" : "Locked"}</span></div>{!unlocked ? <p className="subscription-content-locked">Pay once to unlock the creator's gallery for lifetime access.</p> : media.length ? <div className="subscription-viewer-gallery">{media.map(item => <article key={item.id}>{item.type === "video" ? <video src={item.data} controls playsInline/> : <img src={item.data} alt={item.name || "Creator photo"}/>}<span>{item.type === "video" ? "VIDEO" : "PHOTO"}</span></article>)}</div> : <p className="subscription-content-locked">No photos or videos have been uploaded by this creator yet.</p>}</div></div>
       <aside className="subscription-viewer-chat"><div className="subscription-chat-heading"><div><span>LIVE COMMUNITY</span><h2>Live chat</h2></div><span className="subscription-chat-online">● DEMO</span></div><div className="subscription-chat-messages">{messages.map(item => <div className="subscription-chat-message" key={item.id}><strong>{item.name}</strong><p>{item.text}</p></div>)}</div><form onSubmit={sendMessage} className="subscription-chat-form"><input value={message} onChange={e => setMessage(e.target.value)} placeholder={unlocked ? "Write a message…" : "Unlock to join chat"} disabled={!unlocked}/><button disabled={!unlocked || !message.trim()}>Send</button></form><div className="subscription-no-calls"><strong>Subscription access</strong><p>Watching content is included after the one-time payment. Creator calls remain separate and are not included.</p></div></aside></section>
     {showPayment && <div className="subscription-payment-backdrop" role="presentation"><section className="subscription-payment-modal" role="dialog" aria-modal="true" aria-labelledby="subscription-payment-title"><button className="subscription-modal-close" onClick={() => setShowPayment(false)} aria-label="Close payment popup">×</button><span className="subscription-pill">ONE-TIME PAYMENT</span><h2 id="subscription-payment-title">Unlock {username}</h2><p>Pay once for lifetime access to this creator's subscriber content and live streams.</p><div className="subscription-payment-price"><span>Lifetime access</span><strong>₹{price}</strong><small>Demo payment · No real money charged</small></div><ul><li>Watch subscriber live streams</li><li>Access uploaded photos and videos</li><li>No recurring subscription fee</li><li>Paid calls are not included</li></ul><button className="subscription-demo-pay-button" onClick={payDemo}>Pay ₹{price} · Demo</button><button className="subscription-cancel-payment" onClick={() => setShowPayment(false)}>Maybe later</button></section></div>}
