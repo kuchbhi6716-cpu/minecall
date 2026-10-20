@@ -710,19 +710,9 @@ export default function Home() {
               <ArrowUpRight size={15} />
             </button>
           ) : (
-            <>
-              <a className="creator-studio-link" href="/login">
-                Login
-              </a>
-              <button
-                type="button"
-                className="creator-studio-link"
-                onClick={openCreatorStudio}
-              >
-                Creator Studio
-                <ArrowUpRight size={15} />
-              </button>
-            </>
+            <a className="creator-studio-link" href="/login">
+              Login
+            </a>
           )}
         </div>
       </nav>
