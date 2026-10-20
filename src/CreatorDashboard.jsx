@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
-  ArrowLeft, Camera, CameraOff, Coins, Gift, LogOut, Phone,
+  ArrowLeft, Camera, CameraOff, Gift, LogOut, Phone,
   Radio, ShieldCheck, Video, VideoOff, PhoneOff, Check, X,
-  RefreshCw, Wallet, Mic, MicOff, RotateCw, Send
+  RefreshCw, Wallet, Mic, MicOff, RotateCw, Send, TrendingUp, CalendarDays, ArrowUpRight
 } from "lucide-react";
 import "./CreatorDashboard.css";
 
@@ -64,6 +64,9 @@ export default function CreatorDashboard() {
   const [economy, setEconomy] = useState(null);
   const [economyLoading, setEconomyLoading] = useState(true);
   const [economyError, setEconomyError] = useState("");
+  const [ledger, setLedger] = useState([]);
+  const [showEarnings, setShowEarnings] = useState(false);
+  const [earningsPeriod, setEarningsPeriod] = useState("week");
   const [callStartedAt, setCallStartedAt] = useState(null);
   const [callElapsed, setCallElapsed] = useState(0);
   const [chatMessages, setChatMessages] = useState([]);
@@ -103,6 +106,7 @@ export default function CreatorDashboard() {
 
       if (mountedRef.current) {
         setEconomy(data.account ?? data.economy ?? data);
+        setLedger(Array.isArray(data.recentLedger) ? data.recentLedger : []);
       }
     } catch (error) {
       if (mountedRef.current) {
@@ -818,6 +822,35 @@ export default function CreatorDashboard() {
     economy?.earnings ?? economy?.wallet?.revenue ?? 0;
 
   const signupBonus = Number(economy?.testBonusInr ?? 0);
+  const earningRows = ledger
+    .filter((row) => row.username === username || row.creatorUsername === username)
+    .map((row) => {
+      const isBonus = row.type === "creator-test-signup-bonus";
+      const amount = isBonus ? Number(row.amountInr || 0) : Number(row.creatorShareInr || 0);
+      return { ...row, isBonus, earningAmount: amount, date: new Date(row.at || Date.now()) };
+    })
+    .filter((row) => row.earningAmount > 0)
+    .sort((a, b) => b.date - a.date);
+  const nowForEarnings = new Date();
+  const periodDays = earningsPeriod === "today" ? 1 : earningsPeriod === "week" ? 7 : 30;
+  const periodStart = new Date(nowForEarnings);
+  periodStart.setHours(0, 0, 0, 0);
+  periodStart.setDate(periodStart.getDate() - (periodDays - 1));
+  const periodRows = earningRows.filter((row) => row.date >= periodStart && row.date <= nowForEarnings);
+  const periodCallRows = periodRows.filter((row) => !row.isBonus);
+  const periodCallTotal = periodCallRows.reduce((sum, row) => sum + row.earningAmount, 0);
+  const totalEarned = signupBonus + Number(creatorRevenue || 0);
+  const graphBuckets = Array.from({ length: earningsPeriod === "today" ? 6 : earningsPeriod === "week" ? 7 : 30 }, (_, index) => {
+    const date = new Date(periodStart);
+    if (earningsPeriod === "today") date.setHours(date.getHours() + index * 4);
+    else date.setDate(date.getDate() + index);
+    const end = new Date(date);
+    if (earningsPeriod === "today") end.setHours(end.getHours() + 4);
+    else end.setDate(end.getDate() + 1);
+    const amount = periodCallRows.filter((row) => row.date >= date && row.date < end).reduce((sum, row) => sum + row.earningAmount, 0);
+    return { label: earningsPeriod === "today" ? `${String(date.getHours()).padStart(2, "0")}:00` : date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }), amount };
+  });
+  const graphMax = Math.max(1, ...graphBuckets.map((item) => item.amount));
 
   const elapsedLabel =
     `${String(Math.floor(callElapsed / 60)).padStart(2, "0")}:` +
@@ -843,7 +876,41 @@ export default function CreatorDashboard() {
         </p>
       </div>
 
-      <section className="creator-dashboard-grid">
+      {showEarnings && (
+        <section className="creator-earnings-page">
+          <button type="button" className="creator-earnings-back" onClick={() => setShowEarnings(false)}><ArrowLeft size={17} /> Back to Creator Studio</button>
+          <div className="creator-earnings-heading">
+            <div><p className="creator-eyebrow">CREATOR FINANCE</p><h2>Your Earnings</h2><p>Signup bonus and earnings from every recorded call.</p></div>
+            <div className="creator-earnings-total"><span>Total earnings</span><strong>{economyLoading ? "…" : `₹${formatNumber(totalEarned)}`}</strong><small>Signup bonus + call earnings</small></div>
+          </div>
+          <div className="creator-earnings-summary-grid">
+            <article className="creator-earnings-summary"><span><Gift size={17} /> Signup bonus</span><strong>₹{formatNumber(signupBonus)}</strong></article>
+            <article className="creator-earnings-summary"><span><Phone size={17} /> Earnings from calls</span><strong>₹{formatNumber(creatorRevenue)}</strong></article>
+            <article className="creator-earnings-summary"><span><CalendarDays size={17} /> Selected period</span><strong>₹{formatNumber(periodCallTotal)}</strong></article>
+          </div>
+          <div className="creator-earnings-panel">
+            <div className="creator-earnings-panel-heading"><div><h3>Earnings overview</h3><p>Call earnings grouped by date. Signup bonus is shown separately above.</p></div>
+              <div className="creator-period-tabs">
+                <button className={earningsPeriod === "today" ? "active" : ""} onClick={() => setEarningsPeriod("today")}>Today</button>
+                <button className={earningsPeriod === "week" ? "active" : ""} onClick={() => setEarningsPeriod("week")}>Last 7 days</button>
+                <button className={earningsPeriod === "month" ? "active" : ""} onClick={() => setEarningsPeriod("month")}>Last 30 days</button>
+              </div>
+            </div>
+            <div className={`creator-earnings-chart ${earningsPeriod === "month" ? "month-chart" : ""}`} role="img" aria-label="Call earnings graph">
+              {graphBuckets.map((item, index) => <div className="creator-earnings-bar-wrap" key={`${item.label}-${index}`} title={`${item.label}: ₹${item.amount.toFixed(2)}`}><div className="creator-earnings-bar" style={{ height: `${Math.max(item.amount > 0 ? 5 : 2, (item.amount / graphMax) * 100)}%` }} /><span>{earningsPeriod === "month" && index % 5 !== 0 ? "" : item.label}</span></div>)}
+            </div>
+            <div className="creator-earnings-chart-foot"><span>Selected period call earnings</span><strong>₹{periodCallTotal.toFixed(2)}</strong></div>
+          </div>
+          <div className="creator-earnings-panel creator-earnings-history">
+            <div className="creator-earnings-panel-heading"><div><h3>Earning history</h3><p>Signup bonus and individual call earnings.</p></div></div>
+            {earningRows.length ? earningRows.map((row) => <div className="creator-earning-row" key={row.id}><div className="creator-earning-row-icon">{row.isBonus ? <Gift size={18} /> : <Phone size={18} />}</div><div className="creator-earning-row-copy"><strong>{row.isBonus ? "Signup bonus" : "Earning from call"}</strong><span>{row.date.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}{row.callId ? ` · Call ${String(row.callId).slice(-6)}` : ""}</span></div><strong className="creator-earning-amount">+₹{row.earningAmount.toFixed(2)}</strong></div>) : <div className="creator-earnings-empty">No earning entries have been recorded yet. New call earnings will appear here.</div>}
+          </div>
+          <div className="creator-withdraw-area"><div><h3>Want to withdraw?</h3><p>Withdrawals are not enabled in this testing version. No real payout can be requested yet.</p></div><button type="button" disabled title="Withdrawals are not enabled in test mode"><Wallet size={18} /> Withdraw earnings</button></div>
+          {economyError && <p className="creator-error" role="alert">{economyError}</p>}
+        </section>
+      )}
+
+      {!showEarnings && <section className="creator-dashboard-grid">
         <div className="creator-camera-panel">
           <div className="creator-panel-heading">
             <div>
@@ -1011,16 +1078,13 @@ export default function CreatorDashboard() {
         </div>
 
         <aside className="creator-stats-column">
-          <div className="creator-stat-card">
-            <div className="creator-stat-icon"><Coins size={22} /></div>
-            <p className="creator-stat-label">Creator coin balance</p>
-            <div className="creator-stat-value">
-              {economyLoading ? "…" : formatNumber(creatorCoins)}
-            </div>
-            <p className="creator-stat-footnote">
-              Demo balance · refreshes from the server
-            </p>
-          </div>
+          <button type="button" className="creator-stat-card creator-earnings-link-card" onClick={() => { setShowEarnings(true); refreshEconomy(); }}>
+            <div className="creator-stat-icon"><TrendingUp size={22} /></div>
+            <p className="creator-stat-label">Your Earnings</p>
+            <div className="creator-stat-value">₹{formatNumber(signupBonus + Number(creatorRevenue || 0))}</div>
+            <p className="creator-stat-footnote">View signup bonus, call history, graphs and withdrawal options</p>
+            <span className="creator-earnings-link-action">View earnings <ArrowUpRight size={16} /></span>
+          </button>
 
           <div className="creator-stat-card">
             <div className="creator-stat-icon"><Gift size={22} /></div>
@@ -1081,7 +1145,7 @@ export default function CreatorDashboard() {
             </p>
           </div>
         </aside>
-      </section>
+      </section>}
     </main>
   );
 }
