@@ -40,6 +40,7 @@ export default function CreatorDashboard() {
   const socketRef = useRef(null);
   const peerRef = useRef(null);
   const subscriptionPeersRef = useRef(new Map());
+  const subscriptionIceQueueRef = useRef(new Map());
   const pendingSignalsRef = useRef([]);
   const pendingCandidatesRef = useRef([]);
   const processingSignalsRef = useRef(false);
@@ -403,6 +404,7 @@ export default function CreatorDashboard() {
         try { oldPeer.close(); } catch {}
         subscriptionPeersRef.current.delete(viewerSocketId);
       }
+      subscriptionIceQueueRef.current.delete(viewerSocketId);
 
       try {
         const peer = new RTCPeerConnection(ICE_SERVERS);
@@ -438,10 +440,22 @@ export default function CreatorDashboard() {
       const peer = subscriptionPeersRef.current.get(payload.fromSocketId);
       if (!peer) return;
       try {
-        if (payload.type === "answer" && payload.answer && !peer.currentRemoteDescription) {
+        if (payload.type === "answer" && payload.answer && !peer.remoteDescription) {
           await peer.setRemoteDescription(new RTCSessionDescription(payload.answer));
+          const queued = subscriptionIceQueueRef.current.get(payload.fromSocketId) || [];
+          subscriptionIceQueueRef.current.delete(payload.fromSocketId);
+          for (const candidate of queued) {
+            try { await peer.addIceCandidate(new RTCIceCandidate(candidate)); }
+            catch (candidateError) { console.warn("Queued subscription ICE candidate failed:", candidateError); }
+          }
         } else if (payload.type === "candidate" && payload.candidate) {
-          await peer.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          if (!peer.remoteDescription) {
+            const queued = subscriptionIceQueueRef.current.get(payload.fromSocketId) || [];
+            queued.push(payload.candidate);
+            subscriptionIceQueueRef.current.set(payload.fromSocketId, queued);
+          } else {
+            await peer.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          }
         }
       } catch (error) {
         console.warn("Subscription live signal could not be applied:", error);
@@ -564,6 +578,7 @@ export default function CreatorDashboard() {
       closePeer();
       subscriptionPeersRef.current.forEach((peer) => { try { peer.close(); } catch {} });
       subscriptionPeersRef.current.clear();
+      subscriptionIceQueueRef.current.clear();
       stopLocalStream();
     };
   }, [
@@ -796,6 +811,17 @@ export default function CreatorDashboard() {
         else peer.addTrack(newTrack, streamRef.current);
       }
 
+      // Keep every subscriber broadcast peer on the newly selected camera too.
+      for (const subscriptionPeer of subscriptionPeersRef.current.values()) {
+        const sender = subscriptionPeer.getSenders().find(
+          (item) => item.track?.kind === "video"
+        );
+        if (sender) {
+          try { await sender.replaceTrack(newTrack); }
+          catch (replaceError) { console.warn("Could not update subscriber camera track:", replaceError); }
+        }
+      }
+
       const oldTrack = streamRef.current.getVideoTracks()[0];
       if (oldTrack) {
         streamRef.current.removeTrack(oldTrack);
@@ -831,6 +857,7 @@ export default function CreatorDashboard() {
     closePeer();
     subscriptionPeersRef.current.forEach((peer) => { try { peer.close(); } catch {} });
     subscriptionPeersRef.current.clear();
+      subscriptionIceQueueRef.current.clear();
     setIncomingCall(null);
     requestRef.current = null;
     acceptingRequestRef.current = null;
@@ -881,6 +908,7 @@ export default function CreatorDashboard() {
     closePeer();
     subscriptionPeersRef.current.forEach((peer) => { try { peer.close(); } catch {} });
     subscriptionPeersRef.current.clear();
+      subscriptionIceQueueRef.current.clear();
     stopLocalStream();
 
     localStorage.removeItem(LIVE_KEY);
