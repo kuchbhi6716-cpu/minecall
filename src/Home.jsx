@@ -645,10 +645,16 @@ export default function Home() {
     if (session?.role === "user") return;
 
     if (session?.role === "creator") {
-      window.location.href = "/creator";
+      // Subscription creators must open their own studio, not the pay-per-call dashboard.
+      const destination = session.creatorPlan === "subscription"
+        ? "/subscription-creator"
+        : "/creator";
+      window.location.href = destination;
       return;
     }
 
+    // After login, AuthPage checks the creator plan and redirects subscription creators
+    // to /subscription-creator while call creators go to /creator.
     window.location.href = "/login?next=%2Fcreator";
   }
 
