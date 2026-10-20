@@ -20,7 +20,7 @@ export default function SubscriptionCreatorDashboard() {
   const [message, setMessage] = useState("");
   const [viewers, setViewers] = useState(0);
   const [earnings, setEarnings] = useState({ today: 0, week: 0, month: 0, total: 0, transactions: 0 });
-  const [media, setMedia] = useState(() => { try { return JSON.parse(localStorage.getItem(`onlystream-media-${JSON.parse(localStorage.getItem(SESSION_KEY) || "{}")?.username || "creator"}`) || "[]"); } catch { return []; } });
+  const [media, setMedia] = useState([]);
   const [mediaNotice, setMediaNotice] = useState("");
   const mediaInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -44,13 +44,16 @@ export default function SubscriptionCreatorDashboard() {
     if (session.creatorPlan !== "subscription") { window.location.replace("/creator"); return; }
     setUsername(session.username || "Creator");
     setPrice(Math.max(1, Number(session.subscriptionPrice) || 499));
-    try { setMedia(JSON.parse(localStorage.getItem(`onlystream-media-${session.username}`) || "[]")); } catch {}
+    const loadMedia = () => socketRef.current?.emit("subscription-media-get", { username: session.username }, (response) => {
+      if (response?.ok) setMedia(Array.isArray(response.items) ? response.items : []);
+      else setMediaNotice(response?.error || "Could not load subscriber gallery.");
+    });
     const loadEarnings = () => socketRef.current?.emit("subscription-earnings-get", { username: session.username }, (data) => {
       if (data?.ok) setEarnings(data.earnings || { today: 0, week: 0, month: 0, total: 0, transactions: 0 });
     });
     const socket = io({ transports: ["websocket", "polling"] });
     socketRef.current = socket;
-    socket.on("connect", () => { socket.emit("get-live-creators"); setError(""); loadEarnings(); });
+    socket.on("connect", () => { socket.emit("get-live-creators"); setError(""); loadEarnings(); loadMedia(); });
     socket.on("subscription-earnings-updated", (data) => {
       if (String(data?.username || "").toLowerCase() === String(session.username || "").toLowerCase()) loadEarnings();
     });
@@ -121,36 +124,42 @@ export default function SubscriptionCreatorDashboard() {
       else setError(data?.error || "Earnings load nahi ho paayi.");
     });
   }
-  function uploadMedia(event) {
+  async function uploadMedia(event) {
     const files = Array.from(event.target.files || []);
-    if (!files.length) return;
-    const key = `onlystream-media-${username}`;
-    const existing = [...media];
-    let pending = files.length;
-    let failed = false;
-    files.forEach((file) => {
-      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) { failed = true; pending--; return; }
-      // localStorage is only for demo uploads; keep individual files small to avoid quota errors.
-      if (file.size > 2 * 1024 * 1024) { failed = true; pending--; return; }
-      const reader = new FileReader();
-      reader.onload = () => {
-        existing.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: file.name, type: file.type.startsWith("video/") ? "video" : "photo", data: reader.result, createdAt: new Date().toISOString() });
-        pending--;
-        if (pending === 0) {
-          try { localStorage.setItem(key, JSON.stringify(existing)); setMedia(existing); setMediaNotice(failed ? "Some files skipped. Demo uploads must be images/videos under 2 MB each." : "Upload complete. Subscribers can see these files in the gallery on this browser."); }
-          catch { setMediaNotice("Storage full. Try smaller files or remove old uploads."); }
-        }
-      };
-      reader.onerror = () => { failed = true; pending--; if (pending === 0) setMediaNotice("Some files could not be uploaded."); };
-      reader.readAsDataURL(file);
-    });
     event.target.value = "";
-    if (pending === 0) setMediaNotice("Choose images/videos under 2 MB each for this demo upload.");
+    if (!files.length) return;
+    const socket = socketRef.current;
+    if (!socket?.connected) { setMediaNotice("Server is offline. Reconnect and try uploading again."); return; }
+    setMediaNotice("Uploading selected files…");
+    let uploaded = 0;
+    let skipped = 0;
+    for (const file of files) {
+      if ((!file.type.startsWith("image/") && !file.type.startsWith("video/")) || file.size > 2 * 1024 * 1024) { skipped++; continue; }
+      try {
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error("Could not read file"));
+          reader.readAsDataURL(file);
+        });
+        const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: file.name, type: file.type.startsWith("video/") ? "video" : "photo", data };
+        const response = await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("Upload timed out. Try a smaller file.")), 15000);
+          socket.emit("subscription-media-upload", { username, item }, (result) => { clearTimeout(timer); if (result?.ok) resolve(result); else reject(new Error(result?.error || "Upload failed")); });
+        });
+        setMedia(Array.isArray(response.items) ? response.items : old => [...old, item]);
+        uploaded++;
+      } catch (err) { skipped++; }
+    }
+    setMediaNotice(`${uploaded} file(s) uploaded and shared with subscribers.${skipped ? ` ${skipped} file(s) skipped; use image/video files under 2 MB each and check server connection.` : ""}`);
   }
-  function deleteMedia(id) {
-    const next = media.filter(item => item.id !== id);
-    try { localStorage.setItem(`onlystream-media-${username}`, JSON.stringify(next)); setMedia(next); setMediaNotice("Media removed."); }
-    catch { setMediaNotice("Could not update gallery."); }
+  async function deleteMedia(id) {
+    const socket = socketRef.current;
+    if (!socket?.connected) { setMediaNotice("Server is offline. Reconnect before deleting uploads."); return; }
+    socket.emit("subscription-media-delete", { username, id }, (response) => {
+      if (response?.ok) { setMedia(Array.isArray(response.items) ? response.items : []); setMediaNotice("Upload removed from your subscriber gallery."); }
+      else setMediaNotice(response?.error || "Could not delete upload.");
+    });
   }
   function sendMessage(e) { e.preventDefault(); const text = message.trim(); if (!text || !isLive || !socketRef.current?.connected) return; socketRef.current.emit("subscription-chat-message", { username, name: username, text }); setMessage(""); }
   function logout() { endLive(); try { localStorage.removeItem(SESSION_KEY); } catch {} window.location.replace("/"); }
