@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import {
   Video,
@@ -9,6 +8,7 @@ import {
   ShieldCheck,
   LockKeyhole,
   RefreshCw,
+  LogOut,
 } from "lucide-react";
 import "./Home.css";
 
@@ -383,6 +383,18 @@ export default function Home() {
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
   const [showMoreSections, setShowMoreSections] = useState(false);
+  const [session, setSession] = useState(() => {
+    try {
+      const saved = JSON.parse(
+        window.localStorage.getItem(SESSION_KEY) || "null"
+      );
+      return saved && (saved.role === "user" || saved.role === "creator")
+        ? saved
+        : null;
+    } catch {
+      return null;
+    }
+  });
 
   const [onlyStreamCreators, setOnlyStreamCreators] = useState([]);
   const [creatorsLoading, setCreatorsLoading] = useState(true);
@@ -604,25 +616,29 @@ export default function Home() {
   }
 
   function openCreatorStudio() {
-    try {
-      const session = JSON.parse(
-        localStorage.getItem(SESSION_KEY) || "null"
-      );
+    // A normal user must never be sent into Creator Studio.
+    if (session?.role === "user") return;
 
-      if (session?.role === "creator") {
-        window.location.href = "/creator";
-        return;
-      }
-
-      if (session?.role === "user") {
-        window.location.href = "/creator";
-        return;
-      }
-    } catch {
-      // Continue to login if session data is invalid.
+    if (session?.role === "creator") {
+      window.location.href = "/creator";
+      return;
     }
 
     window.location.href = "/login?next=%2Fcreator";
+  }
+
+  function logoutUser() {
+    // Logout is only shown to normal user accounts.
+    if (session?.role !== "user") return;
+
+    try {
+      window.localStorage.removeItem(SESSION_KEY);
+    } catch {
+      // Continue to the homepage even if browser storage is unavailable.
+    }
+
+    setSession(null);
+    window.location.replace("/");
   }
 
   function renderLiveSection(section) {
@@ -674,14 +690,25 @@ export default function Home() {
 
         <div className="home-nav-actions">
           <span className="online-status">● We're online</span>
-          <button
-            type="button"
-            className="creator-studio-link"
-            onClick={openCreatorStudio}
-          >
-            Creator Studio
-            <ArrowUpRight size={15} />
-          </button>
+          {session?.role === "user" ? (
+            <button
+              type="button"
+              className="creator-studio-link"
+              onClick={logoutUser}
+            >
+              Logout
+              <LogOut size={15} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="creator-studio-link"
+              onClick={openCreatorStudio}
+            >
+              Creator Studio
+              <ArrowUpRight size={15} />
+            </button>
+          )}
         </div>
       </nav>
 
