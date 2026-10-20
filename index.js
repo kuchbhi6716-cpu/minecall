@@ -612,6 +612,12 @@ function getPublicLiveCreators() {
   return Array.from(liveCreators.values()).map((creator) => ({
     username: creator.username,
     startedAt: creator.startedAt,
+    creatorPlan: creator.creatorPlan || "calls",
+    creator_plan: creator.creatorPlan || "calls",
+    subscriptionPrice: Number(creator.subscriptionPrice) || 499,
+    subscription_price: Number(creator.subscriptionPrice) || 499,
+    isLive: true,
+    is_live: true,
   }));
 }
 
@@ -1110,9 +1116,18 @@ io.on("connection", (socket) => {
       }
     }
 
+    const requestedPlan = String(payload?.creatorPlan || payload?.creator_plan || payload?.plan || "calls").toLowerCase();
+    const creatorPlan = requestedPlan === "subscription" ? "subscription" : "calls";
+    const parsedPrice = Number(payload?.subscriptionPrice ?? payload?.subscription_price);
+    const subscriptionPrice = Number.isFinite(parsedPrice) && parsedPrice >= 1
+      ? Math.min(Math.round(parsedPrice), 100000)
+      : 499;
+
     const creator = {
       username,
       socketId: socket.id,
+      creatorPlan,
+      subscriptionPrice,
       startedAt: new Date().toISOString(),
     };
 
@@ -1127,6 +1142,10 @@ io.on("connection", (socket) => {
       ok: true,
       creator: {
         username,
+        creatorPlan: creator.creatorPlan,
+        creator_plan: creator.creatorPlan,
+        subscriptionPrice: creator.subscriptionPrice,
+        subscription_price: creator.subscriptionPrice,
         startedAt: creator.startedAt,
       },
     });
@@ -1590,6 +1609,44 @@ io.on("connection", (socket) => {
     }
 
     io.to(partnerId).emit("chat-message", message.trim().slice(0, 1000));
+  });
+
+  // Subscription broadcasts use a separate signaling path from paid calls.
+  // Viewers join by creator username; the creator relays WebRTC offers/answers/candidates.
+  socket.on("subscription-live-join", (payload, acknowledge) => {
+    const username = normalizeCreatorName(payload?.username);
+    const creator = username ? liveCreators.get(username) : null;
+    if (!creator || !io.sockets.sockets.get(creator.socketId)) {
+      if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Creator is not live right now." });
+      return;
+    }
+    socket.join(`subscription-viewers:${username.toLowerCase()}`);
+    socket.data.subscriptionCreatorUsername = username;
+    socket.emit("subscription-live-ready", { username, creatorSocketId: creator.socketId });
+    io.to(creator.socketId).emit("subscription-viewer-joined", { viewerSocketId: socket.id, username });
+    if (typeof acknowledge === "function") acknowledge({ ok: true, username, creatorSocketId: creator.socketId });
+  });
+
+  socket.on("subscription-live-signal", (payload) => {
+    if (!payload || typeof payload !== "object" || !["offer", "answer", "candidate"].includes(payload.type)) return;
+    const targetId = typeof payload.targetSocketId === "string" ? payload.targetSocketId : "";
+    const target = io.sockets.sockets.get(targetId);
+    if (!target) return;
+    const username = normalizeCreatorName(payload.username);
+    const liveCreator = username ? liveCreators.get(username) : null;
+    const senderIsCreator = liveCreator?.socketId === socket.id;
+    const senderIsViewer = socket.data.subscriptionCreatorUsername?.toLowerCase() === username.toLowerCase();
+    if (!senderIsCreator && !senderIsViewer) return;
+    if (senderIsViewer && targetId !== liveCreator?.socketId) return;
+    if (senderIsCreator && !target.rooms.has(`subscription-viewers:${username.toLowerCase()}`)) return;
+    io.to(targetId).emit("subscription-live-signal", {
+      username,
+      type: payload.type,
+      offer: payload.offer,
+      answer: payload.answer,
+      candidate: payload.candidate,
+      fromSocketId: socket.id,
+    });
   });
 
   socket.on("signal", (data) => {
