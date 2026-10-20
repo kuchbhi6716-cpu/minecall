@@ -1,4 +1,3 @@
-
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 :root {
@@ -2027,248 +2026,100 @@ button:disabled {
   font-size: 11px;
 }
 
+/* OnlyStream mobile call layout fix v3
+   Keeps both video elements mounted and visible: remote video is larger,
+   while the user's local camera remains as a picture-in-picture preview. */
+@media (max-width: 760px) {
+  .video-grid {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding-bottom: 0;
+  }
 
-/* ===== Mobile call controls + chat composer overflow fix ===== */
-.controls-panel,
-.primary-controls,
-.secondary-controls,
-.chat-panel,
-.chat-heading,
-.chat-form {
-  min-width: 0;
-  max-width: 100%;
-}
+  .video-grid .remote-card {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    aspect-ratio: 0.88 / 1;
+    position: relative;
+    z-index: 1;
+  }
 
-.primary-controls,
-.secondary-controls {
-  align-items: stretch;
-}
+  /* Do not hide .local-card or .local-feed: this is the user's camera preview. */
+  .video-grid .local-card {
+    display: block;
+    position: absolute;
+    z-index: 5;
+    right: 12px;
+    bottom: 12px;
+    width: clamp(104px, 30%, 150px);
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 3 / 4;
+    border: 2px solid rgba(245, 240, 255, 0.82);
+    border-radius: 17px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+    background: #171220;
+  }
 
-.primary-controls > button,
-.secondary-controls > button {
-  min-width: 0;
-  max-width: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
+  .video-grid .local-card .video-feed,
+  .video-grid .local-card .local-placeholder {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
-.chat-panel {
-  box-sizing: border-box;
-  overflow: hidden;
-}
+  .video-grid .local-card .local-placeholder {
+    padding: 8px;
+    font-size: 11px;
+  }
 
-.chat-heading > div:first-child {
-  min-width: 0;
-}
+  .video-grid .local-card .local-placeholder p {
+    margin: 6px 0 0;
+    font-size: 10px;
+  }
 
-.chat-heading h2 {
-  overflow-wrap: anywhere;
-}
+  .video-grid .local-card .self-avatar {
+    max-width: 44px;
+    max-height: 44px;
+  }
 
-.messages-area {
-  min-width: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
+  .video-grid .local-card .local-label {
+    display: block;
+    position: absolute;
+    z-index: 3;
+    top: 9px;
+    left: 10px;
+  }
 
-.chat-form {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.chat-form input {
-  flex: 1 1 0;
-  width: 0;
-  min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.chat-form button {
-  flex: 0 0 54px;
-  width: 54px;
-  min-width: 54px;
-  min-height: 54px;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-@media (max-width: 600px) {
   .controls-panel {
     width: 100%;
     min-width: 0;
+    overflow: visible;
   }
 
   .primary-controls {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 9px;
-    width: 100%;
-  }
-
-  .primary-controls .start-button,
-  .primary-controls .next-button {
     width: 100%;
     min-width: 0;
-    min-height: 48px;
-    padding: 10px 8px;
-    gap: 7px;
-    font-size: 13px;
   }
 
-  .primary-controls .stop-button {
-    grid-column: 1 / -1;
-    width: 100%;
+  .primary-controls button {
     min-width: 0;
-    min-height: 50px;
-    padding: 10px 12px;
-    font-size: 14px;
-  }
-
-  .secondary-controls {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 8px;
-    width: 100%;
-  }
-
-  .secondary-controls .utility-button {
-    display: flex;
+    white-space: normal;
     justify-content: center;
-    align-items: center;
-    width: 100%;
-    min-width: 0;
-    min-height: 46px;
-    padding: 9px 7px;
-    gap: 6px;
-    font-size: 12px;
-    line-height: 1.25;
-  }
-
-  .secondary-controls .utility-button:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .secondary-controls .utility-button svg {
-    flex: 0 0 auto;
-    width: 17px;
-    height: 17px;
   }
 
   .chat-panel {
     width: 100%;
-    min-width: 0;
-    padding: 18px 14px;
-  }
-
-  .chat-form {
-    gap: 8px;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .chat-form input {
-    min-height: 50px;
-    padding: 12px 13px;
-    font-size: 15px;
-  }
-
-  .chat-form input::placeholder {
-    font-size: 14px;
-  }
-
-  .chat-form button {
-    flex-basis: 48px;
-    width: 48px;
-    min-width: 48px;
-    min-height: 50px;
-    border-radius: 13px;
-  }
-
-  .chat-heading h2 {
-    font-size: clamp(22px, 6vw, 30px);
-  }
-
-  .chat-count {
-    flex: 0 0 auto;
-  }
-}
-
-@media (max-width: 360px) {
-  .primary-controls .start-button,
-  .primary-controls .next-button {
-    font-size: 12px;
-    gap: 5px;
-  }
-
-  .secondary-controls .utility-button {
-    font-size: 11px;
-  }
-
-  .chat-panel {
-    padding-right: 11px;
-    padding-left: 11px;
-  }
-}
-
-/* FINAL MOBILE FIX: larger remote live player + contained call controls/chat */
-@media (max-width: 600px) {
-  .video-section {
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .video-grid {
-    width: 100%;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-  }
-
-  .video-card.remote-card {
-    width: 100%;
-    min-height: 0;
-    height: clamp(360px, 68svh, 620px);
-    aspect-ratio: auto;
-    overflow: hidden;
-  }
-
-  .video-card.remote-card .video-feed {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    object-fit: cover;
-  }
-
-  .video-card.local-card {
-    max-width: 38%;
-  }
-
-  .controls-panel,
-  .primary-controls,
-  .secondary-controls,
-  .call-wallet-note,
-  .chat-panel {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-
-  .chat-panel {
-    display: flex;
-    flex-direction: column;
-    min-height: 480px;
-    padding: 18px 14px;
-    overflow: hidden;
-  }
-
-  .chat-messages,
-  .chat-body,
-  .messages-list {
     min-width: 0;
     max-width: 100%;
-    overflow-wrap: anywhere;
+    overflow: hidden;
   }
 
   .chat-form {
@@ -2277,24 +2128,45 @@ button:disabled {
     gap: 8px;
     width: 100%;
     min-width: 0;
-    margin-top: auto;
-    padding-top: 14px;
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding: 12px;
   }
 
   .chat-form input {
     flex: 1 1 0;
     width: 0;
     min-width: 0;
-    box-sizing: border-box;
-    min-height: 52px;
+    max-width: 100%;
+    font-size: 16px;
   }
 
   .chat-form button {
-    flex: 0 0 52px;
-    width: 52px;
-    min-width: 52px;
-    min-height: 52px;
-    box-sizing: border-box;
+    flex: 0 0 48px;
+    width: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .video-grid .remote-card {
+    aspect-ratio: 0.84 / 1;
+  }
+
+  .video-grid .local-card {
+    width: 106px;
+    right: 9px;
+    bottom: 9px;
+  }
+
+  .chat-form {
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .chat-form button {
+    flex-basis: 44px;
+    width: 44px;
+    min-width: 44px;
   }
 }
