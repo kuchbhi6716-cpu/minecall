@@ -22,3 +22,11 @@
 .sub-creator-refresh:disabled { opacity: .72; cursor: wait; }
 .sub-creator-refresh-spinning { animation: subCreatorRefreshSpin .8s linear infinite; }
 @keyframes subCreatorRefreshSpin { to { transform: rotate(360deg); } }
+
+/* Subscription Creator: Mirror-like live preview */
+.subscription-creator-dashboard video,
+.subscription-creator-dashboard .local-preview video,
+.subscription-creator-dashboard .creator-preview video {
+  transform: scaleX(-1);
+  -webkit-transform: scaleX(-1);
+}
