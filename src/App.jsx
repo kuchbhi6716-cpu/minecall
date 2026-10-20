@@ -691,6 +691,50 @@ function CallPage() {
       return;
     }
 
+    // Make sure the demo account exists before using billing.
+    try {
+      const accountResponse = await fetch(`${API_BASE}/api/test-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: currentSession.username,
+          role: "user",
+        }),
+      });
+
+      const accountData = await accountResponse.json();
+
+      if (!accountResponse.ok) {
+        throw new Error(
+          accountData.error || "Could not prepare your test account."
+        );
+      }
+
+      const balance = Number(accountData.account?.coins ?? 0);
+      setWalletBalance(balance);
+
+      // Use the server's actual balance before turning on camera or requesting
+      // a match. A stale UI balance must not trigger unnecessary coin prompts.
+      if (balance < 10) {
+        pendingConnectRef.current = true;
+        setWalletError("You need at least 10 coins to start a call. Add coins and your call will retry automatically.");
+        setWalletNotice("");
+        setWalletOpen(true);
+        setStatus("Add coins to start your call.");
+        await loadCoinPackages();
+        return;
+      }
+
+      pendingConnectRef.current = false;
+    } catch (error) {
+      // Account/server errors are not coin shortages. Do not open the buy-coins
+      // wallet for unrelated errors; tell the user what actually failed.
+      pendingConnectRef.current = false;
+      setStatus(error.message || "Could not prepare your account.");
+      setWalletError("");
+      return;
+    }
+
     const generation = ++generationRef.current;
 
     try {
@@ -704,51 +748,6 @@ function CallPage() {
         },
         audio: true,
       });
-
-      // Request camera/mic immediately from the button click, before any
-      // network await. This is more reliable on mobile Safari.
-      try {
-        // Make sure the demo account exists before using billing.
-        const accountResponse = await fetch(`${API_BASE}/api/test-account`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: currentSession.username,
-            role: "user",
-          }),
-        });
-
-        const accountData = await accountResponse.json();
-
-        if (!accountResponse.ok) {
-          throw new Error(
-            accountData.error || "Could not prepare your test account."
-          );
-        }
-
-        const balance = Number(accountData.account?.coins ?? 0);
-        setWalletBalance(balance);
-
-        // Stop media if the account cannot start a paid call.
-        if (balance < 10) {
-          stream.getTracks().forEach((track) => track.stop());
-          pendingConnectRef.current = true;
-          setWalletError("You need at least 10 coins to start a call. Add coins and your call will retry automatically.");
-          setWalletNotice("");
-          setWalletOpen(true);
-          setStatus("Add coins to start your call.");
-          await loadCoinPackages();
-          return;
-        }
-
-        pendingConnectRef.current = false;
-      } catch (error) {
-        stream.getTracks().forEach((track) => track.stop());
-        pendingConnectRef.current = false;
-        setStatus(error.message || "Could not prepare your account.");
-        setWalletError("");
-        return;
-      }
 
       if (!mountedRef.current || generation !== generationRef.current) {
         stream.getTracks().forEach((track) => track.stop());
@@ -1211,7 +1210,6 @@ function CallPage() {
 
               {(!isActive || cameraOff) && (
                 <div className="local-placeholder">
-                  <span>YOU</span>
                   <div className="self-avatar" />
                   <p>{cameraOff ? "Camera is off" : "Your preview"}</p>
                 </div>
