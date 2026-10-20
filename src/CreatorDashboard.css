@@ -978,3 +978,66 @@
     max-height: 240px;
   }
 }
+
+
+
+/* Bigger creator call player */
+.creator-dashboard-grid {
+  max-width: 1500px;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 0.75fr);
+  gap: 24px;
+}
+
+.creator-camera-panel {
+  min-width: 0;
+}
+
+.creator-video-stage {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 420px;
+  border-radius: 18px;
+}
+
+/* Keep the remote caller video filling the main player */
+.creator-remote-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Keep creator's own camera as a small overlay during calls */
+.creator-preview-video.creator-preview-small {
+  position: absolute;
+  inset: auto 16px 16px auto;
+  z-index: 3;
+  width: clamp(120px, 22%, 220px);
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+
+/* On phones, use the available width and avoid overflow */
+@media (max-width: 850px) {
+  .creator-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .creator-video-stage {
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (max-width: 540px) {
+  .creator-video-stage {
+    aspect-ratio: 3 / 4;
+  }
+
+  .creator-preview-video.creator-preview-small {
+    inset: auto 10px 10px auto;
+    width: clamp(100px, 30%, 145px);
+  }
+}
