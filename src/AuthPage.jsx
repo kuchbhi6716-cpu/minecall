@@ -33,6 +33,13 @@ async function hashPassword(password) {
 function getSafeNextPath(role) {
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
+  const safeNext = Boolean(
+    next &&
+    next.startsWith("/") &&
+    !next.startsWith("//") &&
+    !next.includes("\\") &&
+    !/^\/(?:login|signup|creator)(?:[/?#]|$)/i.test(next)
+  );
 
   if (role === "creator") {
     try {
@@ -42,20 +49,10 @@ function getSafeNextPath(role) {
     return "/creator";
   }
 
-  // Normal users always land on the homepage after login/signup.
-  if (role === "user") return "/";
-
-  if (
-    next &&
-    next.startsWith("/") &&
-    !next.startsWith("//") &&
-    !next.includes("\\") &&
-    !/^\/(?:login|signup|creator)(?:[/?#]|$)/i.test(next)
-  ) {
-    return next;
-  }
-
-  return "/";
+  // Users normally land on Home, but subscription login links return them
+  // to the exact creator page they tried to open before authentication.
+  if (role === "user") return safeNext ? next : "/";
+  return safeNext ? next : "/";
 }
 
 async function initializeTestAccount(username, role, gender = "") {
