@@ -363,7 +363,6 @@ function useLiveComments(username) {
   const [comments, setComments] = useState([]);
   const [chatStatus, setChatStatus] = useState("Connecting...");
   const [notice, setNotice] = useState("");
-  const [viewerMuted, setViewerMuted] = useState(false);
 
   const socketRef = useRef(null);
   const timersRef = useRef(new Map());
@@ -739,13 +738,14 @@ function SubscriptionCreatorExperience() {
   const params = new URLSearchParams(window.location.search);
   const username = params.get("subscriptionCreator") || "Creator";
   const price = Math.max(1, Number(params.get("subscriptionPrice")) || 499);
-  const accessKey = `onlystream-lifetime-access-${username.toLowerCase()}`;
-  const [unlocked, setUnlocked] = useState(() => { try { return localStorage.getItem(accessKey) === "paid-demo"; } catch { return false; } });
-  const [showPayment, setShowPayment] = useState(() => { try { return localStorage.getItem(accessKey) !== "paid-demo"; } catch { return true; } });
+  // Ask for the demo fee on every new visit. This avoids old localStorage test flags
+  // silently bypassing the payment popup while the demo purchase flow is being tested.
+  const [unlocked, setUnlocked] = useState(false);
+  const [showPayment, setShowPayment] = useState(true);
+  const [paymentBusy, setPaymentBusy] = useState(false);
   const [messages, setMessages] = useState([{ id: 1, name: "OnlyStream", text: "Welcome! Keep chat respectful." }]);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
-  const [viewerMuted, setViewerMuted] = useState(false);
   const [streamStatus, setStreamStatus] = useState("Connecting to creator live…");
   const viewerVideoRef = useRef(null);
   const peerRef = useRef(null);
@@ -823,15 +823,55 @@ function SubscriptionCreatorExperience() {
     };
   }, [unlocked, username]);
 
-  function payDemo() { try { localStorage.setItem(accessKey, "paid-demo"); } catch {} const purchase = { username, amount: price, transactionId: `${username.toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2)}` }; const socket = socketRef.current; if (socket?.connected) socket.emit("subscription-purchase", purchase); else { const ledgerSocket = io({ transports: ["websocket", "polling"] }); ledgerSocket.on("connect", () => ledgerSocket.emit("subscription-purchase", purchase, () => ledgerSocket.disconnect())); ledgerSocket.on("connect_error", () => ledgerSocket.disconnect()); } setUnlocked(true); setShowPayment(false); setNotice("Demo payment successful. Lifetime access unlocked. This is not a real payment."); }
+  async function payDemo() {
+    if (paymentBusy) return;
+    setPaymentBusy(true);
+    setNotice("");
+    const purchase = {
+      username,
+      amount: price,
+      transactionId: `${username.toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    };
+    let purchaseSocket = socketRef.current;
+    let temporarySocket = false;
+    try {
+      if (!purchaseSocket?.connected) {
+        purchaseSocket = io({ transports: ["websocket", "polling"] });
+        temporarySocket = true;
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error("Payment server timed out. Please try again.")), 10000);
+          purchaseSocket.once("connect", () => { clearTimeout(timeout); resolve(); });
+          purchaseSocket.once("connect_error", (error) => { clearTimeout(timeout); reject(error || new Error("Could not connect to payment server.")); });
+        });
+      }
+      const result = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Payment confirmation timed out. Please try again.")), 10000);
+        purchaseSocket.emit("subscription-purchase", purchase, (response) => {
+          clearTimeout(timeout);
+          if (response?.ok) resolve(response);
+          else reject(new Error(response?.error || "Demo payment could not be recorded."));
+        });
+      });
+      if (result?.ok) {
+        setUnlocked(true);
+        setShowPayment(false);
+        setNotice(`Demo payment of ₹${price} recorded for ${username}. This is not a real payment.`);
+      }
+    } catch (error) {
+      setNotice(error?.message || "Demo payment failed. Please try again.");
+    } finally {
+      if (temporarySocket && purchaseSocket) purchaseSocket.disconnect();
+      setPaymentBusy(false);
+    }
+  }
   function sendMessage(e) { e.preventDefault(); const text = message.trim(); if (!text || !unlocked) return; const socket = socketRef.current; if (!socket?.connected) { setNotice("Chat is reconnecting. Please try again in a moment."); return; } socket.emit("subscription-chat-message", { username, name: "Subscriber", text }); setMessage(""); }
   return <main className="subscription-live-page"><header className="subscription-live-topbar"><a href="/">← Home</a><a href="/" className="subscription-live-brand">OnlyStream<span>.</span></a><span className="subscription-live-badge">SUBSCRIPTION</span></header>
     <section className="subscription-live-heading"><span className="subscription-pill">LIFETIME ACCESS</span><h1>{username}</h1><p>Creator subscription · One-time demo payment · No call coins required for viewing</p></section>
     {notice && <p className="subscription-access-notice">{notice}</p>}
-    <section className="subscription-live-layout"><div className="subscription-live-main"><div className="subscription-big-player">{unlocked ? <div className="subscription-player-placeholder subscription-player-live"><video ref={viewerVideoRef} autoPlay playsInline controls muted={viewerMuted} className="subscription-viewer-live-video" aria-label={`${username} live video`} /><div className="subscription-player-controls"><button type="button" className={viewerMuted ? "is-active" : ""} onClick={() => setViewerMuted(v => !v)}>{viewerMuted ? "🔇 Unmute" : "🔊 Mute"}</button><button type="button" onClick={() => { const el = viewerVideoRef.current?.parentElement; if (el?.requestFullscreen) el.requestFullscreen().catch(() => {}); }}>⛶ Fullscreen</button></div><div className="subscription-viewer-stream-status"><span className="subscription-live-dot"/><span className="subscription-pill">{streamStatus}</span></div></div> : <div className="subscription-locked-player"><span>🔒</span><h2>Subscriber-only live</h2><p>Unlock lifetime access to watch this creator's live streams, photos and videos.</p><button onClick={() => setShowPayment(true)}>Unlock for ₹{price}</button></div>}</div>
+    <section className="subscription-live-layout"><div className="subscription-live-main"><div className="subscription-big-player">{unlocked ? <div className="subscription-player-placeholder subscription-player-live"><video ref={viewerVideoRef} autoPlay playsInline className="subscription-viewer-live-video" aria-label={`${username} live video`} /><div className="subscription-viewer-stream-status"><span className="subscription-live-dot"/><span className="subscription-pill">{streamStatus}</span></div></div> : <div className="subscription-locked-player"><span>🔒</span><h2>Subscriber-only live</h2><p>Unlock lifetime access to watch this creator's live streams, photos and videos.</p><button onClick={() => setShowPayment(true)}>Unlock for ₹{price}</button></div>}</div>
       <div className="subscription-content-panel"><div className="subscription-content-title"><div><span className="subscription-pill">SUBSCRIPTION CONTENT</span><h2>Photos & videos</h2></div><span>{unlocked ? media.length + " items" : "Locked"}</span></div>{!unlocked ? <p className="subscription-content-locked">Pay once to unlock the creator's gallery for lifetime access.</p> : media.length ? <div className="subscription-viewer-gallery">{media.map(item => <article key={item.id}>{item.type === "video" ? <video src={item.data} controls playsInline/> : <img src={item.data} alt={item.name || "Creator photo"}/>}<span>{item.type === "video" ? "VIDEO" : "PHOTO"}</span></article>)}</div> : <p className="subscription-content-locked">No photos or videos have been uploaded by this creator yet.</p>}</div></div>
       <aside className="subscription-viewer-chat"><div className="subscription-chat-heading"><div><span>LIVE COMMUNITY</span><h2>Live chat</h2></div><span className="subscription-chat-online">● DEMO</span></div><div className="subscription-chat-messages">{messages.map(item => <div className="subscription-chat-message" key={item.id}><strong>{item.name}</strong><p>{item.text}</p></div>)}</div><form onSubmit={sendMessage} className="subscription-chat-form"><input value={message} onChange={e => setMessage(e.target.value)} placeholder={unlocked ? "Write a message…" : "Unlock to join chat"} disabled={!unlocked}/><button disabled={!unlocked || !message.trim()}>Send</button></form><div className="subscription-no-calls"><strong>Subscription access</strong><p>Watching content is included after the one-time payment. Creator calls remain separate and are not included.</p></div></aside></section>
-    {showPayment && <div className="subscription-payment-backdrop" role="presentation"><section className="subscription-payment-modal" role="dialog" aria-modal="true" aria-labelledby="subscription-payment-title"><button className="subscription-modal-close" onClick={() => setShowPayment(false)} aria-label="Close payment popup">×</button><span className="subscription-pill">ONE-TIME PAYMENT</span><h2 id="subscription-payment-title">Unlock {username}</h2><p>Pay once for lifetime access to this creator's subscriber content and live streams.</p><div className="subscription-payment-price"><span>Lifetime access</span><strong>₹{price}</strong><small>Demo payment · No real money charged</small></div><ul><li>Watch subscriber live streams</li><li>Access uploaded photos and videos</li><li>No recurring subscription fee</li><li>Paid calls are not included</li></ul><button className="subscription-demo-pay-button" onClick={payDemo}>Pay ₹{price} · Demo</button><button className="subscription-cancel-payment" onClick={() => setShowPayment(false)}>Maybe later</button></section></div>}
+    {showPayment && <div className="subscription-payment-backdrop" role="presentation"><section className="subscription-payment-modal" role="dialog" aria-modal="true" aria-labelledby="subscription-payment-title"><button className="subscription-modal-close" onClick={() => setShowPayment(false)} aria-label="Close payment popup">×</button><span className="subscription-pill">ONE-TIME PAYMENT</span><h2 id="subscription-payment-title">Unlock {username}</h2><p>Pay once for lifetime access to this creator's subscriber content and live streams.</p><div className="subscription-payment-price"><span>Lifetime access</span><strong>₹{price}</strong><small>Demo payment · No real money charged</small></div><ul><li>Watch subscriber live streams</li><li>Access uploaded photos and videos</li><li>No recurring subscription fee</li><li>Paid calls are not included</li></ul><button className="subscription-demo-pay-button" onClick={payDemo} disabled={paymentBusy}>{paymentBusy ? "Recording demo payment…" : `Pay ₹${price} · Demo`}</button><button className="subscription-cancel-payment" onClick={() => setShowPayment(false)}>Maybe later</button></section></div>}
   </main>;
 }
 
