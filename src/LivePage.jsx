@@ -1,4 +1,3 @@
-
 import React, {
   useEffect,
   useRef,
@@ -734,6 +733,30 @@ function LiveFooter() {
 // PAGE
 // ------------------------------------
 
+
+function SubscriptionCreatorExperience() {
+  const params = new URLSearchParams(window.location.search);
+  const username = params.get("subscriptionCreator") || "Creator";
+  const price = Math.max(1, Number(params.get("subscriptionPrice")) || 499);
+  const accessKey = `onlystream-lifetime-access-${username.toLowerCase()}`;
+  const [unlocked, setUnlocked] = useState(() => { try { return localStorage.getItem(accessKey) === "paid-demo"; } catch { return false; } });
+  const [showPayment, setShowPayment] = useState(() => { try { return localStorage.getItem(accessKey) !== "paid-demo"; } catch { return true; } });
+  const [messages, setMessages] = useState([{ id: 1, name: "OnlyStream", text: "Welcome! Keep chat respectful." }]);
+  const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState("");
+  const [media, setMedia] = useState(() => { try { return JSON.parse(localStorage.getItem(`onlystream-media-${username}`) || "[]"); } catch { return []; } });
+  function payDemo() { try { localStorage.setItem(accessKey, "paid-demo"); } catch {} setUnlocked(true); setShowPayment(false); setNotice("Demo payment successful. Lifetime access unlocked on this browser."); }
+  function sendMessage(e) { e.preventDefault(); const text = message.trim(); if (!text) return; setMessages(old => [...old, { id: Date.now(), name: "You", text }]); setMessage(""); }
+  return <main className="subscription-live-page"><header className="subscription-live-topbar"><a href="/">← Home</a><a href="/" className="subscription-live-brand">OnlyStream<span>.</span></a><span className="subscription-live-badge">SUBSCRIPTION</span></header>
+    <section className="subscription-live-heading"><span className="subscription-pill">LIFETIME ACCESS</span><h1>{username}</h1><p>Creator subscription · One-time demo payment · No call coins required for viewing</p></section>
+    {notice && <p className="subscription-access-notice">{notice}</p>}
+    <section className="subscription-live-layout"><div className="subscription-live-main"><div className="subscription-big-player">{unlocked ? <div className="subscription-player-placeholder"><Radio size={44}/><strong>{username}'s live player</strong><span>Creator live broadcast preview</span><small>Demo UI: real-time creator video broadcasting is not connected yet.</small></div> : <div className="subscription-locked-player"><span>🔒</span><h2>Subscriber-only live</h2><p>Unlock lifetime access to watch this creator's live streams, photos and videos.</p><button onClick={() => setShowPayment(true)}>Unlock for ₹{price}</button></div>}</div>
+      <div className="subscription-content-panel"><div className="subscription-content-title"><div><span className="subscription-pill">SUBSCRIPTION CONTENT</span><h2>Photos & videos</h2></div><span>{unlocked ? media.length + " items" : "Locked"}</span></div>{!unlocked ? <p className="subscription-content-locked">Pay once to unlock the creator's gallery for lifetime access.</p> : media.length ? <div className="subscription-viewer-gallery">{media.map(item => <article key={item.id}>{item.type === "video" ? <video src={item.data} controls playsInline/> : <img src={item.data} alt={item.name || "Creator photo"}/>}<span>{item.type === "video" ? "VIDEO" : "PHOTO"}</span></article>)}</div> : <p className="subscription-content-locked">No photos or videos have been uploaded by this creator yet.</p>}</div></div>
+      <aside className="subscription-viewer-chat"><div className="subscription-chat-heading"><div><span>LIVE COMMUNITY</span><h2>Live chat</h2></div><span className="subscription-chat-online">● DEMO</span></div><div className="subscription-chat-messages">{messages.map(item => <div className="subscription-chat-message" key={item.id}><strong>{item.name}</strong><p>{item.text}</p></div>)}</div><form onSubmit={sendMessage} className="subscription-chat-form"><input value={message} onChange={e => setMessage(e.target.value)} placeholder={unlocked ? "Write a message…" : "Unlock to join chat"} disabled={!unlocked}/><button disabled={!unlocked || !message.trim()}>Send</button></form><div className="subscription-no-calls"><strong>Subscription access</strong><p>Watching content is included after the one-time payment. Creator calls remain separate and are not included.</p></div></aside></section>
+    {showPayment && <div className="subscription-payment-backdrop" role="presentation"><section className="subscription-payment-modal" role="dialog" aria-modal="true" aria-labelledby="subscription-payment-title"><button className="subscription-modal-close" onClick={() => setShowPayment(false)} aria-label="Close payment popup">×</button><span className="subscription-pill">ONE-TIME PAYMENT</span><h2 id="subscription-payment-title">Unlock {username}</h2><p>Pay once for lifetime access to this creator's subscriber content and live streams.</p><div className="subscription-payment-price"><span>Lifetime access</span><strong>₹{price}</strong><small>Demo payment · No real money charged</small></div><ul><li>Watch subscriber live streams</li><li>Access uploaded photos and videos</li><li>No recurring subscription fee</li><li>Paid calls are not included</li></ul><button className="subscription-demo-pay-button" onClick={payDemo}>Pay ₹{price} · Demo</button><button className="subscription-cancel-payment" onClick={() => setShowPayment(false)}>Maybe later</button></section></div>}
+  </main>;
+}
+
 export default function LivePage() {
   const params = new URLSearchParams(window.location.search);
   const requestedModel = (params.get("model") || "").trim();
@@ -810,6 +833,8 @@ export default function LivePage() {
   }, [requestedModel, reload]);
 
   const chat = useLiveComments(model?.username || "");
+
+  if (params.has("subscriptionCreator")) return <SubscriptionCreatorExperience />;
 
   const recommendations = models.filter(
     (item) =>
