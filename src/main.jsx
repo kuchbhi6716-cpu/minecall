@@ -9,6 +9,15 @@ import "./style.css";
 import "./AuthPage.css";
 import "./CreatorDashboard.css";
 
+// Hide the Creator Studio link on the homepage.
+const creatorStudioStyle = document.createElement("style");
+creatorStudioStyle.textContent = `
+  .home-nav-actions .creator-studio-link {
+    display: none !important;
+  }
+`;
+document.head.appendChild(creatorStudioStyle);
+
 function RootApp() {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
 
