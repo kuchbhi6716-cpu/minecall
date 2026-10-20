@@ -744,6 +744,22 @@ function SubscriptionCreatorExperience() {
   const [unlocked, setUnlocked] = useState(false);
   const [showPayment, setShowPayment] = useState(true);
   const [paymentBusy, setPaymentBusy] = useState(false);
+  const [viewerAuthReady, setViewerAuthReady] = useState(false);
+
+  // Require login/signup before showing the subscription payment screen.
+  // Keep the full creator URL so AuthPage can return the viewer here after login.
+  useEffect(() => {
+    let session = null;
+    try {
+      session = JSON.parse(localStorage.getItem("onlystream-test-session-v1") || "null");
+    } catch {}
+    if (session?.role === "user" || session?.role === "creator") {
+      setViewerAuthReady(true);
+      return;
+    }
+    const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.replace(`/login?next=${encodeURIComponent(returnTo)}`);
+  }, []);
   const [messages, setMessages] = useState([{ id: 1, name: "OnlyStream", text: "Welcome! Keep chat respectful." }]);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
@@ -876,6 +892,7 @@ function SubscriptionCreatorExperience() {
     }
   }
   function sendMessage(e) { e.preventDefault(); const text = message.trim(); if (!text || !unlocked) return; const socket = socketRef.current; if (!socket?.connected) { setNotice("Chat is reconnecting. Please try again in a moment."); return; } socket.emit("subscription-chat-message", { username, name: "Subscriber", text }); setMessage(""); }
+  if (!viewerAuthReady) return <main className="subscription-live-page"><div className="subscription-locked-player"><h2>Taking you to login…</h2><p>Log in or create an account first, then you can subscribe and watch {username}.</p></div></main>;
   return <main className="subscription-live-page"><header className="subscription-live-topbar"><a href="/">← Home</a><a href="/" className="subscription-live-brand">OnlyStream<span>.</span></a><span className="subscription-live-badge">SUBSCRIPTION</span></header>
     <section className="subscription-live-heading"><span className="subscription-pill">LIFETIME ACCESS</span><h1>{username}</h1><p>Creator subscription · One-time demo payment · No call coins required for viewing</p></section>
     {notice && <p className="subscription-access-notice">{notice}</p>}
