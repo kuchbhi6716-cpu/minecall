@@ -39,8 +39,6 @@ export default function CreatorDashboard() {
   const streamRef = useRef(null);
   const socketRef = useRef(null);
   const peerRef = useRef(null);
-  const subscriptionPeersRef = useRef(new Map());
-  const subscriptionIceQueueRef = useRef(new Map());
   const pendingSignalsRef = useRef([]);
   const pendingCandidatesRef = useRef([]);
   const processingSignalsRef = useRef(false);
@@ -57,12 +55,6 @@ export default function CreatorDashboard() {
   const typingRef = useRef(false);
 
   const [username, setUsername] = useState("Creator");
-  const [creatorPlan, setCreatorPlan] = useState("calls");
-  const [subscriptionPrice, setSubscriptionPrice] = useState(0);
-  const [creatorMedia, setCreatorMedia] = useState([]);
-  const [mediaTitle, setMediaTitle] = useState("");
-  const [mediaNotice, setMediaNotice] = useState("");
-  const [showSubscriptionEarnings, setShowSubscriptionEarnings] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -79,8 +71,6 @@ export default function CreatorDashboard() {
   const [callElapsed, setCallElapsed] = useState(0);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatMessage, setChatMessage] = useState("");
-  const [subscriberChat, setSubscriberChat] = useState([]);
-  const [subscriberChatInput, setSubscriberChatInput] = useState("");
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
 
@@ -372,9 +362,6 @@ export default function CreatorDashboard() {
       }
 
       setUsername(session.username || "Creator");
-      setCreatorPlan(session.creatorPlan || "calls");
-      setSubscriptionPrice(Number(session.subscriptionPrice || 0));
-      try { setCreatorMedia(JSON.parse(localStorage.getItem(`onlystream-media-${session.username}`) || "[]")); } catch { setCreatorMedia([]); }
 
       const oldLive = JSON.parse(localStorage.getItem(LIVE_KEY) || "null");
       if (oldLive?.username === session.username && oldLive.isLive) {
@@ -391,76 +378,6 @@ export default function CreatorDashboard() {
     socketRef.current = socket;
 
     socket.on("connect", () => socket.emit("get-live-creators"));
-
-    // Separate WebRTC connections for viewers watching a subscription creator live.
-    socket.on("subscription-viewer-joined", async ({ viewerSocketId, username: liveUsername }) => {
-      if (!viewerSocketId || !isLiveRef.current || !streamRef.current) return;
-      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-      const currentUsername = session?.username || username;
-      if (String(liveUsername || "").toLowerCase() !== String(currentUsername).toLowerCase()) return;
-
-      const oldPeer = subscriptionPeersRef.current.get(viewerSocketId);
-      if (oldPeer) {
-        try { oldPeer.close(); } catch {}
-        subscriptionPeersRef.current.delete(viewerSocketId);
-      }
-      subscriptionIceQueueRef.current.delete(viewerSocketId);
-
-      try {
-        const peer = new RTCPeerConnection(ICE_SERVERS);
-        subscriptionPeersRef.current.set(viewerSocketId, peer);
-        streamRef.current.getTracks().forEach((track) => peer.addTrack(track, streamRef.current));
-        peer.onicecandidate = (event) => {
-          if (event.candidate) socket.emit("subscription-live-signal", {
-            username: currentUsername, targetSocketId: viewerSocketId,
-            type: "candidate", candidate: event.candidate,
-          });
-        };
-        peer.onconnectionstatechange = () => {
-          if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
-            try { peer.close(); } catch {}
-            if (subscriptionPeersRef.current.get(viewerSocketId) === peer) {
-              subscriptionPeersRef.current.delete(viewerSocketId);
-            }
-          }
-        };
-        const offer = await peer.createOffer();
-        await peer.setLocalDescription(offer);
-        socket.emit("subscription-live-signal", {
-          username: currentUsername, targetSocketId: viewerSocketId,
-          type: "offer", offer: peer.localDescription,
-        });
-      } catch (error) {
-        console.error("Subscription broadcast setup failed:", error);
-      }
-    });
-
-    socket.on("subscription-live-signal", async (payload) => {
-      if (!payload || !payload.fromSocketId) return;
-      const peer = subscriptionPeersRef.current.get(payload.fromSocketId);
-      if (!peer) return;
-      try {
-        if (payload.type === "answer" && payload.answer && !peer.remoteDescription) {
-          await peer.setRemoteDescription(new RTCSessionDescription(payload.answer));
-          const queued = subscriptionIceQueueRef.current.get(payload.fromSocketId) || [];
-          subscriptionIceQueueRef.current.delete(payload.fromSocketId);
-          for (const candidate of queued) {
-            try { await peer.addIceCandidate(new RTCIceCandidate(candidate)); }
-            catch (candidateError) { console.warn("Queued subscription ICE candidate failed:", candidateError); }
-          }
-        } else if (payload.type === "candidate" && payload.candidate) {
-          if (!peer.remoteDescription) {
-            const queued = subscriptionIceQueueRef.current.get(payload.fromSocketId) || [];
-            queued.push(payload.candidate);
-            subscriptionIceQueueRef.current.set(payload.fromSocketId, queued);
-          } else {
-            await peer.addIceCandidate(new RTCIceCandidate(payload.candidate));
-          }
-        }
-      } catch (error) {
-        console.warn("Subscription live signal could not be applied:", error);
-      }
-    });
 
     socket.on("connect_error", () => {
       setCameraError("Server connection failed. Please refresh and retry.");
@@ -576,9 +493,6 @@ export default function CreatorDashboard() {
       if (socketRef.current === socket) socketRef.current = null;
 
       closePeer();
-      subscriptionPeersRef.current.forEach((peer) => { try { peer.close(); } catch {} });
-      subscriptionPeersRef.current.clear();
-      subscriptionIceQueueRef.current.clear();
       stopLocalStream();
     };
   }, [
@@ -811,16 +725,6 @@ export default function CreatorDashboard() {
         else peer.addTrack(newTrack, streamRef.current);
       }
 
-      // Keep every subscriber broadcast peer on the newly selected camera too.
-      for (const subscriptionPeer of subscriptionPeersRef.current.values()) {
-        const sender = subscriptionPeer.getSenders().find(
-          (item) => item.track?.kind === "video"
-        );
-        if (sender) {
-          try { await sender.replaceTrack(newTrack); }
-          catch (replaceError) { console.warn("Could not update subscriber camera track:", replaceError); }
-        }
-      }
 
       const oldTrack = streamRef.current.getVideoTracks()[0];
       if (oldTrack) {
@@ -855,9 +759,6 @@ export default function CreatorDashboard() {
     window.clearTimeout(typingTimeoutRef.current);
     typingRef.current = false;
     closePeer();
-    subscriptionPeersRef.current.forEach((peer) => { try { peer.close(); } catch {} });
-    subscriptionPeersRef.current.clear();
-      subscriptionIceQueueRef.current.clear();
     setIncomingCall(null);
     requestRef.current = null;
     acceptingRequestRef.current = null;
@@ -906,9 +807,6 @@ export default function CreatorDashboard() {
 
     isLiveRef.current = false;
     closePeer();
-    subscriptionPeersRef.current.forEach((peer) => { try { peer.close(); } catch {} });
-    subscriptionPeersRef.current.clear();
-      subscriptionIceQueueRef.current.clear();
     stopLocalStream();
 
     localStorage.removeItem(LIVE_KEY);
@@ -1013,15 +911,7 @@ export default function CreatorDashboard() {
         </section>
       )}
 
-      {creatorPlan === "subscription" && !showEarnings && (
-        <section className="subscription-studio">
-          <div className="subscription-studio-heading"><div><span className="subscription-studio-kicker">SUBSCRIPTION CREATOR</span><h2>Your Content Studio</h2><p>Manage the photos and videos available to your lifetime subscribers.</p></div><div className="subscription-price-badge"><span>One-time access</span><strong>₹{formatNumber(subscriptionPrice)}</strong><small>Lifetime · Demo</small></div></div>
-          <div className="subscription-studio-actions"><button type="button" onClick={() => setShowSubscriptionEarnings(true)}><TrendingUp size={18}/> Subscription earnings</button><button type="button" onClick={() => { const el=document.getElementById("creator-media-upload"); el?.click(); }}><Camera size={18}/> Upload photos/videos</button><input id="creator-media-upload" type="file" accept="image/*,video/*" multiple hidden onChange={async e => { const files=Array.from(e.target.files||[]); if(!files.length)return; const allowed=files.filter(f=>f.size<=5*1024*1024); if(allowed.length!==files.length)setMediaNotice("Files over 5 MB were skipped to keep demo storage manageable."); const added=await Promise.all(allowed.map(file=>new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve({id:`${Date.now()}-${Math.random()}`,name:file.name,type:file.type.startsWith("video/")?"video":"image",data:reader.result,createdAt:new Date().toISOString()});reader.onerror=()=>resolve(null);reader.readAsDataURL(file)}))); const next=[...creatorMedia,...added.filter(Boolean)]; setCreatorMedia(next); try{localStorage.setItem(`onlystream-media-${username}`,JSON.stringify(next));setMediaNotice(`${added.filter(Boolean).length} item(s) added to your demo gallery.`)}catch{setMediaNotice("Browser storage is full. Try smaller files or remove older uploads.")} e.target.value=""; }} /></div>
-          {showSubscriptionEarnings ? <div className="subscription-earnings-panel"><button type="button" className="subscription-back" onClick={() => setShowSubscriptionEarnings(false)}><ArrowLeft size={16}/> Back to content</button><h3>Subscription earnings</h3><div className="subscription-earning-stats"><article><span>Lifetime access price</span><strong>₹{formatNumber(subscriptionPrice)}</strong></article><article><span>Demo subscribers</span><strong>0</strong></article><article><span>Subscription revenue</span><strong>₹0</strong></article><article><span>Creator bonus</span><strong>₹{formatNumber(signupBonus)}</strong></article></div><p className="subscription-demo-note">Demo dashboard only. Subscriber payments and revenue are not yet connected to a real payment system.</p></div> : <><div className="subscription-content-heading"><h3>Your photos & videos</h3><span>{creatorMedia.length} items</span></div>{mediaNotice && <p className="subscription-demo-note" role="status">{mediaNotice}</p>}{creatorMedia.length ? <div className="subscription-media-grid">{creatorMedia.map(item=><article className="subscription-media-card" key={item.id}>{item.type==="video"?<video src={item.data} controls playsInline/>:<img src={item.data} alt={item.name}/>}<div><span>{item.type==="video"?"VIDEO":"PHOTO"}</span><button type="button" onClick={()=>{const next=creatorMedia.filter(x=>x.id!==item.id);setCreatorMedia(next);localStorage.setItem(`onlystream-media-${username}`,JSON.stringify(next));}}>Remove</button></div><p>{item.name}</p></article>)}</div>:<div className="subscription-empty"><div>✦</div><h3>Your subscriber gallery starts here</h3><p>Upload photos and videos. They will appear here in this demo dashboard.</p><button type="button" onClick={() => document.getElementById("creator-media-upload")?.click()}><Camera size={17}/> Add your first media</button></div>}<section className="subscription-broadcast"><div className="subscription-broadcast-heading"><div><span className="subscription-studio-kicker">SUBSCRIBER BROADCAST</span><h3>Live studio</h3><p>Camera preview, live controls and chat in one place.</p></div><span className={isLive?"subscription-live-status live":"subscription-live-status"}>{isLive?"LIVE NOW":"OFFLINE"}</span></div><div className="subscription-broadcast-grid"><div className="subscription-broadcast-main"><div className="subscription-broadcast-player"><video ref={videoRef} className="subscription-broadcast-video" autoPlay muted playsInline />{!isLive&&<div className="subscription-broadcast-placeholder"><Camera size={34}/><strong>Your camera preview</strong><span>Start the live to show your camera here.</span></div>}{isLive&&<span className="subscription-broadcast-live-tag"><i/> LIVE NOW</span>}</div><div className="subscription-broadcast-controls">{!isLive?<button type="button" onClick={goLive} disabled={busy}><Radio size={18}/>{busy?"Starting camera…":"Go Live"}</button>:<><button type="button" onClick={toggleMic} disabled={!streamRef.current}>{micMuted?<MicOff size={17}/>:<Mic size={17}/>} {micMuted?"Unmute":"Mute"}</button><button type="button" onClick={toggleCamera} disabled={!streamRef.current}>{cameraOff?<CameraOff size={17}/>:<Camera size={17}/>} {cameraOff?"Camera on":"Camera off"}</button><button type="button" onClick={switchCamera} disabled={!streamRef.current||cameraSwitching}><RotateCw size={17}/> Flip camera</button><button type="button" className="subscription-stop-live" onClick={endLive} disabled={isEnding}><VideoOff size={17}/> End Live</button></>}</div>{cameraError&&<p className="creator-error" role="alert">{cameraError}</p>}</div><aside className="subscription-broadcast-chat"><div className="subscription-broadcast-chat-head"><div><strong>Live chat</strong><span>Subscriber chat demo</span></div><span className="subscription-chat-dot"/></div><div className="subscription-broadcast-chat-messages">{subscriberChat.length===0?<div className="subscription-broadcast-chat-empty"><span>✉</span><strong>Chat starts here</strong><p>Messages sent in this demo appear here.</p></div>:subscriberChat.map(item=><div className="subscription-demo-chat-row" key={item.id}><span>{item.author}</span><p>{item.text}</p></div>)}</div><form className="subscription-broadcast-chat-form" onSubmit={e=>{e.preventDefault();const text=subscriberChatInput.trim();if(!text)return;setSubscriberChat(items=>[...items,{id:`${Date.now()}-${Math.random()}`,author:"CREATOR",text}]);setSubscriberChatInput("");}}><input value={subscriberChatInput} onChange={e=>setSubscriberChatInput(e.target.value)} maxLength={500} placeholder="Write a message…" aria-label="Write a subscriber chat message"/><button type="submit" disabled={!subscriberChatInput.trim()}><Send size={17}/></button></form><p className="subscription-chat-demo-note">Demo chat only — not yet connected to viewers.</p></aside></div></section></>}
-        </section>
-      )}
-
-      {!showEarnings && creatorPlan !== "subscription" && <section className="creator-dashboard-grid">
+      {!showEarnings && <section className="creator-dashboard-grid">
         <div className="creator-camera-panel">
           <div className="creator-panel-heading">
             <div>
@@ -1259,4 +1149,3 @@ export default function CreatorDashboard() {
       </section>}
     </main>
   );
-}
