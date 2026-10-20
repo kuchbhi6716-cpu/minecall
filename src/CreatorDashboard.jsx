@@ -1,10 +1,9 @@
-
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
   ArrowLeft, Camera, CameraOff, Coins, Gift, LogOut, Phone,
   Radio, ShieldCheck, Video, VideoOff, PhoneOff, Check, X,
-  RefreshCw, Wallet, Mic, MicOff, RotateCw
+  RefreshCw, Wallet, Mic, MicOff, RotateCw, Send
 } from "lucide-react";
 import "./CreatorDashboard.css";
 
@@ -51,6 +50,9 @@ export default function CreatorDashboard() {
   const cameraFacingRef = useRef("user");
   const switchCameraRef = useRef(false);
   const acceptingRequestRef = useRef(null);
+  const chatMessagesRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const typingRef = useRef(false);
 
   const [username, setUsername] = useState("Creator");
   const [isLive, setIsLive] = useState(false);
@@ -64,6 +66,9 @@ export default function CreatorDashboard() {
   const [economyError, setEconomyError] = useState("");
   const [callStartedAt, setCallStartedAt] = useState(null);
   const [callElapsed, setCallElapsed] = useState(0);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatMessage, setChatMessage] = useState("");
+  const [partnerTyping, setPartnerTyping] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
 
   const [micMuted, setMicMuted] = useState(false);
@@ -429,9 +434,28 @@ export default function CreatorDashboard() {
 
     socket.on("signal", handleSignal);
 
+    socket.on("chat-message", (text) => {
+      if (typeof text !== "string") return;
+      setChatMessages((old) => [
+        ...old,
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          text: text.slice(0, 1000),
+          own: false,
+        },
+      ]);
+    });
+
+    socket.on("typing", (value) => {
+      setPartnerTyping(Boolean(value));
+    });
+
     socket.on("partner-left", () => {
       closePeer();
       clearIncomingRequest();
+      setPartnerTyping(false);
+      setChatMessage("");
+      setChatMessages([]);
       setCameraError("The caller ended the call.");
       refreshEconomy();
     });
@@ -458,6 +482,7 @@ export default function CreatorDashboard() {
     return () => {
       mountedRef.current = false;
       isLiveRef.current = false;
+      window.clearTimeout(typingTimeoutRef.current);
       socket.removeAllListeners();
       socket.disconnect();
 
@@ -485,6 +510,44 @@ export default function CreatorDashboard() {
     const interval = window.setInterval(updateElapsed, 1000);
     return () => window.clearInterval(interval);
   }, [callConnected, callStartedAt]);
+
+  useEffect(() => {
+    const area = chatMessagesRef.current;
+    if (area) area.scrollTop = area.scrollHeight;
+  }, [chatMessages, partnerTyping]);
+
+  function handleChatChange(event) {
+    const value = event.target.value;
+    setChatMessage(value);
+    if (!callConnected) return;
+
+    if (!typingRef.current) {
+      typingRef.current = true;
+      socketRef.current?.emit("typing", true);
+    }
+
+    window.clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = window.setTimeout(() => {
+      typingRef.current = false;
+      socketRef.current?.emit("typing", false);
+    }, 900);
+  }
+
+  function sendChatMessage(event) {
+    event.preventDefault();
+    const text = chatMessage.trim();
+    if (!text || !callConnected) return;
+
+    window.clearTimeout(typingTimeoutRef.current);
+    typingRef.current = false;
+    socketRef.current?.emit("typing", false);
+    socketRef.current?.emit("chat-message", text);
+    setChatMessages((old) => [
+      ...old,
+      { id: `${Date.now()}-${Math.random()}`, text, own: true },
+    ]);
+    setChatMessage("");
+  }
 
   async function goLive() {
     setCameraError("");
@@ -686,11 +749,17 @@ export default function CreatorDashboard() {
   }
 
   function endCall() {
+    socketRef.current?.emit("typing", false);
     socketRef.current?.emit("stop-chat");
+    window.clearTimeout(typingTimeoutRef.current);
+    typingRef.current = false;
     closePeer();
     setIncomingCall(null);
     requestRef.current = null;
     acceptingRequestRef.current = null;
+    setPartnerTyping(false);
+    setChatMessage("");
+    setChatMessages([]);
     setCameraError("");
     refreshEconomy();
   }
@@ -705,7 +774,13 @@ export default function CreatorDashboard() {
       });
     }
 
+    socketRef.current?.emit("typing", false);
     socketRef.current?.emit("creator-end-live", { username });
+    window.clearTimeout(typingTimeoutRef.current);
+    typingRef.current = false;
+    setPartnerTyping(false);
+    setChatMessage("");
+    setChatMessages([]);
     closePeer();
     setIncomingCall(null);
     requestRef.current = null;
@@ -814,6 +889,52 @@ export default function CreatorDashboard() {
               <div className="creator-call-label"><Phone size={14} /> Connected</div>
             )}
           </div>
+
+          <section className="creator-chat-panel" aria-label="Call chat">
+            <div className="creator-chat-heading">
+              <div>
+                <p className="creator-chat-eyebrow">CALL CONVERSATION</p>
+                <h3>Live chat</h3>
+              </div>
+              <span className={callConnected ? "creator-chat-status connected" : "creator-chat-status"}>
+                <span /> {callConnected ? "Connected" : "Waiting for call"}
+              </span>
+            </div>
+
+            <div className="creator-chat-messages" ref={chatMessagesRef} aria-live="polite">
+              {chatMessages.length === 0 ? (
+                <div className="creator-chat-empty">
+                  <span className="creator-chat-empty-icon">✉</span>
+                  <strong>{callConnected ? "Say hello" : "Your chat will appear here"}</strong>
+                  <p>{callConnected ? "You can now message the caller." : "Messages unlock when a user call connects."}</p>
+                </div>
+              ) : (
+                chatMessages.map((item) => (
+                  <div className={`creator-chat-message-row ${item.own ? "own" : ""}`} key={item.id}>
+                    <div className="creator-chat-bubble">{item.text}</div>
+                    <span className="creator-chat-author">{item.own ? "YOU" : (callerName || "USER")}</span>
+                  </div>
+                ))
+              )}
+              {partnerTyping && (
+                <div className="creator-chat-typing">{callerName || "User"} is typing…</div>
+              )}
+            </div>
+
+            <form className="creator-chat-form" onSubmit={sendChatMessage}>
+              <input
+                value={chatMessage}
+                onChange={handleChatChange}
+                maxLength={1000}
+                placeholder={callConnected ? "Write a message…" : "Connect a call first…"}
+                disabled={!callConnected}
+                aria-label="Write a chat message"
+              />
+              <button type="submit" disabled={!callConnected || !chatMessage.trim()} aria-label="Send message">
+                <Send size={17} />
+              </button>
+            </form>
+          </section>
 
           {cameraError && (
             <p className="creator-error" role="alert">{cameraError}</p>
