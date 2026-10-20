@@ -34,7 +34,13 @@ function getSafeNextPath(role) {
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
 
-  if (role === "creator") return "/creator";
+  if (role === "creator") {
+    try {
+      const session = JSON.parse(localStorage.getItem("onlystream-test-session-v1") || "null");
+      if (session?.creatorPlan === "subscription") return "/subscription-creator";
+    } catch {}
+    return "/creator";
+  }
 
   // Normal users always land on the homepage after login/signup.
   if (role === "user") return "/";
