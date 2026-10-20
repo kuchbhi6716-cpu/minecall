@@ -2131,3 +2131,23 @@ a:focus-visible {
   }
 }
 
+
+
+/* OnlyStream: make creator live cards taller on the homepage */
+.onlystream-creator-card .model-thumbnail {
+  aspect-ratio: 3 / 4;
+}
+
+.onlystream-creator-card .model-card-click {
+  height: 100%;
+}
+
+.onlystream-creator-card .stream-info {
+  padding: 14px 12px 15px;
+}
+
+@media (max-width: 540px) {
+  .category-track > .onlystream-creator-card {
+    flex-basis: 205px;
+  }
+}
