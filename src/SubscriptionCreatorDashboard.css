@@ -30,9 +30,8 @@
   transform: scaleX(-1);
   -webkit-transform: scaleX(-1);
 }
-/* Force mirror effect on creator's local camera preview */
+
 video {
   -webkit-transform: scaleX(-1) !important;
   transform: scaleX(-1) !important;
 }
-
