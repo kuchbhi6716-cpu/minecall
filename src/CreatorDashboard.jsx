@@ -55,6 +55,12 @@ export default function CreatorDashboard() {
   const typingRef = useRef(false);
 
   const [username, setUsername] = useState("Creator");
+  const [creatorPlan, setCreatorPlan] = useState("calls");
+  const [subscriptionPrice, setSubscriptionPrice] = useState(0);
+  const [creatorMedia, setCreatorMedia] = useState([]);
+  const [mediaTitle, setMediaTitle] = useState("");
+  const [mediaNotice, setMediaNotice] = useState("");
+  const [showSubscriptionEarnings, setShowSubscriptionEarnings] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -362,6 +368,9 @@ export default function CreatorDashboard() {
       }
 
       setUsername(session.username || "Creator");
+      setCreatorPlan(session.creatorPlan || "calls");
+      setSubscriptionPrice(Number(session.subscriptionPrice || 0));
+      try { setCreatorMedia(JSON.parse(localStorage.getItem(`onlystream-media-${session.username}`) || "[]")); } catch { setCreatorMedia([]); }
 
       const oldLive = JSON.parse(localStorage.getItem(LIVE_KEY) || "null");
       if (oldLive?.username === session.username && oldLive.isLive) {
@@ -910,7 +919,15 @@ export default function CreatorDashboard() {
         </section>
       )}
 
-      {!showEarnings && <section className="creator-dashboard-grid">
+      {creatorPlan === "subscription" && !showEarnings && (
+        <section className="subscription-studio">
+          <div className="subscription-studio-heading"><div><span className="subscription-studio-kicker">SUBSCRIPTION CREATOR</span><h2>Your Content Studio</h2><p>Manage the photos and videos available to your lifetime subscribers.</p></div><div className="subscription-price-badge"><span>One-time access</span><strong>₹{formatNumber(subscriptionPrice)}</strong><small>Lifetime · Demo</small></div></div>
+          <div className="subscription-studio-actions"><button type="button" onClick={() => setShowSubscriptionEarnings(true)}><TrendingUp size={18}/> Subscription earnings</button><button type="button" onClick={() => { const el=document.getElementById("creator-media-upload"); el?.click(); }}><Camera size={18}/> Upload photos/videos</button><input id="creator-media-upload" type="file" accept="image/*,video/*" multiple hidden onChange={async e => { const files=Array.from(e.target.files||[]); if(!files.length)return; const allowed=files.filter(f=>f.size<=5*1024*1024); if(allowed.length!==files.length)setMediaNotice("Files over 5 MB were skipped to keep demo storage manageable."); const added=await Promise.all(allowed.map(file=>new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve({id:`${Date.now()}-${Math.random()}`,name:file.name,type:file.type.startsWith("video/")?"video":"image",data:reader.result,createdAt:new Date().toISOString()});reader.onerror=()=>resolve(null);reader.readAsDataURL(file)}))); const next=[...creatorMedia,...added.filter(Boolean)]; setCreatorMedia(next); try{localStorage.setItem(`onlystream-media-${username}`,JSON.stringify(next));setMediaNotice(`${added.filter(Boolean).length} item(s) added to your demo gallery.`)}catch{setMediaNotice("Browser storage is full. Try smaller files or remove older uploads.")} e.target.value=""; }} /></div>
+          {showSubscriptionEarnings ? <div className="subscription-earnings-panel"><button type="button" className="subscription-back" onClick={() => setShowSubscriptionEarnings(false)}><ArrowLeft size={16}/> Back to content</button><h3>Subscription earnings</h3><div className="subscription-earning-stats"><article><span>Lifetime access price</span><strong>₹{formatNumber(subscriptionPrice)}</strong></article><article><span>Demo subscribers</span><strong>0</strong></article><article><span>Subscription revenue</span><strong>₹0</strong></article><article><span>Creator bonus</span><strong>₹{formatNumber(signupBonus)}</strong></article></div><p className="subscription-demo-note">Demo dashboard only. Subscriber payments and revenue are not yet connected to a real payment system.</p></div> : <><div className="subscription-content-heading"><h3>Your photos & videos</h3><span>{creatorMedia.length} items</span></div>{mediaNotice && <p className="subscription-demo-note" role="status">{mediaNotice}</p>}{creatorMedia.length ? <div className="subscription-media-grid">{creatorMedia.map(item=><article className="subscription-media-card" key={item.id}>{item.type==="video"?<video src={item.data} controls playsInline/>:<img src={item.data} alt={item.name}/>}<div><span>{item.type==="video"?"VIDEO":"PHOTO"}</span><button type="button" onClick={()=>{const next=creatorMedia.filter(x=>x.id!==item.id);setCreatorMedia(next);localStorage.setItem(`onlystream-media-${username}`,JSON.stringify(next));}}>Remove</button></div><p>{item.name}</p></article>)}</div>:<div className="subscription-empty"><div>✦</div><h3>Your subscriber gallery starts here</h3><p>Upload photos and videos. They will appear here in this demo dashboard.</p><button type="button" onClick={() => document.getElementById("creator-media-upload")?.click()}><Camera size={17}/> Add your first media</button></div>}<div className="subscription-live-card"><div><Radio size={21}/><div><strong>Live streaming</strong><p>Your live controls are kept separate from call earning. Subscribers can watch live; this plan does not enable creator calls.</p></div></div><span className={isLive?"subscription-live-status live":"subscription-live-status"}>{isLive?"LIVE NOW":"NOT LIVE"}</span><button type="button" onClick={goLive} disabled={busy || isLive}><Video size={17}/> {isLive?"You are live":"Go live for subscribers"}</button>{isLive&&<button type="button" className="subscription-stop-live" onClick={endCall}><VideoOff size={17}/> End live</button>}</div></>}
+        </section>
+      )}
+
+      {!showEarnings && creatorPlan !== "subscription" && <section className="creator-dashboard-grid">
         <div className="creator-camera-panel">
           <div className="creator-panel-heading">
             <div>
