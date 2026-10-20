@@ -8,7 +8,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: { origin: process.env.CLIENT_ORIGIN || true },
-  maxHttpBufferSize: 1e6,
+  maxHttpBufferSize: 5e6,
 });
 
 const PORT = process.env.PORT || 3000;
@@ -48,6 +48,10 @@ const economyLedger = [];
 const activeBillableCalls = new Map();
 
 const liveCreators = new Map();
+const subscriptionEarningsLedger = new Map();
+const subscriptionTransactionIds = new Set();
+// Demo-only shared subscription gallery; stored in memory and cleared when the server restarts.
+const subscriptionMediaStore = new Map();
 const waiting = [];
 const partners = new Map();
 const pendingCreatorCalls = new Map();
@@ -1610,6 +1614,82 @@ io.on("connection", (socket) => {
     }
 
     io.to(partnerId).emit("chat-message", message.trim().slice(0, 1000));
+  });
+
+  // Demo subscription ledger: kept on the server so creator dashboard refresh works across browsers while this process is running.
+  socket.on("subscription-purchase", (payload, acknowledge) => {
+    const username = normalizeCreatorName(payload?.username);
+    const amount = Number(payload?.amount);
+    const transactionId = String(payload?.transactionId || "").slice(0, 120);
+    if (!username || !Number.isFinite(amount) || amount < 1 || amount > 100000 || !transactionId) {
+      if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Invalid demo subscription record." });
+      return;
+    }
+    if (!subscriptionTransactionIds.has(transactionId)) {
+      subscriptionTransactionIds.add(transactionId);
+      const key = username.toLowerCase();
+      const rows = subscriptionEarningsLedger.get(key) || [];
+      rows.push({ amount: Math.round(amount * 100) / 100, createdAt: new Date().toISOString(), transactionId });
+      subscriptionEarningsLedger.set(key, rows);
+      const creator = liveCreators.get(username);
+      if (creator?.socketId) io.to(creator.socketId).emit("subscription-earnings-updated", { username });
+    }
+    if (typeof acknowledge === "function") acknowledge({ ok: true });
+  });
+
+  socket.on("subscription-earnings-get", (payload, acknowledge) => {
+    const username = normalizeCreatorName(payload?.username);
+    if (!username) {
+      if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Creator username is required." });
+      return;
+    }
+    const rows = subscriptionEarningsLedger.get(username.toLowerCase()) || [];
+    const now = Date.now();
+    const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+    const sumSince = (since) => rows.filter(row => new Date(row.createdAt).getTime() >= since).reduce((sum, row) => sum + row.amount, 0);
+    if (typeof acknowledge === "function") acknowledge({ ok: true, earnings: {
+      today: Math.round(sumSince(startToday.getTime()) * 100) / 100,
+      week: Math.round(sumSince(now - 7 * 24 * 60 * 60 * 1000) * 100) / 100,
+      month: Math.round(sumSince(now - 30 * 24 * 60 * 60 * 1000) * 100) / 100,
+      total: Math.round(rows.reduce((sum, row) => sum + row.amount, 0) * 100) / 100,
+      transactions: rows.length,
+    } });
+  });
+
+  // Shared subscription gallery for creators and subscribers on different devices.
+  // Demo-only: stored in server memory, so uploads reset when the server restarts.
+  socket.on("subscription-media-get", (payload, acknowledge) => {
+    const username = normalizeCreatorName(payload?.username);
+    if (!username) { if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Creator username is required." }); return; }
+    const items = subscriptionMediaStore.get(username.toLowerCase()) || [];
+    if (typeof acknowledge === "function") acknowledge({ ok: true, items });
+  });
+
+  socket.on("subscription-media-upload", (payload, acknowledge) => {
+    const username = normalizeCreatorName(payload?.username);
+    const item = payload?.item;
+    if (!username || !item || typeof item.data !== "string" || item.data.length > 3_000_000 || !/^data:(image\/|video\/)/i.test(item.data) || !["photo", "video"].includes(item.type)) {
+      if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Invalid upload. Use an image or video under 2 MB." }); return;
+    }
+    const key = username.toLowerCase();
+    const items = subscriptionMediaStore.get(key) || [];
+    if (items.length >= 100) { if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Gallery limit reached. Delete an old item first." }); return; }
+    const safeItem = { id: String(item.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`).slice(0, 120), name: String(item.name || "Creator upload").slice(0, 180), type: item.type, data: item.data, createdAt: new Date().toISOString() };
+    items.push(safeItem);
+    subscriptionMediaStore.set(key, items);
+    io.to(`subscription-viewers:${key}`).emit("subscription-media-updated", { username, items });
+    if (typeof acknowledge === "function") acknowledge({ ok: true, items });
+  });
+
+  socket.on("subscription-media-delete", (payload, acknowledge) => {
+    const username = normalizeCreatorName(payload?.username);
+    const id = String(payload?.id || "").slice(0, 120);
+    if (!username || !id) { if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Creator and media ID are required." }); return; }
+    const key = username.toLowerCase();
+    const items = (subscriptionMediaStore.get(key) || []).filter((item) => item.id !== id);
+    subscriptionMediaStore.set(key, items);
+    io.to(`subscription-viewers:${key}`).emit("subscription-media-updated", { username, items });
+    if (typeof acknowledge === "function") acknowledge({ ok: true, items });
   });
 
   // Subscription broadcasts use a separate signaling path from paid calls.
