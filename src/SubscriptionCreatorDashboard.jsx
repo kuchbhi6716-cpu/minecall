@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { Camera, CameraOff, Mic, MicOff, Radio, RefreshCw, LogOut, Wallet, Maximize2 } from "lucide-react";
+import { Camera, CameraOff, Mic, MicOff, Radio, RefreshCw, LogOut, Wallet, ImagePlus, Video, Trash2, TrendingUp } from "lucide-react";
 
 const SESSION_KEY = "onlystream-test-session-v1";
 const LIVE_KEY = "onlystream-subscription-live-v1";
@@ -19,7 +19,10 @@ export default function SubscriptionCreatorDashboard() {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [viewers, setViewers] = useState(0);
-  const [earnings, setEarnings] = useState(() => 0);
+  const [earnings, setEarnings] = useState({ today: 0, week: 0, month: 0, total: 0, transactions: 0 });
+  const [media, setMedia] = useState(() => { try { return JSON.parse(localStorage.getItem(`onlystream-media-${JSON.parse(localStorage.getItem(SESSION_KEY) || "{}")?.username || "creator"}`) || "[]"); } catch { return []; } });
+  const [mediaNotice, setMediaNotice] = useState("");
+  const mediaInputRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const socketRef = useRef(null);
@@ -41,10 +44,16 @@ export default function SubscriptionCreatorDashboard() {
     if (session.creatorPlan !== "subscription") { window.location.replace("/creator"); return; }
     setUsername(session.username || "Creator");
     setPrice(Math.max(1, Number(session.subscriptionPrice) || 499));
-    try { setEarnings(Number(localStorage.getItem(earningKey(session.username))) || 0); } catch {}
+    try { setMedia(JSON.parse(localStorage.getItem(`onlystream-media-${session.username}`) || "[]")); } catch {}
+    const loadEarnings = () => socketRef.current?.emit("subscription-earnings-get", { username: session.username }, (data) => {
+      if (data?.ok) setEarnings(data.earnings || { today: 0, week: 0, month: 0, total: 0, transactions: 0 });
+    });
     const socket = io({ transports: ["websocket", "polling"] });
     socketRef.current = socket;
-    socket.on("connect", () => { socket.emit("get-live-creators"); setError(""); });
+    socket.on("connect", () => { socket.emit("get-live-creators"); setError(""); loadEarnings(); });
+    socket.on("subscription-earnings-updated", (data) => {
+      if (String(data?.username || "").toLowerCase() === String(session.username || "").toLowerCase()) loadEarnings();
+    });
     socket.on("connect_error", () => setError("Server connection failed. Check the deployment and retry."));
     socket.on("subscription-viewer-joined", async (data) => {
       if (!liveRef.current || !streamRef.current || !data?.viewerSocketId) return;
@@ -104,6 +113,45 @@ export default function SubscriptionCreatorDashboard() {
       if (old) { streamRef.current.removeTrack(old); old.stop(); } streamRef.current.addTrack(track); if (videoRef.current) videoRef.current.srcObject = streamRef.current; setFacing(next); setCameraOff(false);
     } catch { setError("Could not switch camera on this device."); }
   }
+  async function refreshEarnings() {
+    const socket = socketRef.current;
+    if (!socket?.connected) { setError("Earnings refresh nahi ho saka: server disconnected hai."); return; }
+    socket.emit("subscription-earnings-get", { username }, (data) => {
+      if (data?.ok) { setEarnings(data.earnings || { today: 0, week: 0, month: 0, total: 0, transactions: 0 }); setError(""); }
+      else setError(data?.error || "Earnings load nahi ho paayi.");
+    });
+  }
+  function uploadMedia(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    const key = `onlystream-media-${username}`;
+    const existing = [...media];
+    let pending = files.length;
+    let failed = false;
+    files.forEach((file) => {
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) { failed = true; pending--; return; }
+      // localStorage is only for demo uploads; keep individual files small to avoid quota errors.
+      if (file.size > 2 * 1024 * 1024) { failed = true; pending--; return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        existing.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: file.name, type: file.type.startsWith("video/") ? "video" : "photo", data: reader.result, createdAt: new Date().toISOString() });
+        pending--;
+        if (pending === 0) {
+          try { localStorage.setItem(key, JSON.stringify(existing)); setMedia(existing); setMediaNotice(failed ? "Some files skipped. Demo uploads must be images/videos under 2 MB each." : "Upload complete. Subscribers can see these files in the gallery on this browser."); }
+          catch { setMediaNotice("Storage full. Try smaller files or remove old uploads."); }
+        }
+      };
+      reader.onerror = () => { failed = true; pending--; if (pending === 0) setMediaNotice("Some files could not be uploaded."); };
+      reader.readAsDataURL(file);
+    });
+    event.target.value = "";
+    if (pending === 0) setMediaNotice("Choose images/videos under 2 MB each for this demo upload.");
+  }
+  function deleteMedia(id) {
+    const next = media.filter(item => item.id !== id);
+    try { localStorage.setItem(`onlystream-media-${username}`, JSON.stringify(next)); setMedia(next); setMediaNotice("Media removed."); }
+    catch { setMediaNotice("Could not update gallery."); }
+  }
   function sendMessage(e) { e.preventDefault(); const text = message.trim(); if (!text || !isLive || !socketRef.current?.connected) return; socketRef.current.emit("subscription-chat-message", { username, name: username, text }); setMessage(""); }
   function logout() { endLive(); try { localStorage.removeItem(SESSION_KEY); } catch {} window.location.replace("/"); }
 
@@ -113,7 +161,8 @@ export default function SubscriptionCreatorDashboard() {
     {error && <p className="sub-creator-error">{error}</p>}
     <section className="sub-creator-grid"><div className="sub-creator-main"><div className="sub-creator-player"><video ref={videoRef} autoPlay muted playsInline controls aria-label="Your subscription live preview"/><span className="sub-creator-player-label">{isLive ? "LIVE PREVIEW" : "CAMERA PREVIEW"}</span>{!isLive && <div className="sub-creator-placeholder"><Camera size={34}/><strong>Your live preview</strong><span>Tap Go Live to start your subscription stream.</span></div>}</div>
       <div className="sub-creator-controls">{!isLive ? <button className="sub-creator-go" onClick={goLive} disabled={busy}><Radio size={18}/>{busy ? "Starting camera…" : "Go Live"}</button> : <button className="sub-creator-end" onClick={endLive}>End Live</button>}<button onClick={toggleMic} disabled={!isLive}>{muted ? <MicOff size={17}/> : <Mic size={17}/>} {muted ? "Unmute" : "Mute mic"}</button><button onClick={toggleCamera} disabled={!isLive}>{cameraOff ? <CameraOff size={17}/> : <Camera size={17}/>} {cameraOff ? "Camera on" : "Camera off"}</button><button onClick={flipCamera} disabled={!isLive}><RefreshCw size={17}/> Flip camera</button><span className="sub-creator-viewer-count">{viewers} connected viewer{viewers === 1 ? "" : "s"}</span></div>
-      <section className="sub-creator-earnings"><div className="sub-creator-earnings-icon"><Wallet size={22}/></div><div><span>SUBSCRIPTION EARNINGS</span><strong>₹{earnings.toFixed(2)}</strong><small>Demo total on this browser · test payments only</small></div><button onClick={() => { try { setEarnings(Number(localStorage.getItem(earningKey(username))) || 0); } catch {} }}>Refresh</button></section>
+      <section className="sub-creator-earnings-panel"><div className="sub-creator-section-heading"><div><span className="sub-creator-kicker">YOUR REVENUE</span><h2>Subscription earnings</h2></div><button className="sub-creator-refresh" onClick={refreshEarnings}><RefreshCw size={15}/> Refresh earnings</button></div><div className="sub-creator-earnings-grid"><article className="sub-creator-earnings sub-creator-total"><div className="sub-creator-earnings-icon"><Wallet size={22}/></div><div><span>TOTAL EARNED</span><strong>₹{Number(earnings.total || 0).toFixed(2)}</strong><small>{earnings.transactions || 0} demo subscription payments</small></div></article><article className="sub-creator-earning-stat"><span><TrendingUp size={15}/> TODAY</span><strong>₹{Number(earnings.today || 0).toFixed(2)}</strong></article><article className="sub-creator-earning-stat"><span>LAST 7 DAYS</span><strong>₹{Number(earnings.week || 0).toFixed(2)}</strong></article><article className="sub-creator-earning-stat"><span>LAST 30 DAYS</span><strong>₹{Number(earnings.month || 0).toFixed(2)}</strong></article></div><p className="sub-creator-earnings-footnote">Demo ledger stored by the running server. Demo payments only — not real payouts.</p></section>
+      <section className="sub-creator-media-panel"><div className="sub-creator-section-heading"><div><span className="sub-creator-kicker">EXCLUSIVE CONTENT</span><h2>Photos & videos</h2><p>Upload content for subscribers to view.</p></div><button className="sub-creator-upload" onClick={() => mediaInputRef.current?.click()}><ImagePlus size={17}/> Upload photos / videos</button><input ref={mediaInputRef} type="file" accept="image/*,video/*" multiple hidden onChange={uploadMedia}/></div>{mediaNotice && <p className="sub-creator-media-notice">{mediaNotice}</p>}{media.length ? <div className="sub-creator-media-grid">{media.map(item => <article key={item.id}>{item.type === "video" ? <video src={item.data} controls playsInline/> : <img src={item.data} alt={item.name || "Creator upload"}/>}<div><span>{item.type === "video" ? <Video size={13}/> : <ImagePlus size={13}/>} {item.name || item.type}</span><button onClick={() => deleteMedia(item.id)} aria-label="Delete upload"><Trash2 size={15}/></button></div></article>)}</div> : <div className="sub-creator-media-empty"><ImagePlus size={25}/><strong>No uploads yet</strong><span>Your photos and videos will appear here after you upload them.</span></div>}</section>
       <p className="sub-creator-note">Your signup bonus and pay-per-call earnings stay in the separate Call Creator dashboard. This page is for subscription streams and subscriber chat.</p></div>
       <aside className="sub-creator-chat"><div className="sub-creator-chat-head"><div><span>SUBSCRIBER ROOM</span><h2>Live chat</h2></div><b>{isLive ? "● LIVE" : "OFFLINE"}</b></div><div className="sub-creator-chat-list">{messages.length ? messages.map(item => <div className="sub-creator-message" key={item.id}><strong>{item.name}</strong><p>{item.text}</p></div>) : <div className="sub-creator-chat-empty">Subscriber messages will appear here when you go live.</div>}</div><form onSubmit={sendMessage} className="sub-creator-chat-form"><input value={message} onChange={e => setMessage(e.target.value)} placeholder={isLive ? "Reply to subscribers…" : "Go live to chat"} disabled={!isLive}/><button disabled={!isLive || !message.trim()}>Send</button></form></aside></section>
   </main>;
