@@ -1,4 +1,3 @@
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 /* ========================================
@@ -2151,3 +2150,7 @@ a:focus-visible {
     flex-basis: 205px;
   }
 }
+
+
+/* Distinct subscription and call-earning creator sections */
+.subscription-section-label{display:inline-flex;align-items:center;background:#d9fbe8;color:#087847;border:1px solid #91e4b7;border-radius:999px;padding:4px 10px;font-size:10px;font-weight:900;letter-spacing:.12em;margin-bottom:5px}.subscription-section-icon{background:#d9fbe8!important;color:#087847!important}.subscription-creators-section{border:1px solid rgba(89,220,155,.24);border-radius:22px;padding:20px;background:linear-gradient(135deg,rgba(23,120,78,.10),rgba(10,15,25,.18))}.subscription-creator-card{border:1px solid rgba(93,230,157,.42)!important;box-shadow:0 8px 26px rgba(0,0,0,.18)}.subscription-creator-card .model-thumbnail{border-bottom:2px solid #42d88b}.subscription-card-ribbon{position:absolute;z-index:3;top:10px;left:10px;background:#c9f9df;color:#086c3d;padding:6px 10px;border-radius:7px;font-size:10px;font-weight:900;letter-spacing:.08em;box-shadow:0 4px 15px #0003}.subscription-creator-card .stream-info p{color:#65e6a1!important}.call-creators-section{border:1px solid rgba(255,255,255,.07);border-radius:22px;padding:20px}.creator-section-empty{opacity:.7;padding:16px 0}
