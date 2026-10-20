@@ -39,6 +39,7 @@ export default function CreatorDashboard() {
   const streamRef = useRef(null);
   const socketRef = useRef(null);
   const peerRef = useRef(null);
+  const subscriptionPeersRef = useRef(new Map());
   const pendingSignalsRef = useRef([]);
   const pendingCandidatesRef = useRef([]);
   const processingSignalsRef = useRef(false);
@@ -390,6 +391,63 @@ export default function CreatorDashboard() {
 
     socket.on("connect", () => socket.emit("get-live-creators"));
 
+    // Separate WebRTC connections for viewers watching a subscription creator live.
+    socket.on("subscription-viewer-joined", async ({ viewerSocketId, username: liveUsername }) => {
+      if (!viewerSocketId || !isLiveRef.current || !streamRef.current) return;
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+      const currentUsername = session?.username || username;
+      if (String(liveUsername || "").toLowerCase() !== String(currentUsername).toLowerCase()) return;
+
+      const oldPeer = subscriptionPeersRef.current.get(viewerSocketId);
+      if (oldPeer) {
+        try { oldPeer.close(); } catch {}
+        subscriptionPeersRef.current.delete(viewerSocketId);
+      }
+
+      try {
+        const peer = new RTCPeerConnection(ICE_SERVERS);
+        subscriptionPeersRef.current.set(viewerSocketId, peer);
+        streamRef.current.getTracks().forEach((track) => peer.addTrack(track, streamRef.current));
+        peer.onicecandidate = (event) => {
+          if (event.candidate) socket.emit("subscription-live-signal", {
+            username: currentUsername, targetSocketId: viewerSocketId,
+            type: "candidate", candidate: event.candidate,
+          });
+        };
+        peer.onconnectionstatechange = () => {
+          if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
+            try { peer.close(); } catch {}
+            if (subscriptionPeersRef.current.get(viewerSocketId) === peer) {
+              subscriptionPeersRef.current.delete(viewerSocketId);
+            }
+          }
+        };
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        socket.emit("subscription-live-signal", {
+          username: currentUsername, targetSocketId: viewerSocketId,
+          type: "offer", offer: peer.localDescription,
+        });
+      } catch (error) {
+        console.error("Subscription broadcast setup failed:", error);
+      }
+    });
+
+    socket.on("subscription-live-signal", async (payload) => {
+      if (!payload || !payload.fromSocketId) return;
+      const peer = subscriptionPeersRef.current.get(payload.fromSocketId);
+      if (!peer) return;
+      try {
+        if (payload.type === "answer" && payload.answer && !peer.currentRemoteDescription) {
+          await peer.setRemoteDescription(new RTCSessionDescription(payload.answer));
+        } else if (payload.type === "candidate" && payload.candidate) {
+          await peer.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        }
+      } catch (error) {
+        console.warn("Subscription live signal could not be applied:", error);
+      }
+    });
+
     socket.on("connect_error", () => {
       setCameraError("Server connection failed. Please refresh and retry.");
     });
@@ -504,6 +562,8 @@ export default function CreatorDashboard() {
       if (socketRef.current === socket) socketRef.current = null;
 
       closePeer();
+      subscriptionPeersRef.current.forEach((peer) => { try { peer.close(); } catch {} });
+      subscriptionPeersRef.current.clear();
       stopLocalStream();
     };
   }, [
@@ -769,6 +829,8 @@ export default function CreatorDashboard() {
     window.clearTimeout(typingTimeoutRef.current);
     typingRef.current = false;
     closePeer();
+    subscriptionPeersRef.current.forEach((peer) => { try { peer.close(); } catch {} });
+    subscriptionPeersRef.current.clear();
     setIncomingCall(null);
     requestRef.current = null;
     acceptingRequestRef.current = null;
@@ -817,6 +879,8 @@ export default function CreatorDashboard() {
 
     isLiveRef.current = false;
     closePeer();
+    subscriptionPeersRef.current.forEach((peer) => { try { peer.close(); } catch {} });
+    subscriptionPeersRef.current.clear();
     stopLocalStream();
 
     localStorage.removeItem(LIVE_KEY);
