@@ -83,6 +83,8 @@ export default function AuthPage({ initialMode = "login" }) {
 
   const [role, setRole] = useState("user");
   const [gender, setGender] = useState("");
+  const [creatorPlan, setCreatorPlan] = useState("calls");
+  const [subscriptionPrice, setSubscriptionPrice] = useState("499");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -142,6 +144,8 @@ export default function AuthPage({ initialMode = "login" }) {
           username: cleanUsername,
           role,
           gender: role === "creator" ? gender : "",
+          creatorPlan: role === "creator" ? creatorPlan : "",
+          subscriptionPrice: role === "creator" && creatorPlan === "subscription" ? Math.max(1, Number(subscriptionPrice) || 1) : 0,
           passwordHash,
           createdAt: new Date().toISOString(),
         };
@@ -171,6 +175,7 @@ export default function AuthPage({ initialMode = "login" }) {
         }
 
         account = existing;
+        if (role === "creator" && !account.creatorPlan) account.creatorPlan = "calls";
       }
 
       let economyAccount;
@@ -193,6 +198,8 @@ export default function AuthPage({ initialMode = "login" }) {
       const session = {
         username: account.username,
         role: account.role,
+        creatorPlan: account.creatorPlan || "calls",
+        subscriptionPrice: Number(account.subscriptionPrice || 0),
         loggedInAt: new Date().toISOString(),
         testMode: true,
         coins: economyAccount.coins ?? 0,
@@ -295,6 +302,21 @@ export default function AuthPage({ initialMode = "login" }) {
               Test/demo bonus only. It is not real money and cannot be
               withdrawn.
             </span>
+          </div>
+        )}
+
+        {mode === "signup" && role === "creator" && (
+          <div className="creator-plan-picker">
+            <p className="creator-plan-title">Choose how you want to earn</p>
+            <div className="creator-plan-options">
+              <button type="button" className={`creator-plan-card ${creatorPlan === "calls" ? "selected" : ""}`} onClick={() => setCreatorPlan("calls")} disabled={busy}>
+                <span className="creator-plan-tag">POPULAR</span><strong>Call Earning</strong><span>Go live, receive paid calls and earn per call using the existing coin system.</span><b>Earn from calls</b>
+              </button>
+              <button type="button" className={`creator-plan-card ${creatorPlan === "subscription" ? "selected" : ""}`} onClick={() => setCreatorPlan("subscription")} disabled={busy}>
+                <span className="creator-plan-tag subscription-tag">LIFETIME ACCESS</span><strong>Subscription Creator</strong><span>Set a one-time fee. Subscribers get lifetime access to your live streams, photos and videos, but cannot call you.</span><b>One-time payment</b>
+              </button>
+            </div>
+            {creatorPlan === "subscription" && <div className="creator-price-field"><label htmlFor="creator-subscription-price">One-time lifetime access price (₹)</label><input id="creator-subscription-price" type="number" min="1" max="100000" step="1" value={subscriptionPrice} onChange={e => setSubscriptionPrice(e.target.value)} required disabled={busy}/><small>Demo mode: no real payment is collected. The price is saved to this browser account.</small></div>}
           </div>
         )}
 
