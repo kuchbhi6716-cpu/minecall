@@ -343,36 +343,23 @@ function ModelCard({ model }) {
   );
 }
 
-function OnlyStreamCreatorCard({ creator }) {
+function OnlyStreamCreatorCard({ creator, plan = "call" }) {
+  const subscription = plan === "subscription";
   function openCreator() {
-    // The current LivePage supports external models, not
-    // a playable OnlyStream creator broadcast yet.
-    // Send visitors to the call page instead of a broken live URL.
-    window.location.href =
-      "/call?creator=" + encodeURIComponent(creator.username);
+    if (subscription) {
+      const price = Math.max(1, Number(creator.subscriptionPrice || creator.subscription_price || 499));
+      window.location.href = `/live?subscriptionCreator=${encodeURIComponent(creator.username)}&subscriptionPrice=${price}`;
+    } else {
+      window.location.href = "/call?creator=" + encodeURIComponent(creator.username);
+    }
   }
-
   return (
-    <article className="stream-card model-card onlystream-creator-card">
-      <button
-        type="button"
-        className="model-card-click"
-        onClick={openCreator}
-        aria-label={`Connect with OnlyStream creator ${creator.username}`}
-      >
-        <div
-          className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"
-          aria-hidden="true"
-        >
-          <Radio size={34} />
-        </div>
-
-        <span className="model-online">● LIVE</span>
-
-        <div className="stream-info">
-          <h3>{creator.username}</h3>
-          <p>ONLYSTREAM CREATOR · AVAILABLE</p>
-        </div>
+    <article className={`stream-card model-card onlystream-creator-card ${subscription ? "subscription-creator-card" : "call-creator-card"}`}>
+      <button type="button" className="model-card-click" onClick={openCreator} aria-label={`${subscription ? "View subscription creator" : "Call creator"} ${creator.username}`}>
+        <div className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"><Radio size={34} /></div>
+        {subscription && <span className="subscription-card-ribbon">SUBSCRIPTION</span>}
+        <span className="model-online">● {creator.isLive || creator.is_live ? "LIVE" : "AVAILABLE"}</span>
+        <div className="stream-info"><h3>{creator.username}</h3><p>{subscription ? `LIFETIME ACCESS · ₹${Math.max(1, Number(creator.subscriptionPrice || creator.subscription_price || 499))} ONCE` : "CALL EARNING · PAY PER CALL"}</p></div>
       </button>
     </article>
   );
@@ -744,53 +731,21 @@ export default function Home() {
       </section>
 
       <section className="discovery">
-        <section className="category-section onlystream-live-section">
-          <div className="category-heading">
-            <div className="category-title-wrap">
-              <span className="category-icon pink">
-                <Radio size={19} />
-              </span>
-
-              <div>
-                <h2>OnlyStream Creators Live</h2>
-                <p>
-                  Creators broadcasting on OnlyStream right now
-                </p>
-              </div>
-            </div>
-
-            <span className="online-status">
-              ● {onlyStreamCreators.length} live
-            </span>
-          </div>
-
-          {creatorsLoading ? (
-            <p>Checking live creators...</p>
-          ) : creatorsError && onlyStreamCreators.length === 0 ? (
-            <p>
-              Could not refresh OnlyStream creators. Retrying automatically.
-            </p>
-          ) : onlyStreamCreators.length === 0 ? (
-            <p>
-              No OnlyStream creators are live right now. Check back soon.
-            </p>
-          ) : (
-            <div className="category-track">
-              {onlyStreamCreators.map((creator) => (
-                <OnlyStreamCreatorCard
-                  key={creator.username.toLowerCase()}
-                  creator={creator}
-                />
-              ))}
-            </div>
-          )}
-
-          {creatorsError && onlyStreamCreators.length > 0 && (
-            <p className="models-error">
-              Live list refresh failed temporarily. Showing the last result.
-            </p>
-          )}
-        </section>
+        {(() => {
+          const subscriptionCreators = onlyStreamCreators.filter(c => String(c.creatorPlan || c.creator_plan || c.plan || "").toLowerCase() === "subscription");
+          const callCreators = onlyStreamCreators.filter(c => !subscriptionCreators.includes(c));
+          return <>
+            <section className="category-section onlystream-live-section subscription-creators-section">
+              <div className="category-heading"><div className="category-title-wrap"><span className="category-icon subscription-section-icon"><Radio size={19}/></span><div><span className="subscription-section-label">SUBSCRIPTION</span><h2>Subscription Creators</h2><p>Pay once for lifetime access to creator content and live streams</p></div></div><span className="online-status">● {subscriptionCreators.length} creators</span></div>
+              {creatorsLoading ? <p>Loading subscription creators...</p> : subscriptionCreators.length ? <div className="category-track">{subscriptionCreators.map(creator => <OnlyStreamCreatorCard key={creator.username.toLowerCase()} creator={creator} plan="subscription" />)}</div> : <p className="creator-section-empty">No subscription creators available yet.</p>}
+            </section>
+            <section className="category-section onlystream-live-section call-creators-section">
+              <div className="category-heading"><div className="category-title-wrap"><span className="category-icon pink"><Radio size={19}/></span><div><h2>Call Earning Creators</h2><p>Connect through the existing paid-call system</p></div></div><span className="online-status">● {callCreators.length} creators</span></div>
+              {creatorsLoading ? <p>Checking live creators...</p> : callCreators.length ? <div className="category-track">{callCreators.map(creator => <OnlyStreamCreatorCard key={creator.username.toLowerCase()} creator={creator} plan="call" />)}</div> : <p className="creator-section-empty">No call creators live right now.</p>}
+              {creatorsError && <p className="models-error">Creator list refresh failed temporarily. Showing the last result.</p>}
+            </section>
+          </>;
+        })()}
 
         {modelsLoading ? (
           <p>Loading live models...</p>
