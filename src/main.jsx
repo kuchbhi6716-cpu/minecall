@@ -1,4 +1,3 @@
-
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
@@ -8,15 +7,6 @@ import CreatorDashboard from "./CreatorDashboard.jsx";
 import "./style.css";
 import "./AuthPage.css";
 import "./CreatorDashboard.css";
-
-// Hide the Creator Studio link on the homepage.
-const creatorStudioStyle = document.createElement("style");
-creatorStudioStyle.textContent = `
-  .home-nav-actions .creator-studio-link {
-    display: none !important;
-  }
-`;
-document.head.appendChild(creatorStudioStyle);
 
 function RootApp() {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
