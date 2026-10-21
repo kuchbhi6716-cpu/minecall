@@ -385,7 +385,7 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
   function openCreator() {
     if (subscription) {
       const price = getSubscriptionPrice(creator);
-      window.location.href = `/subscription-live?subscriptionCreator=${encodeURIComponent(creator.username)}&subscriptionPrice=${price}`;
+      window.location.href = `/exclusive-access?creator=${encodeURIComponent(creator.username)}&price=${price}`;
     } else {
       window.location.href = "/call?creator=" + encodeURIComponent(creator.username);
     }
@@ -394,9 +394,9 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
     <article className={`stream-card model-card onlystream-creator-card ${subscription ? "subscription-creator-card" : "call-creator-card"}`}>
       <button type="button" className="model-card-click" onClick={openCreator} aria-label={`${subscription ? "View subscription creator" : "Call creator"} ${creator.username}`}>
         <div className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"><Radio size={34} /></div>
-        {subscription && <span className="subscription-card-ribbon">SUBSCRIPTION</span>}
-        <span className="model-online">● {creator.isLive || creator.is_live ? "LIVE" : "AVAILABLE"}</span>
-        <div className="stream-info"><h3>{creator.username}</h3><p>{subscription ? `LIFETIME ACCESS · ₹${getSubscriptionPrice(creator)} ONCE` : "CALL EARNING · PAY PER CALL"}</p></div>
+        {subscription && <span className="subscription-card-ribbon">24H EXCLUSIVE</span>}
+        <span className="model-online">● {subscription ? "AVAILABLE" : (creator.isLive || creator.is_live ? "LIVE" : "AVAILABLE")}</span>
+        <div className="stream-info"><h3>{creator.username}</h3><p>{subscription ? `24-HOUR ACCESS · ₹${getSubscriptionPrice(creator)} ONCE` : "CALL EARNING · PAY PER CALL"}</p></div>
       </button>
     </article>
   );
@@ -779,7 +779,7 @@ export default function Home() {
           const callCreators = onlyStreamCreators.filter(c => getCreatorPlan(c) !== "subscription");
           return <>
             <section className="category-section onlystream-live-section subscription-creators-section">
-              <div className="category-heading"><div className="category-title-wrap"><span className="category-icon subscription-section-icon"><Radio size={19}/></span><div><span className="subscription-section-label">SUBSCRIPTION</span><h2>Subscription Creators</h2><p>Pay once for lifetime access to creator content and live streams</p></div></div><span className="online-status">● {subscriptionCreators.length} creators</span></div>
+              <div className="category-heading"><div className="category-title-wrap"><span className="category-icon subscription-section-icon"><Radio size={19}/></span><div><span className="subscription-section-label">EXCLUSIVE ACCESS</span><h2>Exclusive Creators</h2><p>Pay once for 24-hour unlimited calls and chat without coins</p></div></div><span className="online-status">● {subscriptionCreators.length} creators</span></div>
               {creatorsLoading ? <p>Loading subscription creators...</p> : subscriptionCreators.length ? <div className="category-track">{subscriptionCreators.map(creator => <OnlyStreamCreatorCard key={creator.username.toLowerCase()} creator={creator} plan="subscription" />)}</div> : <p className="creator-section-empty">No subscription creators available yet.</p>}
             </section>
             <section className="category-section onlystream-live-section call-creators-section">
