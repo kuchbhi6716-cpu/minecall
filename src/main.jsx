@@ -13,7 +13,6 @@ import "./SubscriptionCreatorDashboard.css";
 import "./LivePage.css";
 import "./ExclusiveAccessPage.css";
 
-
 function RootApp() {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   if (path === "/login") return <AuthPage />;
