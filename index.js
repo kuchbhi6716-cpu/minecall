@@ -50,6 +50,8 @@ const activeBillableCalls = new Map();
 const liveCreators = new Map();
 const subscriptionEarningsLedger = new Map();
 const subscriptionTransactionIds = new Set();
+// Demo-only exclusive reservations; reset on server restart.
+const exclusiveAccessReservations = new Map();
 // Demo-only shared subscription gallery; stored in memory and cleared when the server restarts.
 const subscriptionMediaStore = new Map();
 const waiting = [];
@@ -709,6 +711,72 @@ function removeCreatorLive(socket) {
   socket.data.creatorLiveUsername = null;
 }
 
+function getActiveExclusiveReservation(creatorUsername) {
+  const key = safeUsername(creatorUsername);
+  const reservation = exclusiveAccessReservations.get(key);
+  if (!reservation) return null;
+  if (Number(reservation.expiresAt) <= Date.now()) {
+    const creatorSocketId = liveCreators.get(reservation.creatorUsername)?.socketId;
+    for (const [socketId, connectedSocket] of io.sockets.sockets.entries()) {
+      if (connectedSocket.data?.authUsername === reservation.buyerUsername &&
+          partners.get(socketId) === creatorSocketId) {
+        disconnectPartner(socketId);
+        io.to(socketId).emit("partner-left");
+        if (creatorSocketId) io.to(creatorSocketId).emit("partner-left");
+      }
+    }
+    if (reservation.timer) clearTimeout(reservation.timer);
+    exclusiveAccessReservations.delete(key);
+    return null;
+  }
+  return reservation;
+}
+
+app.get("/api/exclusive-access/status", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const creatorUsername = normalizeCreatorName(req.query.creator || "");
+  const buyerUsername = safeUsername(req.query.buyer || "");
+  if (!creatorUsername) return res.status(400).json({ error: "Creator username is required." });
+  const reservation = getActiveExclusiveReservation(creatorUsername);
+  const creator = liveCreators.get(creatorUsername);
+  res.json({
+    ok: true,
+    creatorAvailable: Boolean(creator && creator.creatorPlan === "subscription"),
+    price: Number(creator?.subscriptionPrice || testAccounts.get(safeUsername(creatorUsername))?.subscriptionPrice || 499),
+    occupied: Boolean(reservation && reservation.buyerUsername !== buyerUsername),
+    owned: Boolean(reservation && reservation.buyerUsername === buyerUsername),
+    expiresAt: reservation?.expiresAt || null,
+    remainingMs: reservation ? Math.max(0, reservation.expiresAt - Date.now()) : 0,
+  });
+});
+
+app.get("/api/exclusive-earnings", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const username = normalizeCreatorName(req.query.username || "");
+  if (!username) return res.status(400).json({ error: "Creator username is required." });
+  const rows = subscriptionEarningsLedger.get(username.toLowerCase()) || [];
+  const now = Date.now();
+  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+  const sumSince = (since) => rows.filter(row => new Date(row.createdAt).getTime() >= since).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  res.json({
+    ok: true,
+    earnings: {
+      today: Math.round(sumSince(startToday.getTime()) * 100) / 100,
+      week: Math.round(sumSince(now - 7 * 24 * 60 * 60 * 1000) * 100) / 100,
+      month: Math.round(sumSince(now - 30 * 24 * 60 * 60 * 1000) * 100) / 100,
+      total: Math.round(rows.reduce((sum, row) => sum + Number(row.amount || 0), 0) * 100) / 100,
+      transactions: rows.length,
+    },
+    rows: rows.slice().reverse().map(row => ({
+      id: row.transactionId,
+      amount: Number(row.amount || 0),
+      grossAmount: Number(row.grossAmount || row.amount || 0),
+      createdAt: row.createdAt,
+      buyerUsername: row.buyerUsername || "User",
+    })),
+  });
+});
+
 app.get("/api/live-creators", (req, res) => {
   res.set("Cache-Control", "no-store");
   res.json({ creators: getPublicLiveCreators() });
@@ -1127,6 +1195,9 @@ io.on("connection", (socket) => {
       ? Math.min(Math.round(parsedPrice), 100000)
       : 499;
 
+    creatorAccount.creatorPlan = creatorPlan;
+    creatorAccount.subscriptionPrice = creatorPlan === "subscription" ? subscriptionPrice : 0;
+
     const creator = {
       username,
       socketId: socket.id,
@@ -1176,6 +1247,7 @@ io.on("connection", (socket) => {
       typeof payload?.callerName === "string"
         ? payload.callerName.trim().replace(/\s+/g, " ").slice(0, 30)
         : "Viewer";
+    const callerUsername = safeUsername(payload?.callerUsername || "");
 
     if (!username) {
       return reply({
@@ -1218,6 +1290,25 @@ io.on("connection", (socket) => {
         ok: false,
         error: "This creator account is not eligible for calls.",
       });
+    }
+
+    const creatorIsExclusive = (creatorAccount.creatorPlan || "calls") === "subscription";
+    if (payload?.exclusive === true && !creatorIsExclusive) {
+      return reply({ ok: false, error: "Exclusive no-coin access is only available for exclusive creators." });
+    }
+
+    if (creatorIsExclusive) {
+      const reservation = getActiveExclusiveReservation(username);
+      if (!callerUsername || !reservation || reservation.buyerUsername !== callerUsername) {
+        return reply({ ok: false, error: "Purchase this creator's 24-hour exclusive access before calling." });
+      }
+      const callerAccount = testAccounts.get(callerUsername);
+      if (!callerAccount || callerAccount.role !== "user") {
+        return reply({ ok: false, error: "Please sign in with the buyer account that owns this access." });
+      }
+      socket.data.authUsername = callerUsername;
+    } else if (callerUsername) {
+      socket.data.authUsername = callerUsername;
     }
 
     if (isSocketBusy(creator.socketId)) {
@@ -1439,6 +1530,13 @@ io.on("connection", (socket) => {
       });
     }
 
+    if (creatorUsername) {
+      const reservation = getActiveExclusiveReservation(creatorUsername);
+      if (reservation && reservation.buyerUsername === username) {
+        return reply({ ok: true, exclusive: true, callId: "", balance: testAccounts.get(username)?.coins ?? 0 });
+      }
+    }
+
     const result = startBillableCall({
       username,
       creatorUsername,
@@ -1608,15 +1706,97 @@ io.on("connection", (socket) => {
 
   socket.on("chat-message", (message) => {
     const partnerId = partners.get(socket.id);
-
-    if (!partnerId || typeof message !== "string" || !message.trim()) {
-      return;
+    if (!partnerId || typeof message !== "string" || !message.trim()) return;
+    const sender = io.sockets.sockets.get(socket.id);
+    const receiver = io.sockets.sockets.get(partnerId);
+    const creatorSocket = sender?.data?.creatorLiveUsername ? sender : receiver?.data?.creatorLiveUsername ? receiver : null;
+    if (creatorSocket) {
+      const creator = liveCreators.get(creatorSocket.data.creatorLiveUsername);
+      if (creator?.creatorPlan === "subscription") {
+        const buyerSocket = creatorSocket.id === socket.id ? receiver : sender;
+        const reservation = getActiveExclusiveReservation(creator.username);
+        if (!reservation || reservation.buyerUsername !== buyerSocket?.data?.authUsername) {
+          disconnectPartner(socket.id);
+          io.to(socket.id).emit("partner-left");
+          return;
+        }
+      }
     }
-
     io.to(partnerId).emit("chat-message", message.trim().slice(0, 1000));
   });
 
   // Demo subscription ledger: kept on the server so creator dashboard refresh works across browsers while this process is running.
+  // One-time exclusive access purchase. This is a demo payment flow, not a real charge.
+  socket.on("exclusive-access-purchase", (payload, acknowledge) => {
+    const reply = (result) => { if (typeof acknowledge === "function") acknowledge(result); };
+    const creatorUsername = normalizeCreatorName(payload?.creatorUsername || "");
+    const buyerUsername = safeUsername(payload?.buyerUsername || "");
+    const transactionId = String(payload?.transactionId || "").slice(0, 120);
+    if (!creatorUsername || !buyerUsername || !transactionId) {
+      return reply({ ok: false, error: "Missing creator, buyer, or transaction reference." });
+    }
+    const buyer = testAccounts.get(buyerUsername);
+    if (!buyer || buyer.role !== "user") {
+      return reply({ ok: false, error: "Please sign in with a user account before purchasing access." });
+    }
+    const creatorAccount = testAccounts.get(safeUsername(creatorUsername));
+    const creator = liveCreators.get(creatorUsername);
+    if (!creatorAccount || creatorAccount.role !== "creator" ||
+        (creatorAccount.creatorPlan || "calls") !== "subscription" ||
+        !creator || creator.creatorPlan !== "subscription" ||
+        !io.sockets.sockets.has(creator.socketId)) {
+      return reply({ ok: false, error: "This exclusive creator is currently unavailable. Try again later." });
+    }
+    const price = Math.max(1, Number(creator.subscriptionPrice || creatorAccount.subscriptionPrice || 499));
+    const suppliedAmount = Number(payload?.amount);
+    if (!Number.isFinite(suppliedAmount) || Math.round(suppliedAmount * 100) !== Math.round(price * 100)) {
+      return reply({ ok: false, error: "The access fee changed. Refresh the page and try again." });
+    }
+    const current = getActiveExclusiveReservation(creatorUsername);
+    if (current) {
+      if (current.buyerUsername === buyerUsername) {
+        return reply({ ok: true, alreadyOwned: true, expiresAt: current.expiresAt, remainingMs: Math.max(0, current.expiresAt - Date.now()) });
+      }
+      return reply({ ok: false, error: "This creator is already reserved by another user.", expiresAt: current.expiresAt, remainingMs: Math.max(0, current.expiresAt - Date.now()) });
+    }
+    const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+    const reservation = {
+      creatorUsername, buyerUsername, amount: price, transactionId,
+      purchasedAt: Date.now(), expiresAt, timer: null,
+    };
+    reservation.timer = setTimeout(() => {
+      const currentReservation = exclusiveAccessReservations.get(safeUsername(creatorUsername));
+      if (currentReservation?.transactionId !== transactionId) return;
+      exclusiveAccessReservations.delete(safeUsername(creatorUsername));
+      const creatorSocketId = liveCreators.get(creatorUsername)?.socketId;
+      for (const [socketId, connectedSocket] of io.sockets.sockets.entries()) {
+        if (connectedSocket.data?.authUsername === buyerUsername && partners.get(socketId) === creatorSocketId) {
+          disconnectPartner(socketId);
+          io.to(socketId).emit("partner-left");
+          if (creatorSocketId) io.to(creatorSocketId).emit("partner-left");
+        }
+      }
+    }, 24 * 60 * 60 * 1000);
+    exclusiveAccessReservations.set(safeUsername(creatorUsername), reservation);
+    if (!subscriptionTransactionIds.has(transactionId)) {
+      subscriptionTransactionIds.add(transactionId);
+      const key = creatorUsername.toLowerCase();
+      const rows = subscriptionEarningsLedger.get(key) || [];
+      rows.push({
+        amount: Math.round(price * CREATOR_REVENUE_SHARE * 100) / 100,
+        grossAmount: price,
+        createdAt: new Date().toISOString(),
+        transactionId,
+        buyerUsername,
+      });
+      subscriptionEarningsLedger.set(key, rows);
+      const liveCreator = liveCreators.get(creatorUsername);
+      if (liveCreator?.socketId) io.to(liveCreator.socketId).emit("subscription-earnings-updated", { username: creatorUsername });
+    }
+    console.log(`[Exclusive access] ${buyerUsername} reserved ${creatorUsername} for 24 hours.`);
+    return reply({ ok: true, expiresAt, remainingMs: 24 * 60 * 60 * 1000, price, demoPayment: true });
+  });
+
   socket.on("subscription-purchase", (payload, acknowledge) => {
     const username = normalizeCreatorName(payload?.username);
     const amount = Number(payload?.amount);
@@ -1748,16 +1928,22 @@ io.on("connection", (socket) => {
 
   socket.on("signal", (data) => {
     const partnerId = partners.get(socket.id);
-
-    if (
-      !partnerId ||
-      !data ||
-      typeof data !== "object" ||
-      !["offer", "answer", "candidate"].includes(data.type)
-    ) {
-      return;
+    if (!partnerId || !data || !["offer", "answer", "candidate"].includes(data.type)) return;
+    const sender = io.sockets.sockets.get(socket.id);
+    const receiver = io.sockets.sockets.get(partnerId);
+    const creatorSocket = sender?.data?.creatorLiveUsername ? sender : receiver?.data?.creatorLiveUsername ? receiver : null;
+    if (creatorSocket) {
+      const creator = liveCreators.get(creatorSocket.data.creatorLiveUsername);
+      if (creator?.creatorPlan === "subscription") {
+        const buyerSocket = creatorSocket.id === socket.id ? receiver : sender;
+        const reservation = getActiveExclusiveReservation(creator.username);
+        if (!reservation || reservation.buyerUsername !== buyerSocket?.data?.authUsername) {
+          disconnectPartner(socket.id);
+          io.to(socket.id).emit("partner-left");
+          return;
+        }
+      }
     }
-
     io.to(partnerId).emit("signal", data);
   });
 
