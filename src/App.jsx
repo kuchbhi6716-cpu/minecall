@@ -43,6 +43,7 @@ function CallPage() {
   const params = new URLSearchParams(window.location.search);
   const creatorUsername = params.get("creator")?.trim() || "";
   const isCreatorCall = Boolean(creatorUsername);
+  const isExclusiveCall = isCreatorCall && params.get("exclusive") === "1";
 
   const [status, setStatus] = useState("Ready when you are");
   const [phase, setPhase] = useState("idle");
@@ -339,7 +340,10 @@ function CallPage() {
         // must never initiate a second billing session.
         const currentSession = getStoredSession();
 
-        if (
+        if (isExclusiveCall) {
+          setWalletNotice("Exclusive access active. No coins are used for this call.");
+          setWalletError("");
+        } else if (
           currentSession?.role === "user" &&
           currentSession?.username &&
           !billingStartedRef.current &&
@@ -450,7 +454,7 @@ function CallPage() {
     }
 
     return peer;
-  }, [creatorUsername, isCreatorCall, refreshWallet, resetCall]);
+  }, [creatorUsername, isCreatorCall, isExclusiveCall, refreshWallet, resetCall]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -715,7 +719,7 @@ function CallPage() {
 
       // Use the server's actual balance before turning on camera or requesting
       // a match. A stale UI balance must not trigger unnecessary coin prompts.
-      if (balance < 10) {
+      if (!isExclusiveCall && balance < 10) {
         pendingConnectRef.current = true;
         setWalletError("You need at least 10 coins to start a call. Add coins and your call will retry automatically.");
         setWalletNotice("");
@@ -773,6 +777,8 @@ function CallPage() {
           {
             username: creatorUsername,
             callerName: currentSession.username || "User",
+            callerUsername: currentSession.username || "",
+            exclusive: isExclusiveCall,
           },
           (response) => {
             if (!response?.ok) {
