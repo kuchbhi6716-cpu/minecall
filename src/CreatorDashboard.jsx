@@ -33,7 +33,7 @@ async function readJson(response) {
   return data;
 }
 
-export default function CreatorDashboard() {
+export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const videoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const streamRef = useRef(null);
@@ -81,7 +81,6 @@ export default function CreatorDashboard() {
 
   const refreshEconomy = useCallback(async () => {
     let session;
-
     try {
       session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
     } catch {
@@ -97,25 +96,43 @@ export default function CreatorDashboard() {
       setEconomyLoading(true);
       setEconomyError("");
 
-      const response = await fetch(
-        `${API_BASE}/api/economy/me?username=${encodeURIComponent(session.username)}`,
-        { headers: { Accept: "application/json" } }
-      );
-
+      const endpoint = exclusiveMode
+        ? `${API_BASE}/api/exclusive-earnings?username=${encodeURIComponent(session.username)}`
+        : `${API_BASE}/api/economy/me?username=${encodeURIComponent(session.username)}`;
+      const response = await fetch(endpoint, { headers: { Accept: "application/json" }, cache: "no-store" });
       const data = await readJson(response);
 
       if (mountedRef.current) {
-        setEconomy(data.account ?? data.economy ?? data);
-        setLedger(Array.isArray(data.recentLedger) ? data.recentLedger : []);
+        if (exclusiveMode) {
+          const earnings = data.earnings || {};
+          setEconomy({
+            testRevenueInr: Number(earnings.total || 0),
+            creatorRevenue: Number(earnings.total || 0),
+            testBonusInr: 0,
+            coins: 0,
+          });
+          setLedger((Array.isArray(data.rows) ? data.rows : []).map((row) => ({
+            id: row.id || `${row.createdAt}-${row.buyerUsername}`,
+            transactionId: row.id,
+            username: session.username,
+            creatorUsername: session.username,
+            buyerUsername: row.buyerUsername || "",
+            type: "exclusive-access-sale",
+            creatorShareInr: Number(row.amount || 0),
+            grossAmount: Number(row.grossAmount || row.amount || 0),
+            at: row.createdAt || new Date().toISOString(),
+          })));
+        } else {
+          setEconomy(data.account ?? data.economy ?? data);
+          setLedger(Array.isArray(data.recentLedger) ? data.recentLedger : []);
+        }
       }
     } catch (error) {
-      if (mountedRef.current) {
-        setEconomyError(error.message || "Could not load your test earnings.");
-      }
+      if (mountedRef.current) setEconomyError(error.message || "Could not load your test earnings.");
     } finally {
       if (mountedRef.current) setEconomyLoading(false);
     }
-  }, []);
+  }, [exclusiveMode]);
 
   const stopBilling = useCallback(() => {
     if (!billingStartedRef.current) return;
@@ -357,7 +374,17 @@ export default function CreatorDashboard() {
       const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
 
       if (!session || session.role !== "creator") {
-        window.location.replace("/login");
+        window.location.replace(`/login?next=${encodeURIComponent(exclusiveMode ? "/subscription-creator" : "/creator")}`);
+        return undefined;
+      }
+
+      if (exclusiveMode && session.creatorPlan !== "subscription") {
+        window.location.replace("/creator");
+        return undefined;
+      }
+
+      if (!exclusiveMode && session.creatorPlan === "subscription") {
+        window.location.replace("/subscription-creator");
         return undefined;
       }
 
@@ -377,7 +404,16 @@ export default function CreatorDashboard() {
     const socket = io({ transports: ["websocket", "polling"] });
     socketRef.current = socket;
 
-    socket.on("connect", () => socket.emit("get-live-creators"));
+    socket.on("connect", () => {
+      socket.emit("get-live-creators");
+      if (exclusiveMode) refreshEconomy();
+    });
+
+    socket.on("subscription-earnings-updated", (data) => {
+      // This event is emitted only to the creator socket for the matching sale.
+      // Do not compare against the initial username state captured by this effect.
+      if (exclusiveMode) refreshEconomy();
+    });
 
     socket.on("connect_error", () => {
       setCameraError("Server connection failed. Please refresh and retry.");
@@ -590,7 +626,11 @@ export default function CreatorDashboard() {
         throw new Error("Server is not connected. Please retry.");
       }
 
-      socket.emit("creator-go-live", { username: creatorUsername }, (response) => {
+      socket.emit("creator-go-live", {
+        username: creatorUsername,
+        creatorPlan: exclusiveMode ? "subscription" : "calls",
+        subscriptionPrice: exclusiveMode ? Math.max(1, Number(session?.subscriptionPrice) || 499) : 0,
+      }, (response) => {
         if (response?.ok === false) {
           isLiveRef.current = false;
           setIsLive(false);
@@ -827,8 +867,9 @@ export default function CreatorDashboard() {
     .filter((row) => row.username === username || row.creatorUsername === username)
     .map((row) => {
       const isBonus = row.type === "creator-test-signup-bonus";
+      const isExclusiveSale = row.type === "exclusive-access-sale";
       const amount = isBonus ? Number(row.amountInr || 0) : Number(row.creatorShareInr || 0);
-      return { ...row, isBonus, earningAmount: amount, date: new Date(row.at || Date.now()) };
+      return { ...row, isBonus, isExclusiveSale, earningAmount: amount, date: new Date(row.at || Date.now()) };
     })
     .filter((row) => row.earningAmount > 0)
     .sort((a, b) => b.date - a.date);
@@ -870,10 +911,12 @@ export default function CreatorDashboard() {
         <a className="creator-back" href="/">
           <ArrowLeft size={16} /> Home
         </a>
-        <p className="creator-eyebrow">CREATOR STUDIO</p>
+        <p className="creator-eyebrow">{exclusiveMode ? "EXCLUSIVE CREATOR STUDIO" : "CREATOR STUDIO"}</p>
         <h1>Welcome, {username}</h1>
         <p className="creator-subtitle">
-          Go live, receive automatically accepted calls, and manage your test earnings.
+          {exclusiveMode
+            ? "Go available for your reserved buyer, manage calls and track your 24-hour access earnings."
+            : "Go live, receive automatically accepted calls, and manage your test earnings."}
         </p>
       </div>
 
@@ -881,16 +924,16 @@ export default function CreatorDashboard() {
         <section className="creator-earnings-page">
           <button type="button" className="creator-earnings-back" onClick={() => setShowEarnings(false)}><ArrowLeft size={17} /> Back to Creator Studio</button>
           <div className="creator-earnings-heading">
-            <div><p className="creator-eyebrow">CREATOR FINANCE</p><h2>Your Earnings</h2><p>Signup bonus and earnings from every recorded call.</p></div>
-            <div className="creator-earnings-total"><span>Total earnings</span><strong>{economyLoading ? "…" : `₹${formatNumber(totalEarned)}`}</strong><small>Signup bonus + call earnings</small></div>
+            <div><p className="creator-eyebrow">CREATOR FINANCE</p><h2>Your Earnings</h2><p>{exclusiveMode ? "Earnings from 24-hour exclusive access purchases." : "Signup bonus and earnings from every recorded call."}</p></div>
+            <div className="creator-earnings-total"><span>Total earnings</span><strong>{economyLoading ? "…" : `₹${formatNumber(totalEarned)}`}</strong><small>{exclusiveMode ? "Exclusive access fees" : "Signup bonus + call earnings"}</small></div>
           </div>
           <div className="creator-earnings-summary-grid">
-            <article className="creator-earnings-summary"><span><Gift size={17} /> Signup bonus</span><strong>₹{formatNumber(signupBonus)}</strong></article>
-            <article className="creator-earnings-summary"><span><Phone size={17} /> Earnings from calls</span><strong>₹{formatNumber(creatorRevenue)}</strong></article>
+            {!exclusiveMode && <article className="creator-earnings-summary"><span><Gift size={17} /> Signup bonus</span><strong>₹{formatNumber(signupBonus)}</strong></article>}
+            <article className="creator-earnings-summary"><span><Phone size={17} /> {exclusiveMode ? "Exclusive access earnings" : "Earnings from calls"}</span><strong>₹{formatNumber(creatorRevenue)}</strong></article>
             <article className="creator-earnings-summary"><span><CalendarDays size={17} /> Selected period</span><strong>₹{formatNumber(periodCallTotal)}</strong></article>
           </div>
           <div className="creator-earnings-panel">
-            <div className="creator-earnings-panel-heading"><div><h3>Earnings overview</h3><p>Call earnings grouped by date. Signup bonus is shown separately above.</p></div>
+            <div className="creator-earnings-panel-heading"><div><h3>Earnings overview</h3><p>{exclusiveMode ? "Exclusive access fees grouped by date." : "Call earnings grouped by date. Signup bonus is shown separately above."}</p></div>
               <div className="creator-period-tabs">
                 <button className={earningsPeriod === "today" ? "active" : ""} onClick={() => setEarningsPeriod("today")}>Today</button>
                 <button className={earningsPeriod === "week" ? "active" : ""} onClick={() => setEarningsPeriod("week")}>Last 7 days</button>
@@ -900,11 +943,11 @@ export default function CreatorDashboard() {
             <div className={`creator-earnings-chart ${earningsPeriod === "month" ? "month-chart" : ""}`} role="img" aria-label="Call earnings graph">
               {graphBuckets.map((item, index) => <div className="creator-earnings-bar-wrap" key={`${item.label}-${index}`} title={`${item.label}: ₹${item.amount.toFixed(2)}`}><div className="creator-earnings-bar" style={{ height: `${Math.max(item.amount > 0 ? 5 : 2, (item.amount / graphMax) * 100)}%` }} /><span>{earningsPeriod === "month" && index % 5 !== 0 ? "" : item.label}</span></div>)}
             </div>
-            <div className="creator-earnings-chart-foot"><span>Selected period call earnings</span><strong>₹{periodCallTotal.toFixed(2)}</strong></div>
+            <div className="creator-earnings-chart-foot"><span>{exclusiveMode ? "Selected period access earnings" : "Selected period call earnings"}</span><strong>₹{periodCallTotal.toFixed(2)}</strong></div>
           </div>
           <div className="creator-earnings-panel creator-earnings-history">
-            <div className="creator-earnings-panel-heading"><div><h3>Earning history</h3><p>Signup bonus and individual call earnings.</p></div></div>
-            {earningRows.length ? earningRows.map((row) => <div className="creator-earning-row" key={row.id}><div className="creator-earning-row-icon">{row.isBonus ? <Gift size={18} /> : <Phone size={18} />}</div><div className="creator-earning-row-copy"><strong>{row.isBonus ? "Signup bonus" : "Earning from call"}</strong><span>{row.date.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}{row.callId ? ` · Call ${String(row.callId).slice(-6)}` : ""}</span></div><strong className="creator-earning-amount">+₹{row.earningAmount.toFixed(2)}</strong></div>) : <div className="creator-earnings-empty">No earning entries have been recorded yet. New call earnings will appear here.</div>}
+            <div className="creator-earnings-panel-heading"><div><h3>Earning history</h3><p>{exclusiveMode ? "Individual 24-hour access purchases." : "Signup bonus and individual call earnings."}</p></div></div>
+            {earningRows.length ? earningRows.map((row) => <div className="creator-earning-row" key={row.id}><div className="creator-earning-row-icon">{row.isBonus ? <Gift size={18} /> : <Phone size={18} />}</div><div className="creator-earning-row-copy"><strong>{row.isBonus ? "Signup bonus" : row.isExclusiveSale ? "24-hour access fee" : "Earning from call"}</strong><span>{row.date.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}{row.callId ? ` · Call ${String(row.callId).slice(-6)}` : row.transactionId ? ` · Ref ${String(row.transactionId).slice(-6)}` : ""}</span></div><strong className="creator-earning-amount">+₹{row.earningAmount.toFixed(2)}</strong></div>) : <div className="creator-earnings-empty">{exclusiveMode ? "No access purchases have been recorded yet." : "No earning entries have been recorded yet. New call earnings will appear here."}</div>}
           </div>
           <div className="creator-withdraw-area"><div><h3>Want to withdraw?</h3><p>Withdrawals are not enabled in this testing version. No real payout can be requested yet.</p></div><button type="button" disabled title="Withdrawals are not enabled in test mode"><Wallet size={18} /> Withdraw earnings</button></div>
           {economyError && <p className="creator-error" role="alert">{economyError}</p>}
@@ -919,12 +962,12 @@ export default function CreatorDashboard() {
               <p>
                 {callConnected
                   ? `Connected with ${callerName || "caller"} · ${elapsedLabel}`
-                  : "Go live to become available for incoming calls."}
+                  : (exclusiveMode ? "Go available to receive calls from your reserved buyer." : "Go live to become available for incoming calls.")}
               </p>
             </div>
             <span className={isLive ? "creator-status live" : "creator-status"}>
               <span className="creator-status-dot" />
-              {isLive ? "LIVE" : "OFFLINE"}
+              {isLive ? (exclusiveMode ? "AVAILABLE" : "LIVE") : "OFFLINE"}
             </span>
           </div>
 
@@ -946,12 +989,12 @@ export default function CreatorDashboard() {
               <div className="creator-camera-placeholder">
                 <div className="creator-camera-icon"><CameraOff size={32} /></div>
                 <h3>Your camera preview</h3>
-                <p>Go live to turn on your camera and microphone.</p>
+                <p>{exclusiveMode ? "Go available to turn on your camera and microphone for calls." : "Go live to turn on your camera and microphone."}</p>
               </div>
             )}
 
             {isLive && (
-              <div className="creator-live-label"><span /> LIVE NOW</div>
+              <div className="creator-live-label"><span /> {exclusiveMode ? "AVAILABLE FOR CALLS" : "LIVE NOW"}</div>
             )}
             {callConnected && (
               <div className="creator-call-label"><Phone size={14} /> Connected</div>
@@ -1013,7 +1056,7 @@ export default function CreatorDashboard() {
           {!isLive ? (
             <div className="creator-camera-actions">
               <button className="creator-go-live" onClick={goLive} disabled={busy}>
-                <Radio size={19} /> {busy ? "Starting camera..." : "Go Live"}
+                <Radio size={19} /> {busy ? "Starting camera..." : (exclusiveMode ? "Go Available" : "Go Live")}
               </button>
             </div>
           ) : (
@@ -1066,7 +1109,7 @@ export default function CreatorDashboard() {
                   onClick={endLive}
                   disabled={isEnding}
                 >
-                  <VideoOff size={19} /> {isEnding ? "Ending..." : "End Live"}
+                  <VideoOff size={19} /> {isEnding ? "Ending..." : (exclusiveMode ? "Go Offline" : "End Live")}
                 </button>
               </div>
             </>
@@ -1083,24 +1126,22 @@ export default function CreatorDashboard() {
             <div className="creator-stat-icon"><TrendingUp size={22} /></div>
             <p className="creator-stat-label">Your Earnings</p>
             <div className="creator-stat-value">₹{formatNumber(signupBonus + Number(creatorRevenue || 0))}</div>
-            <p className="creator-stat-footnote">View signup bonus, call history, graphs and withdrawal options</p>
+            <p className="creator-stat-footnote">{exclusiveMode ? "View exclusive access earnings, history and graphs" : "View signup bonus, call history, graphs and withdrawal options"}</p>
             <span className="creator-earnings-link-action">View earnings <ArrowUpRight size={16} /></span>
           </button>
 
-          <div className="creator-stat-card">
+          {!exclusiveMode && <div className="creator-stat-card">
             <div className="creator-stat-icon"><Gift size={22} /></div>
             <p className="creator-stat-label">Creator signup bonus</p>
             <div className="creator-stat-value">
               {economyLoading ? "…" : `₹${formatNumber(signupBonus)}`}
             </div>
-            <p className="creator-stat-footnote">
-              Test signup bonus · not withdrawable
-            </p>
-          </div>
+            <p className="creator-stat-footnote">Test signup bonus · not withdrawable</p>
+          </div>}
 
           <div className="creator-stat-card">
             <div className="creator-stat-icon"><Wallet size={22} /></div>
-            <p className="creator-stat-label">Estimated creator revenue</p>
+            <p className="creator-stat-label">{exclusiveMode ? "Exclusive access earnings" : "Estimated creator revenue"}</p>
             <div className="creator-stat-value">
               {economyLoading ? "…" : `₹${formatNumber(creatorRevenue)}`}
             </div>
@@ -1127,11 +1168,11 @@ export default function CreatorDashboard() {
             <div className="creator-info-icon"><Video size={21} /></div>
             <h3>How it works</h3>
             <ul>
-              <li>Go Live to publish your creator status.</li>
-              <li>Incoming calls are accepted automatically while you are live.</li>
+              <li>{exclusiveMode ? "Go Available to receive calls from your exclusive buyer." : "Go Live to publish your creator status."}</li>
+              <li>{exclusiveMode ? "Incoming calls from the reserved buyer are accepted automatically while you are available." : "Incoming calls are accepted automatically while you are live."}</li>
               <li>Mute or disable your camera without ending the call.</li>
               <li>End Call stops the current call.</li>
-              <li>End Live stops the camera and microphone.</li>
+              <li>{exclusiveMode ? "Go Offline stops the camera and microphone." : "End Live stops the camera and microphone."}</li>
             </ul>
           </div>
 
@@ -1139,10 +1180,9 @@ export default function CreatorDashboard() {
             <div className="creator-info-icon"><Camera size={21} /></div>
             <h3>Testing version</h3>
             <p>
-              Coins and revenue shown here are demo values. This is not a
-              payment processor, and the displayed amount is not withdrawable.
-              Production use needs secure server-side authentication, a
-              persistent database, and a verified payment provider.
+              {exclusiveMode
+                ? "Exclusive access payments and earnings are demo values. No real payment is collected in this testing version. Production use needs secure server-side authentication, a persistent database, and a verified payment provider."
+                : "Coins and revenue shown here are demo values. This is not a payment processor, and the displayed amount is not withdrawable. Production use needs secure server-side authentication, a persistent database, and a verified payment provider."}
             </p>
           </div>
         </aside>
