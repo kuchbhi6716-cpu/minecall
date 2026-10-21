@@ -1698,10 +1698,31 @@ io.on("connection", (socket) => {
 
   socket.on("typing", (isTyping) => {
     const partnerId = partners.get(socket.id);
+    if (!partnerId || typeof isTyping !== "boolean") return;
 
-    if (partnerId && typeof isTyping === "boolean") {
-      io.to(partnerId).emit("typing", isTyping);
+    const sender = io.sockets.sockets.get(socket.id);
+    const receiver = io.sockets.sockets.get(partnerId);
+    const creatorSocket = sender?.data?.creatorLiveUsername
+      ? sender
+      : receiver?.data?.creatorLiveUsername
+        ? receiver
+        : null;
+
+    if (creatorSocket) {
+      const creator = liveCreators.get(creatorSocket.data.creatorLiveUsername);
+      if (creator?.creatorPlan === "subscription") {
+        const buyerSocket = creatorSocket.id === socket.id ? receiver : sender;
+        const reservation = getActiveExclusiveReservation(creator.username);
+        if (!reservation || reservation.buyerUsername !== buyerSocket?.data?.authUsername) {
+          disconnectPartner(socket.id);
+          io.to(socket.id).emit("partner-left");
+          if (partnerId) io.to(partnerId).emit("partner-left");
+          return;
+        }
+      }
     }
+
+    io.to(partnerId).emit("typing", isTyping);
   });
 
   socket.on("chat-message", (message) => {
