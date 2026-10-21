@@ -676,7 +676,7 @@ function CallPage() {
       !currentSession.username
     ) {
       const next = isCreatorCall
-        ? `/call?creator=${encodeURIComponent(creatorUsername)}`
+        ? `/call?creator=${encodeURIComponent(creatorUsername)}${isExclusiveCall ? "&exclusive=1" : ""}`
         : "/call";
 
       window.location.href = `/login?next=${encodeURIComponent(next)}`;
