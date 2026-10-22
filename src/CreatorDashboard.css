@@ -1221,3 +1221,13 @@
   .creator-video-stage { aspect-ratio: 4 / 3; }
   .creator-preview-switcher button { padding: 6px 7px; font-size: 10px; }
 }
+
+/* BLUE-WHITE CREATOR DASHBOARD THEME — design-only */
+.creator-dashboard{color:#142b43!important;background:radial-gradient(ellipse at 5% 0%,rgba(65,166,255,.14),transparent 36%),#f3f8fd!important}
+.creator-dashboard .creator-header{border-color:#d8e8f6}
+.creator-dashboard .creator-brand,.creator-dashboard h1,.creator-dashboard h2,.creator-dashboard h3{color:#12324f!important}
+.creator-dashboard .creator-card,.creator-dashboard .dashboard-card,.creator-dashboard .creator-panel,.creator-dashboard .earnings-card{background:#fff!important;color:#17344e!important;border:1px solid #d9e9f7!important;box-shadow:0 10px 28px rgba(25,83,128,.07)!important;border-radius:18px}
+.creator-dashboard button{border-radius:12px;transition:transform .2s,box-shadow .2s}
+.creator-dashboard button:hover{box-shadow:0 8px 22px rgba(22,136,232,.18)}
+.creator-dashboard input,.creator-dashboard textarea,.creator-dashboard select{background:#f8fbff!important;color:#17344e!important;border:1px solid #cfe1f1!important}
+.creator-dashboard .call-player,.creator-dashboard .video-stage,.creator-dashboard .creator-video-stage{border-radius:20px;overflow:hidden;box-shadow:0 16px 40px rgba(11,46,77,.18)}
