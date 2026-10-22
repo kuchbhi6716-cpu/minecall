@@ -2210,23 +2210,139 @@ input,textarea,select{color:#142b43}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 
 
-/* FINAL BLUE + WHITE CONTRAST PASS — appended overrides only */
-:root{color-scheme:light;--os-blue:#087bd1;--os-blue-dark:#075a9b;--os-ink:#17324b;--os-muted:#536b80;--os-line:#d5e5f3;--os-surface:#ffffff;--os-page:#f3f8fd}
-body{background:var(--os-page)!important;color:var(--os-ink)!important}
-/* Replace legacy purple surfaces/gradients on page UI with clean white/blue */
-body,#root,.app,.app-shell,.page,.main-content,.dashboard,.panel,.card,.modal,.modal-content,.settings-panel,.wallet-panel,.chat-panel,.chat-sidebar,.call-panel,.call-info,.earnings-panel,.earnings-card,.wallet-card,.history-card,.payment-card,.profile-card,.form-card{color:var(--os-ink)}
-:is(.app,.app-shell,.page,.main-content,.dashboard,.auth-page,.creator-dashboard,.creator-earnings-page,.sub-creator-page,.exclusive-access-page,.live-page,.subscription-live-page){background-color:var(--os-page)!important;color:var(--os-ink)!important}
-:is(.panel,.card,.modal,.modal-content,.settings-panel,.wallet-panel,.chat-panel,.chat-sidebar,.call-panel,.call-info,.earnings-panel,.earnings-card,.wallet-card,.history-card,.payment-card,.profile-card,.form-card,.video-controls-panel){background:#fff!important;color:var(--os-ink)!important;border-color:var(--os-line)!important;box-shadow:0 10px 28px rgba(22,83,130,.08)}
-:is(h1,h2,h3,h4,h5,.section-title,.page-title,.panel-title,.card-title,.label,.field-label){color:#12324c!important}
-:is(p,small,label,.muted,.subtitle,.description,.helper-text,.empty-state,.stat-label,.stat-footnote){color:var(--os-muted)!important}
-:is(input,textarea,select){background:#fff!important;color:#17324b!important;border:1px solid #c8dcec!important}
-:is(input,textarea,select)::placeholder{color:#71869a!important;opacity:1}
-button.primary,button[type=submit],.primary-button,.btn-primary,.start-btn,.creator-go-live,.creator-end-live,.exclusive-purchase,.vertical-watch-btn{background:linear-gradient(135deg,#168de2,#0870bf)!important;color:#fff!important;border-color:#087bd1!important}
-button:not(.primary):not([type=submit]):not(.start-btn):not(.creator-go-live):not(.creator-end-live):not(.exclusive-purchase):not(.vertical-watch-btn){color:var(--os-ink)}
-:is(a,.link,.nav-link){color:#0876c6}
-:is(.video-grid,.video-card,.local-card,.remote-card,.video-stage,.creator-video-stage,.creator-player,.sub-creator-player,.live-player,.subscription-big-player,.onlystream-embed-wrap){background:#071522!important;color:#fff!important}
-:is(.video-card,.local-card,.remote-card,.video-stage,.creator-video-stage,.creator-player,.sub-creator-player,.live-player,.subscription-big-player) :is(.video-top-label,.video-bottom-label,.creator-live-label,.creator-call-label){color:#fff!important}
 
-@media(prefers-reduced-motion:no-preference){.model-card,.stream-card,.vertical-stream-card,.creator-stat-card,.creator-info-card,.auth-card{animation:osFinalFade .45s ease both}}
-@keyframes osFinalFade{from{opacity:.65;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+/* =========================================================
+   ONLYSTREAM BLUE-WHITE COIN WALLET / PAYMENT POPUP POLISH
+   CSS-only layer: preserves wallet and purchase handlers.
+========================================================= */
+.coin-modal-backdrop {
+  padding: 16px !important;
+  background: rgba(12, 29, 49, .58) !important;
+  backdrop-filter: blur(12px) saturate(115%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(115%) !important;
+}
+.coin-modal {
+  width: min(100%, 490px) !important;
+  max-height: min(92dvh, 850px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding: clamp(20px, 5vw, 30px) !important;
+  border: 1px solid #d8e8f6 !important;
+  border-radius: 25px !important;
+  background: #fff !important;
+  color: #17283d !important;
+  box-shadow: 0 28px 90px rgba(7, 33, 62, .28) !important;
+}
+.coin-modal-close {
+  background: #f2f7fc !important;
+  color: #34516e !important;
+  border: 1px solid #dce7f2 !important;
+  border-radius: 12px !important;
+  transition: background .18s ease, transform .18s ease !important;
+}
+.coin-modal-close:hover { background: #e5f2fd !important; transform: rotate(4deg); }
+.coin-modal-icon {
+  background: #e8f4ff !important;
+  border: 1px solid #c8e4fa !important;
+  color: #087bd1 !important;
+  border-radius: 16px !important;
+}
+.coin-modal > .eyebrow {
+  color: #087bd1 !important;
+  letter-spacing: 1.7px;
+}
+.coin-modal h2,
+.coin-modal h3,
+.coin-modal strong { color: #14243a !important; }
+.coin-modal-description { color: #5e7187 !important; }
+.coin-balance-card {
+  background: linear-gradient(135deg, #edf7ff, #f8fbff) !important;
+  border: 1px solid #cfe5f7 !important;
+  border-radius: 18px !important;
+}
+.coin-balance-card > span {
+  color: #5e7187 !important;
+}
+.coin-balance-card strong {
+  color: #075da8 !important;
+}
+.coin-balance-card strong svg { color: #087bd1 !important; }
+.coin-balance-card small { color: #657b91 !important; }
+.coin-notice {
+  color: #075da8 !important;
+  background: #edf7ff !important;
+  border: 1px solid #cfe7fb !important;
+  border-radius: 12px !important;
+}
+.coin-error {
+  color: #a32735 !important;
+  background: #fff1f2 !important;
+  border: 1px solid #ffd0d5 !important;
+  border-radius: 12px !important;
+}
+.coin-package-heading h3 { color: #17283d !important; }
+.coin-package-heading > span {
+  color: #075da8 !important;
+  background: #e8f4ff !important;
+  border: 1px solid #cfe7fb !important;
+  border-radius: 999px !important;
+}
+.coin-packages { gap: 10px !important; }
+.coin-package {
+  gap: 12px !important;
+  padding: 14px !important;
+  background: #fff !important;
+  color: #17283d !important;
+  border: 1px solid #dce7f2 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 3px 12px rgba(24, 61, 98, .035);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease !important;
+}
+.coin-package:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: #f5faff !important;
+  border-color: #83c2f1 !important;
+  box-shadow: 0 10px 24px rgba(8, 123, 209, .10);
+}
+.coin-package-featured {
+  background: #eff8ff !important;
+  border: 1.5px solid #168fe5 !important;
+  box-shadow: 0 8px 22px rgba(8, 123, 209, .10);
+}
+.coin-package-icon {
+  flex: 0 0 auto;
+  color: #087bd1 !important;
+  background: #e5f3ff !important;
+  border: 1px solid #cfe7fb !important;
+  border-radius: 12px !important;
+}
+.coin-package-info strong { color: #17283d !important; }
+.coin-package-info small { color: #667b90 !important; }
+.coin-package-price { color: #075da8 !important; font-weight: 850 !important; }
+.coin-package-loading { color: #087bd1 !important; }
+.coin-modal-disclaimer {
+  color: #687d91 !important;
+  background: #f7fafd;
+  border: 1px solid #e3edf5;
+  border-radius: 12px;
+  padding: 11px 13px;
+  line-height: 1.55;
+}
+.coin-modal button:focus-visible {
+  outline: 3px solid rgba(8,123,209,.28) !important;
+  outline-offset: 3px;
+}
+@media (max-width: 520px) {
+  .coin-modal-backdrop { align-items: flex-end !important; padding: 8px !important; }
+  .coin-modal {
+    width: 100% !important;
+    max-height: min(92dvh, 850px) !important;
+    padding: 22px 17px calc(18px + env(safe-area-inset-bottom)) !important;
+    border-radius: 23px 23px 17px 17px !important;
+  }
+  .coin-balance-card strong { font-size: 28px !important; }
+  .coin-package { padding: 12px !important; gap: 9px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .coin-modal, .coin-modal * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
