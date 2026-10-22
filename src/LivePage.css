@@ -1514,277 +1514,181 @@
 .live-page button{border-radius:12px;transition:transform .2s,box-shadow .2s}
 .live-page input,.live-page textarea{background:#f7fbff!important;color:#17344e!important;border-color:#cfe2f3!important}
 
-/* FINAL BLUE-WHITE POLISH — overrides legacy purple/green styles below all previous rules */
+
+
+/* =========================================================
+   ONLYSTREAM — FINAL BLUE + WHITE LIVE PAGE OVERRIDES
+   Keeps actual video surfaces dark for video contrast.
+========================================================= */
 .live-page,
-.live-page .live-content,
-.live-page .live-explore,
-.live-page .more-live,
-.live-page .live-recommendations {
-  color: #18334d !important;
+.subscription-live-page {
+  color: #17324b !important;
+  background: #f3f8fd !important;
+  font-family: Inter, system-ui, sans-serif !important;
 }
-.live-page {
-  background: #f4f8fd !important;
-  color: #18334d !important;
+.live-page .live-topbar,
+.subscription-live-page .subscription-live-topbar {
+  background: #fff !important;
+  border-color: #d9e6f2 !important;
+  box-shadow: 0 6px 24px rgba(25, 74, 115, .06) !important;
 }
-.live-page .live-topbar {
-  background: #ffffff !important;
-  border-color: #dce7f2 !important;
-  box-shadow: 0 4px 18px rgba(28, 70, 110, .05) !important;
-}
+.live-page .live-back,
 .live-page .live-brand,
 .live-page .live-brand span,
-.live-page .live-heading,
 .live-page .live-heading h1,
-.live-page .live-recommendations-heading h3,
+.live-page .live-heading h1 span,
+.live-page .more-live h3,
 .live-page .live-explore > h2,
+.live-page .live-recommendations-heading h3,
 .live-page .live-explore-card > span,
-.live-page .live-recommendation-name {
+.live-page .live-recommendation-name,
+.subscription-live-page .subscription-live-topbar a,
+.subscription-live-page .subscription-live-heading h1,
+.subscription-live-page .subscription-content-title h2,
+.subscription-live-page .subscription-chat-heading h2 {
   color: #123653 !important;
 }
+.live-page .live-brand span,
+.subscription-live-page .subscription-live-brand span { color: #087bd1 !important; }
 .live-page .live-eyebrow,
 .live-page .live-recommendations-eyebrow,
 .live-page .live-recommendation-status,
-.live-page .live-status {
-  color: #096bb5 !important;
-}
+.live-page .live-heading h1 span { color: #087bd1 !important; }
+.live-page .live-heading p,
+.live-page .live-recommendations-heading p,
+.live-page .more-live p,
+.live-page .live-recommendations-empty,
+.live-page .live-footer,
+.subscription-live-page .subscription-live-heading p,
+.subscription-live-page .subscription-content-title > span,
+.subscription-live-page .subscription-content-locked { color: #526b82 !important; }
 .live-page .live-status,
-.live-page .live-recommendations-count {
+.live-page .live-recommendations-count,
+.subscription-live-page .subscription-live-badge,
+.subscription-live-page .subscription-pill {
+  color: #075da8 !important;
   background: #e8f4ff !important;
-  border: 1px solid #c8e2f8 !important;
+  border: 1px solid #c7e1f6 !important;
 }
 .live-page .live-player-card,
+.live-page .live-details,
 .live-page .live-details-chat,
-.live-page .live-comments-card,
+.live-page .live-details-comments-only,
 .live-page .live-explore-card,
-.live-page .live-recommendation-info,
-.live-page .live-explore-placeholder {
-  background: #ffffff !important;
-  color: #18334d !important;
-  border: 1px solid #d9e6f2 !important;
-  box-shadow: 0 12px 32px rgba(24, 73, 116, .08) !important;
+.live-page .live-player-message,
+.subscription-live-page .subscription-content-panel,
+.subscription-live-page .subscription-viewer-chat {
+  color: #17324b !important;
+  background: #fff !important;
+  border: 1px solid #d8e5f1 !important;
+  box-shadow: 0 12px 32px rgba(25, 74, 115, .08) !important;
 }
-/* Keep the actual video viewport dark; never place a white layer over video */
+/* Preserve the black video viewport; don't put white backgrounds over actual video. */
 .live-page .live-player,
 .live-page .live-player .onlystream-embed-wrap,
 .live-page .live-player .onlystream-embed,
 .live-page .live-player .onlystream-embed iframe,
 .live-page .live-player .onlystream-embed video,
 .live-page .live-player .onlystream-embed object,
-.live-page .live-player .onlystream-embed embed {
+.live-page .live-player .onlystream-embed embed,
+.subscription-live-page .subscription-big-player,
+.subscription-live-page .subscription-player-placeholder,
+.subscription-live-page .subscription-locked-player,
+.subscription-live-page .subscription-viewer-live-video {
   background: #050b13 !important;
 }
-.live-page .live-player-message {
-  background: #eef6fd !important;
-  color: #25435f !important;
-  border-color: #d1e5f5 !important;
-}
-.live-page .live-player-message a { color: #075fa7 !important; }
+.live-page .live-player-message { color: #25445f !important; background: #edf6ff !important; border-color: #d1e5f5 !important; }
+.live-page .live-player-message a,
+.live-page .more-live a,
+.live-page .live-page-message a { color: #075fa7 !important; }
 .live-page .live-player-message button,
 .live-page .player-error button,
 .live-page .live-comment-input-row button,
 .live-page .live-comment-form button,
 .live-page .live-open-twitch {
-  background: #087bd1 !important;
-  color: #ffffff !important;
-  border: 1px solid #087bd1 !important;
-  box-shadow: 0 5px 14px rgba(8, 123, 209, .18) !important;
+  color: #fff !important; background: #087bd1 !important; border: 1px solid #087bd1 !important;
+  box-shadow: 0 5px 14px rgba(8, 123, 209, .16) !important;
 }
 .live-page .live-player-message button:hover,
 .live-page .live-comment-input-row button:hover:not(:disabled),
-.live-page .live-open-twitch:hover {
-  background: #0565b0 !important;
-  border-color: #0565b0 !important;
-}
-.live-page .live-details-chat,
-.live-page .live-comments-card {
-  background: #ffffff !important;
-  color: #18334d !important;
-}
-.live-page .live-details-chat h1,
-.live-page .live-details-chat h2,
-.live-page .live-details-chat h3,
-.live-page .live-comments-card h2,
-.live-page .live-comments-card h3 {
-  color: #123653 !important;
-}
-.live-page .live-details-chat p,
-.live-page .live-comments-card p,
-.live-page .live-recommendations-heading p,
-.live-page .live-comment-notice,
-.live-page .live-comment-status {
-  color: #526b82 !important;
-}
-.live-page .live-comment-overlay {
-  color: #ffffff !important;
-}
-.live-page .live-comment-name { color: #d9edff !important; }
-.live-page .live-comment-message { color: #ffffff !important; }
+.live-page .live-open-twitch:hover { background: #0565b0 !important; }
+.live-page .live-comment-form,
 .live-page .live-comment-form input,
 .live-page .live-comment-form > input,
 .live-page .live-comment-input-row > input {
-  background: #f7fbff !important;
-  color: #17344e !important;
-  border: 1px solid #cbddec !important;
-  caret-color: #087bd1 !important;
+  color: #17324b !important; background: #f7fbff !important; border-color: #cbddec !important;
 }
 .live-page .live-comment-form input::placeholder,
-.live-page .live-comment-input-row input::placeholder {
-  color: #647f96 !important;
-  opacity: 1 !important;
-}
+.live-page .live-comment-input-row input::placeholder { color: #647f96 !important; opacity: 1 !important; }
 .live-page .live-comment-form input:focus,
-.live-page .live-comment-input-row input:focus {
-  border-color: #1687dc !important;
-  box-shadow: 0 0 0 3px rgba(8, 123, 209, .13) !important;
-  outline: none !important;
+.live-page .live-comment-input-row input:focus { border-color: #1687dc !important; box-shadow: 0 0 0 3px rgba(8,123,209,.13) !important; outline: 0 !important; }
+.live-page .live-comment-status,
+.live-page .live-comment-notice,
+.live-page .live-details .live-card-comment { color: #526b82 !important; }
+/* Floating comments are drawn over video, so keep white text with strong shadow. */
+.live-page .live-comment-overlay,
+.live-page .live-floating-comment,
+.live-page .live-comment-message { color: #fff !important; }
+.live-page .live-comment-name { color: #bfe3ff !important; }
+.live-page .live-explore-card:hover { border-color: #91c9f1 !important; box-shadow: 0 16px 36px rgba(8,123,209,.14) !important; }
+.live-page .live-footer.site-footer {
+  color: #dceafa !important; background: linear-gradient(180deg,#123653,#0a2238) !important; border-top-color: #c6e1f6 !important;
 }
-.live-page .live-explore-card:hover {
-  border-color: #8dc9f4 !important;
-  box-shadow: 0 16px 36px rgba(8, 123, 209, .14) !important;
-}
-.live-page a { color: #076bb8; }
-.live-page button:focus-visible,
-.live-page a:focus-visible,
-.live-page input:focus-visible {
-  outline: 3px solid rgba(8, 123, 209, .32) !important;
-  outline-offset: 2px;
-}
+.live-page .live-footer .logo,
+.live-page .live-footer .footer-about-card h3 { color: #fff !important; }
+.live-page .live-footer .logo span { color: #78c4ff !important; }
+.live-page .live-footer .footer-tagline,
+.live-page .live-footer .footer-about-card p,
+.live-page .live-footer .footer-bottom { color: #c0d3e4 !important; }
+.live-page .live-footer .footer-about-card { background: rgba(255,255,255,.07) !important; border-color: rgba(207,231,250,.2) !important; }
+.live-page .live-footer .footer-contact a { color: #a9dcff !important; }
 
-/* Subscription live viewer: blue-white shell, clear text, dark video viewport */
-.subscription-live-page {
-  background: #f3f8fd !important;
-  color: #18334d !important;
-}
-.subscription-live-page .subscription-live-topbar {
-  border-bottom-color: #d8e5f1 !important;
-}
-.subscription-live-page .subscription-live-topbar a,
-.subscription-live-page .subscription-live-brand,
-.subscription-live-page .subscription-live-heading h1,
-.subscription-live-page .subscription-content-title h2,
-.subscription-live-page .subscription-chat-heading h2 {
-  color: #123653 !important;
-}
-.subscription-live-page .subscription-live-brand span { color: #087bd1 !important; }
-.subscription-live-page .subscription-live-heading p,
-.subscription-live-page .subscription-content-title > span,
-.subscription-live-page .subscription-content-locked {
-  color: #526b82 !important;
-}
-.subscription-live-page .subscription-live-badge,
-.subscription-live-page .subscription-pill {
-  background: #e8f4ff !important;
-  color: #075da8 !important;
-  border: 1px solid #c6e1f7 !important;
-}
-.subscription-live-page .subscription-big-player {
-  background: #050b13 !important;
-  border: 1px solid #cbddec !important;
-  box-shadow: 0 16px 40px rgba(21, 66, 105, .12) !important;
-}
-.subscription-live-page .subscription-player-placeholder,
-.subscription-live-page .subscription-locked-player {
-  background: #050b13 !important;
-  color: #e8f2fb !important;
-}
+/* Subscription chat + access notice */
+.subscription-live-page .subscription-access-notice,
+.subscription-live-page .subscription-no-calls { color: #254b6a !important; background: #edf6ff !important; border-color: #cde4f6 !important; }
 .subscription-live-page .subscription-player-placeholder strong,
-.subscription-live-page .subscription-locked-player h2 {
-  color: #ffffff !important;
-}
+.subscription-live-page .subscription-locked-player h2 { color: #fff !important; }
 .subscription-live-page .subscription-player-placeholder small,
-.subscription-live-page .subscription-locked-player p {
-  color: #c0d1e0 !important;
-}
-.subscription-live-page .subscription-content-panel,
-.subscription-live-page .subscription-viewer-chat {
-  background: #ffffff !important;
-  color: #18334d !important;
-  border: 1px solid #d8e5f1 !important;
-  box-shadow: 0 12px 32px rgba(24, 73, 116, .08) !important;
-}
+.subscription-live-page .subscription-locked-player p { color: #c5d8e8 !important; }
 .subscription-live-page .subscription-chat-heading,
-.subscription-live-page .subscription-chat-form {
-  border-color: #e0eaf3 !important;
-}
+.subscription-live-page .subscription-chat-form { border-color: #e0eaf3 !important; }
 .subscription-live-page .subscription-chat-heading > div > span,
 .subscription-live-page .subscription-chat-online,
-.subscription-live-page .subscription-chat-message strong {
-  color: #0873bf !important;
-}
-.subscription-live-page .subscription-chat-message p {
-  color: #304d67 !important;
-}
-.subscription-live-page .subscription-chat-form input {
-  background: #f7fbff !important;
-  color: #17344e !important;
-  border: 1px solid #cbddec !important;
-}
-.subscription-live-page .subscription-chat-form input::placeholder {
-  color: #647f96 !important;
-  opacity: 1 !important;
-}
+.subscription-live-page .subscription-chat-message strong { color: #0873bf !important; }
+.subscription-live-page .subscription-chat-messages { background: #fff !important; }
+.subscription-live-page .subscription-chat-message p { color: #304d67 !important; }
+.subscription-live-page .subscription-chat-form input { color: #17344e !important; background: #f7fbff !important; border: 1px solid #cbddec !important; }
+.subscription-live-page .subscription-chat-form input::placeholder { color: #647f96 !important; opacity: 1 !important; }
 .subscription-live-page .subscription-chat-form button,
 .subscription-live-page .subscription-locked-player button,
-.subscription-live-page .subscription-demo-pay-button {
-  background: #087bd1 !important;
-  color: #ffffff !important;
-  border: 1px solid #087bd1 !important;
-}
+.subscription-live-page .subscription-demo-pay-button { color: #fff !important; background: #087bd1 !important; border: 1px solid #087bd1 !important; }
 .subscription-live-page .subscription-chat-form button:hover:not(:disabled),
 .subscription-live-page .subscription-locked-player button:hover,
-.subscription-live-page .subscription-demo-pay-button:hover {
-  background: #0565b0 !important;
-}
-.subscription-live-page .subscription-no-calls {
-  background: #edf6ff !important;
-  border-color: #d1e5f5 !important;
-}
-.subscription-live-page .subscription-no-calls strong,
-.subscription-live-page .subscription-no-calls p {
-  color: #254b6a !important;
-}
-.subscription-live-page .subscription-payment-modal {
-  background: #ffffff !important;
-  color: #18334d !important;
-  border: 1px solid #cbddec !important;
-  box-shadow: 0 28px 90px rgba(13, 48, 79, .25) !important;
-}
+.subscription-live-page .subscription-demo-pay-button:hover { background: #0565b0 !important; }
+
+/* Payment modal: readable white card, blue price/action styling. */
+.subscription-live-page .subscription-payment-backdrop { background: rgba(8, 28, 48, .62) !important; }
+.subscription-live-page .subscription-payment-modal { color: #17324b !important; background: #fff !important; border: 1px solid #cbddec !important; box-shadow: 0 28px 90px rgba(13,48,79,.25) !important; }
 .subscription-live-page .subscription-payment-modal h2,
-.subscription-live-page .subscription-payment-price strong {
-  color: #123653 !important;
-}
+.subscription-live-page .subscription-payment-price strong { color: #123653 !important; }
 .subscription-live-page .subscription-payment-modal > p,
-.subscription-live-page .subscription-payment-modal ul {
-  color: #405d76 !important;
-}
-.subscription-live-page .subscription-payment-price {
-  background: #edf6ff !important;
-  border-color: #c9e2f6 !important;
-}
+.subscription-live-page .subscription-payment-modal ul { color: #405d76 !important; }
+.subscription-live-page .subscription-payment-price { background: #edf6ff !important; border-color: #c9e2f6 !important; }
 .subscription-live-page .subscription-payment-price span,
-.subscription-live-page .subscription-payment-price small {
-  color: #526b82 !important;
-}
+.subscription-live-page .subscription-payment-price small { color: #526b82 !important; }
 .subscription-live-page .subscription-modal-close,
-.subscription-live-page .subscription-cancel-payment {
-  background: #f3f8fc !important;
-  color: #25435f !important;
-  border: 1px solid #d5e3ef !important;
-}
-.subscription-live-page .subscription-cancel-payment:hover {
-  background: #e7f2fc !important;
-}
-.subscription-live-page .subscription-live-dot {
-  background: #087bd1 !important;
-  box-shadow: 0 0 12px rgba(8, 123, 209, .35) !important;
-}
+.subscription-live-page .subscription-cancel-payment { color: #25435f !important; background: #f3f8fc !important; border: 1px solid #d5e3ef !important; }
+.subscription-live-page .subscription-cancel-payment:hover { background: #e7f2fc !important; }
+.live-page button:focus-visible,
+.live-page a:focus-visible,
+.live-page input:focus-visible,
+.subscription-live-page button:focus-visible,
+.subscription-live-page a:focus-visible,
+.subscription-live-page input:focus-visible { outline: 3px solid rgba(8,123,209,.32) !important; outline-offset: 2px; }
 @media (max-width: 700px) {
   .live-page .live-player-card,
   .live-page .live-details-chat,
-  .live-page .live-comments-card,
   .subscription-live-page .subscription-content-panel,
-  .subscription-live-page .subscription-viewer-chat {
-    border-radius: 16px !important;
-  }
+  .subscription-live-page .subscription-viewer-chat { border-radius: 16px !important; }
   .subscription-live-page .subscription-payment-modal { padding: 22px 18px !important; }
 }
