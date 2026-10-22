@@ -67,3 +67,12 @@
   .sub-creator-controls button { flex-basis: 100%; }
   .sub-creator-earnings-grid { grid-template-columns: minmax(0,1fr); }
 }
+
+/* BLUE-WHITE SUBSCRIPTION CREATOR THEME — design-only */
+.sub-creator-page{color:#142b43!important;background:radial-gradient(ellipse at 10% 0%,rgba(55,160,255,.15),transparent 42%),#f3f8fd!important}
+.sub-creator-top{border-color:#d8e8f6!important}
+.sub-creator-logo{color:#12324f!important}.sub-creator-logo span{color:#1688e8!important}
+.sub-creator-page h1,.sub-creator-page h2,.sub-creator-page h3{color:#12324f!important}
+.sub-creator-page .card,.sub-creator-page .panel,.sub-creator-page .dashboard-card{background:#fff!important;color:#17344e!important;border:1px solid #d9e9f7!important;box-shadow:0 10px 28px rgba(25,83,128,.07)!important;border-radius:18px}
+.sub-creator-page button{border-radius:12px;transition:transform .2s,box-shadow .2s}
+.sub-creator-page button:hover{box-shadow:0 8px 22px rgba(22,136,232,.18)}
