@@ -722,3 +722,19 @@
 .auth-page input:focus,.auth-page select:focus{outline:3px solid #1688e82b!important;border-color:#1688e8!important}
 .auth-page button{transition:transform .2s,box-shadow .2s!important}
 .auth-page button:hover{box-shadow:0 9px 22px #1688e82b!important}
+
+
+/* FINAL BLUE + WHITE CONTRAST PASS — appended overrides only */
+:root{color-scheme:light;--os-blue:#087bd1;--os-blue-dark:#075a9b;--os-ink:#17324b;--os-muted:#536b80;--os-line:#d5e5f3;--os-surface:#ffffff;--os-page:#f3f8fd}
+body{background:var(--os-page)!important;color:var(--os-ink)!important}
+/* Replace legacy purple surfaces/gradients on page UI with clean white/blue */
+body{background:#f3f8fd!important;color:#17324b!important}
+.auth-page{background:#f3f8fd!important;color:#17324b!important}
+.auth-page :is(.auth-card,.auth-panel,form,.auth-role,.auth-notice,.auth-footer){background:#fff!important;color:#17324b!important;border-color:#d5e5f3!important}
+.auth-page :is(p,small,label,.auth-subtitle,.auth-description,.auth-role,.auth-footer){color:#536b80!important}
+.auth-page :is(button[type=submit],.primary-button,.auth-submit){background:linear-gradient(135deg,#168de2,#0870bf)!important;color:#fff!important}
+.auth-page :is(a,.auth-link){color:#0876c6!important}
+
+@media(prefers-reduced-motion:no-preference){.model-card,.stream-card,.vertical-stream-card,.creator-stat-card,.creator-info-card,.auth-card{animation:osFinalFade .45s ease both}}
+@keyframes osFinalFade{from{opacity:.65;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
