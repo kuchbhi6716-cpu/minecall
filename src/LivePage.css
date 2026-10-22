@@ -1515,20 +1515,226 @@
 .live-page input,.live-page textarea{background:#f7fbff!important;color:#17344e!important;border-color:#cfe2f3!important}
 
 
-/* FINAL BLUE + WHITE CONTRAST PASS — appended overrides only */
-:root{color-scheme:light;--os-blue:#087bd1;--os-blue-dark:#075a9b;--os-ink:#17324b;--os-muted:#536b80;--os-line:#d5e5f3;--os-surface:#ffffff;--os-page:#f3f8fd}
-body{background:var(--os-page)!important;color:var(--os-ink)!important}
-/* Replace legacy purple surfaces/gradients on page UI with clean white/blue */
-body{background:#f3f8fd!important;color:#17324b!important}
-.live-page,.subscription-live-page{background:#f3f8fd!important;color:#17324b!important}
-:is(.live-topbar,.live-details,.live-details-chat,.live-comments-card,.live-explore-card,.live-recommendations,.subscription-content-panel,.subscription-viewer-chat,.subscription-payment-modal){background:#fff!important;color:#17324b!important;border-color:#d5e5f3!important;box-shadow:0 8px 24px rgba(22,83,130,.07)!important}
-:is(.live-page,.subscription-live-page) :is(h1,h2,h3,.live-brand,.live-heading,.live-recommendations-heading,.subscription-live-brand,.subscription-live-heading,.subscription-content-title,.subscription-chat-heading){color:#12324c!important}
-:is(.live-page,.subscription-live-page) :is(p,small,.live-eyebrow,.live-details p,.live-comment-notice,.live-recommendations-empty,.subscription-chat-message,.subscription-payment-price){color:#536b80!important}
-:is(.live-comment-input-row input,.live-comment-form input,.subscription-chat-form input){background:#fff!important;color:#17324b!important;border-color:#c8dcec!important}
-:is(.live-back,.live-open-twitch,.subscription-demo-pay-button,.subscription-cancel-payment){background:#087bd1!important;color:#fff!important;border-color:#087bd1!important}
-:is(.live-player,.onlystream-embed-wrap,.subscription-big-player,.subscription-locked-player,.subscription-player-live,.subscription-viewer-live-video){background:#071522!important;color:#fff!important}
-:is(.live-status,.subscription-pill,.subscription-viewer-stream-status .subscription-pill){background:#e6f3ff!important;color:#075a9b!important;border-color:#b8dcf8!important}
 
-@media(prefers-reduced-motion:no-preference){.model-card,.stream-card,.vertical-stream-card,.creator-stat-card,.creator-info-card,.auth-card{animation:osFinalFade .45s ease both}}
-@keyframes osFinalFade{from{opacity:.65;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+/* =========================================================
+   ONLYSTREAM BLUE-WHITE POLISH — LIVE EXPERIENCE
+   Appended override layer; original selectors and behavior kept.
+========================================================= */
+.live-page,
+.subscription-live-page {
+  --live-blue: #087bd1;
+  --live-blue-deep: #075da8;
+  --live-ink: #14243a;
+  --live-muted: #62748a;
+  --live-border: #dce7f2;
+  background: #f5f9fd !important;
+  color: var(--live-ink) !important;
+  font-family: Inter, "DM Sans", system-ui, sans-serif;
+}
+.live-page *,
+.subscription-live-page * { box-sizing: border-box; }
+.live-topbar,
+.subscription-live-topbar {
+  max-width: 1280px;
+  padding: 18px 0;
+  border-bottom: 1px solid #e2eaf3;
+}
+.live-back,
+.subscription-live-topbar a {
+  color: #34516e !important;
+  transition: color .18s ease, transform .18s ease;
+}
+.live-back:hover { color: var(--live-blue) !important; transform: translateX(-2px); }
+.live-brand,
+.subscription-live-brand { color: #13243a !important; }
+.live-brand span,
+.subscription-live-brand span { color: var(--live-blue) !important; }
+.live-status,
+.subscription-live-badge {
+  color: #075da8 !important;
+  background: #e8f4ff !important;
+  border-color: #c9e4fb !important;
+}
+.live-content { max-width: 1280px; }
+.live-heading,
+.subscription-live-heading { color: #12243a !important; letter-spacing: -.035em; }
+.live-eyebrow,
+.live-recommendations-eyebrow { color: #087bd1 !important; }
+.live-details,
+.live-player-card,
+.live-comments-card,
+.subscription-content-panel,
+.subscription-viewer-chat,
+.subscription-viewer-gallery {
+  background: #fff !important;
+  color: #17283d !important;
+  border: 1px solid #dce7f2 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 10px 34px rgba(24, 61, 98, .07) !important;
+}
+.live-player-card { overflow: hidden; }
+.live-player,
+.onlystream-embed-wrap,
+.subscription-big-player,
+.subscription-viewer-live-video,
+.subscription-locked-player {
+  background: #0b1421 !important;
+  border-color: #d4e0ec !important;
+  border-radius: 18px !important;
+  overflow: hidden;
+}
+.live-player-message,
+.subscription-player-placeholder,
+.subscription-content-locked {
+  color: #eaf4ff !important;
+}
+.live-recommendations-heading,
+.live-recommendation-name,
+.subscription-content-title,
+.subscription-chat-heading { color: #17283d !important; }
+.live-recommendation-info { color: #5c7187 !important; }
+.live-explore-card,
+.live-explore-placeholder {
+  background: #fff !important;
+  border: 1px solid #dce7f2 !important;
+  color: #17283d !important;
+  border-radius: 16px !important;
+  box-shadow: 0 6px 20px rgba(24, 61, 98, .05);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.live-explore-card:hover {
+  transform: translateY(-3px);
+  border-color: #9acdf4 !important;
+  box-shadow: 0 14px 30px rgba(8, 123, 209, .12);
+}
+.live-recommendation-status,
+.live-comment-status,
+.subscription-chat-online { color: #087bd1 !important; }
+.live-comment-overlay,
+.live-floating-comment {
+  border: 1px solid rgba(218, 232, 246, .85);
+  border-radius: 14px;
+  background: rgba(255,255,255,.95) !important;
+  color: #17283d !important;
+  box-shadow: 0 6px 22px rgba(14, 39, 67, .12);
+}
+.live-comment-name { color: #075da8 !important; }
+.live-comment-message { color: #233c56 !important; }
+.live-comment-input-row input,
+.live-comment-input,
+.subscription-chat-form input,
+.subscription-chat-form textarea {
+  min-height: 44px;
+  color: #17283d !important;
+  background: #f7fbff !important;
+  border: 1px solid #d5e3f0 !important;
+  border-radius: 12px !important;
+}
+.live-comment-input-row input::placeholder,
+.subscription-chat-form input::placeholder,
+.subscription-chat-form textarea::placeholder { color: #7b8da1 !important; }
+.live-comment-input-row input:focus,
+.subscription-chat-form input:focus,
+.subscription-chat-form textarea:focus {
+  outline: 3px solid rgba(8,123,209,.14);
+  border-color: #68b4ee !important;
+}
+.live-comment-form button,
+.live-comment-submit,
+.subscription-demo-pay-button,
+.subscription-chat-form button,
+.live-open-twitch,
+.more-live {
+  color: #fff !important;
+  background: linear-gradient(135deg, #168fe5, #0869bd) !important;
+  border: 1px solid #087bd1 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 7px 18px rgba(8,123,209,.18);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+.live-comment-form button:hover,
+.live-comment-submit:hover,
+.subscription-demo-pay-button:hover,
+.subscription-chat-form button:hover,
+.live-open-twitch:hover,
+.more-live:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 11px 24px rgba(8,123,209,.24);
+  filter: saturate(1.06);
+}
+.subscription-payment-backdrop {
+  padding: 18px !important;
+  background: rgba(10, 24, 42, .58) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+.subscription-payment-modal {
+  width: min(100%, 460px) !important;
+  max-height: min(90dvh, 760px) !important;
+  overflow: auto !important;
+  padding: clamp(20px, 5vw, 30px) !important;
+  border: 1px solid #d8e8f6 !important;
+  border-radius: 24px !important;
+  background: #fff !important;
+  color: #17283d !important;
+  box-shadow: 0 28px 90px rgba(7, 33, 62, .28) !important;
+  animation: os-payment-in .24s cubic-bezier(.2,.75,.25,1) both;
+}
+.subscription-payment-modal h1,
+.subscription-payment-modal h2,
+.subscription-payment-modal h3,
+.subscription-payment-modal strong { color: #14243a !important; }
+.subscription-payment-modal p,
+.subscription-payment-modal small,
+.subscription-payment-modal label { color: #5e7187; }
+.subscription-payment-price {
+  color: #075da8 !important;
+  background: #edf7ff !important;
+  border: 1px solid #cfe7fb !important;
+  border-radius: 16px !important;
+}
+.subscription-modal-close,
+.subscription-cancel-payment {
+  color: #34516e !important;
+  background: #f3f8fc !important;
+  border: 1px solid #dce7f2 !important;
+  border-radius: 11px !important;
+}
+.subscription-payment-modal button:not(.subscription-modal-close):not(.subscription-cancel-payment) {
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.subscription-payment-modal button:focus-visible,
+.live-page button:focus-visible,
+.subscription-live-page button:focus-visible {
+  outline: 3px solid rgba(8,123,209,.3) !important;
+  outline-offset: 3px;
+}
+.live-footer {
+  color: #5e7187 !important;
+  border-top: 1px solid #e0e9f2 !important;
+}
+.live-footer a { color: #075da8 !important; }
+.video-skeleton,
+.skeleton-content { background: #e9f2fa !important; }
+.skeleton-line { background: #d5e5f3 !important; }
+@keyframes os-payment-in {
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 760px) {
+  .live-page, .subscription-live-page { padding-left: 12px !important; padding-right: 12px !important; }
+  .live-topbar, .subscription-live-topbar { gap: 8px; padding: 13px 0; }
+  .live-brand, .subscription-live-brand { font-size: 19px !important; }
+  .live-status { padding: 6px 8px; font-size: 9px; }
+  .live-player-card, .live-comments-card, .subscription-content-panel,
+  .subscription-viewer-chat, .subscription-viewer-gallery { border-radius: 16px !important; }
+  .subscription-live-layout { grid-template-columns: minmax(0, 1fr) !important; }
+  .subscription-payment-modal { border-radius: 20px !important; padding: 20px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-page *, .subscription-live-page *, .subscription-payment-modal {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
