@@ -1125,3 +1125,13 @@
     min-height: 0;
   }
 }
+
+
+/* Let creators choose which call video occupies the large preview. */
+.creator-preview-switcher { position: absolute; z-index: 8; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 7px; }
+.creator-preview-switcher button { border: 1px solid rgba(255,255,255,.28); border-radius: 999px; padding: 8px 11px; color: #fff; background: rgba(14,10,22,.82); font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(10px); }
+.creator-preview-switcher button.active, .creator-preview-switcher button:hover { background: #7650c8; border-color: rgba(255,255,255,.6); }
+.creator-preview-switcher button:focus-visible { outline: 2px solid #d5bdff; outline-offset: 3px; }
+.creator-remote-video.creator-video-small { inset: auto 12px 58px auto; z-index: 3; width: clamp(100px, 28%, 190px); height: auto; aspect-ratio: 3 / 4; border: 2px solid rgba(255,255,255,.9); border-radius: 12px; object-fit: cover; cursor: pointer; }
+.creator-preview-video { cursor: pointer; }
+.creator-preview-video.creator-preview-small { cursor: pointer; }
