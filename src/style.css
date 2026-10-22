@@ -2196,3 +2196,15 @@ button:disabled {
 .preview-choice-button { left: auto; right: 8px; bottom: 8px; max-width: calc(100% - 16px); padding: 7px 10px; font-size: 11px; white-space: nowrap; }
 .video-grid .video-card .video-top-label, .video-grid .video-card .video-bottom-label { pointer-events: none; }
 @media (min-width: 761px) { .video-grid > .remote-card { aspect-ratio: 16 / 10; } .video-grid.preview-self-main > .local-card { aspect-ratio: 16 / 10; } }
+
+/* ONLYSTREAM BLUE-WHITE THEME — visual overrides only */
+:root{font-family:"DM Sans",system-ui,sans-serif!important;color:#142b43!important;background:#f4f9ff!important;--bg:#f4f9ff;--panel:#fff;--panel-light:#eaf4ff;--purple:#1688e8;--purple-bright:#48a9ff;--muted:#637b92;--border:rgba(25,105,175,.16)}
+html{scroll-behavior:smooth} body{background:#f4f9ff!important;color:#142b43!important}
+button,a,[role=button]{-webkit-tap-highlight-color:transparent}
+button{transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s,background .22s}
+button:hover{transform:translateY(-2px)} button:active{transform:scale(.98)}
+input,textarea,select{color:#142b43}
+::selection{background:#b9e1ff;color:#073b68}
+@keyframes osFadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes osSoftGlow{0%,100%{box-shadow:0 8px 28px rgba(22,136,232,.08)}50%{box-shadow:0 12px 36px rgba(22,136,232,.18)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
