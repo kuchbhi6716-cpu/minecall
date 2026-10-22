@@ -2170,3 +2170,16 @@ button:disabled {
     min-width: 44px;
   }
 }
+
+
+/* Interactive call preview sizing: users can choose their own or remote video as main. */
+.video-grid.preview-self-main { grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr); }
+.video-grid.preview-self-main .local-card { order: -1; min-height: 290px; aspect-ratio: 1.24 / 1; }
+.video-grid.preview-self-main .remote-card { min-height: 180px; aspect-ratio: auto; }
+.preview-choice-button { position: absolute; z-index: 8; left: 12px; bottom: 12px; border: 1px solid rgba(255,255,255,.24); border-radius: 999px; padding: 8px 11px; color: #fff; background: rgba(16,10,26,.78); font-size: 12px; font-weight: 700; cursor: pointer; backdrop-filter: blur(10px); }
+.preview-choice-button:hover, .preview-choice-button[aria-pressed="true"] { background: #7650c8; border-color: rgba(255,255,255,.55); }
+.preview-choice-button:focus-visible { outline: 2px solid #d5bdff; outline-offset: 3px; }
+@media (max-width: 760px) {
+  .video-grid.preview-self-main { grid-template-columns: minmax(0, 1fr) minmax(0, .42fr); }
+  .video-grid.preview-self-main .local-card { min-height: 250px; }
+}
