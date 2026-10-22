@@ -37,7 +37,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const videoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const streamRef = useRef(null);
-  const thumbnailIntervalRef = useRef(null);
   const socketRef = useRef(null);
   const peerRef = useRef(null);
   const pendingSignalsRef = useRef([]);
@@ -54,6 +53,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const chatMessagesRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const typingRef = useRef(false);
+  const thumbnailIntervalRef = useRef(null);
 
   const [username, setUsername] = useState("Creator");
   const [isLive, setIsLive] = useState(false);
@@ -77,8 +77,43 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [creatorMainPreview, setCreatorMainPreview] = useState("caller");
   const [facingMode, setFacingMode] = useState("user");
   const [cameraSwitching, setCameraSwitching] = useState(false);
+
+  const publishLiveThumbnail = useCallback(() => {
+    const video = videoRef.current;
+    const socket = socketRef.current;
+    if (!isLiveRef.current || !video || !socket || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+    try {
+      const canvas = document.createElement("canvas");
+      const maxWidth = 480;
+      const scale = Math.min(1, maxWidth / video.videoWidth);
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      socket.emit("creator-live-thumbnail", { username, thumbnail: canvas.toDataURL("image/jpeg", 0.72) });
+    } catch (error) {
+      console.warn("Could not publish live thumbnail:", error);
+    }
+  }, [username]);
+
+  useEffect(() => {
+    if (!isLive) {
+      if (thumbnailIntervalRef.current) window.clearInterval(thumbnailIntervalRef.current);
+      thumbnailIntervalRef.current = null;
+      return undefined;
+    }
+    const firstShot = window.setTimeout(publishLiveThumbnail, 900);
+    thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 30 * 60 * 1000);
+    return () => {
+      window.clearTimeout(firstShot);
+      if (thumbnailIntervalRef.current) window.clearInterval(thumbnailIntervalRef.current);
+      thumbnailIntervalRef.current = null;
+    };
+  }, [isLive, publishLiveThumbnail]);
 
   const refreshEconomy = useCallback(async () => {
     let session;
@@ -183,10 +218,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   }, [stopBilling]);
 
   const stopLocalStream = useCallback(() => {
-    if (thumbnailIntervalRef.current) {
-      window.clearInterval(thumbnailIntervalRef.current);
-      thumbnailIntervalRef.current = null;
-    }
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
 
@@ -594,26 +625,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     setChatMessage("");
   }
 
-  function publishLiveThumbnail() {
-    const video = videoRef.current;
-    const socket = socketRef.current;
-    if (!video || !socket?.connected || !isLiveRef.current || video.videoWidth < 2 || video.videoHeight < 2) return;
-
-    try {
-      const canvas = document.createElement("canvas");
-      // Small, compressed live snapshots keep the homepage fast on mobile data.
-      canvas.width = 480;
-      canvas.height = Math.max(1, Math.round(480 * video.videoHeight / video.videoWidth));
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const thumbnail = canvas.toDataURL("image/jpeg", 0.62);
-      socket.emit("creator-live-thumbnail", { thumbnail });
-    } catch (error) {
-      // Snapshot capture can fail temporarily while the camera is starting.
-    }
-  }
-
   async function goLive() {
     setCameraError("");
     setBusy(true);
@@ -669,10 +680,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
         isLiveRef.current = true;
         setIsLive(true);
-
-        if (thumbnailIntervalRef.current) window.clearInterval(thumbnailIntervalRef.current);
-        window.setTimeout(publishLiveThumbnail, 900);
-        thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 5 * 60 * 1000);
 
         localStorage.setItem(LIVE_KEY, JSON.stringify({
           username: creatorUsername,
@@ -1000,17 +1007,17 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
             </span>
           </div>
 
-          <div className="creator-video-stage">
+          <div className={`creator-video-stage creator-main-${creatorMainPreview}`}>
             <video
               ref={remoteVideoRef}
-              className="creator-remote-video"
+              onClick={() => callConnected && setCreatorMainPreview("caller")}
+              className={`creator-remote-video ${callConnected && creatorMainPreview === "caller" ? "creator-video-small" : ""}`}
               autoPlay playsInline
             />
             <video
               ref={videoRef}
-              className={callConnected
-                ? "creator-preview-video creator-preview-small"
-                : "creator-preview-video"}
+              onClick={() => callConnected && setCreatorMainPreview("self")}
+              className={`creator-preview-video ${callConnected && creatorMainPreview !== "self" ? "creator-preview-small" : ""}`}
               autoPlay muted playsInline
             />
 
@@ -1022,6 +1029,12 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
               </div>
             )}
 
+            {callConnected && (
+              <div className="creator-preview-switcher" aria-label="Choose main call preview">
+                <button type="button" onClick={() => setCreatorMainPreview("caller")} className={creatorMainPreview === "caller" ? "active" : ""} aria-pressed={creatorMainPreview === "caller"}>Caller main</button>
+                <button type="button" onClick={() => setCreatorMainPreview("self")} className={creatorMainPreview === "self" ? "active" : ""} aria-pressed={creatorMainPreview === "self"}>My camera main</button>
+              </div>
+            )}
             {isLive && (
               <div className="creator-live-label"><span /> {exclusiveMode ? "AVAILABLE FOR CALLS" : "LIVE NOW"}</div>
             )}
