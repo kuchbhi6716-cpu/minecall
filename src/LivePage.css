@@ -1513,3 +1513,22 @@
 .live-page .live-card,.live-page .stream-card,.live-page .chat-panel,.live-page .live-info,.live-page .stream-details{background:#fff!important;color:#17344e!important;border-color:#d8e8f6!important;box-shadow:0 10px 28px rgba(25,83,128,.07)}
 .live-page button{border-radius:12px;transition:transform .2s,box-shadow .2s}
 .live-page input,.live-page textarea{background:#f7fbff!important;color:#17344e!important;border-color:#cfe2f3!important}
+
+
+/* FINAL BLUE + WHITE CONTRAST PASS — appended overrides only */
+:root{color-scheme:light;--os-blue:#087bd1;--os-blue-dark:#075a9b;--os-ink:#17324b;--os-muted:#536b80;--os-line:#d5e5f3;--os-surface:#ffffff;--os-page:#f3f8fd}
+body{background:var(--os-page)!important;color:var(--os-ink)!important}
+/* Replace legacy purple surfaces/gradients on page UI with clean white/blue */
+body{background:#f3f8fd!important;color:#17324b!important}
+.live-page,.subscription-live-page{background:#f3f8fd!important;color:#17324b!important}
+:is(.live-topbar,.live-details,.live-details-chat,.live-comments-card,.live-explore-card,.live-recommendations,.subscription-content-panel,.subscription-viewer-chat,.subscription-payment-modal){background:#fff!important;color:#17324b!important;border-color:#d5e5f3!important;box-shadow:0 8px 24px rgba(22,83,130,.07)!important}
+:is(.live-page,.subscription-live-page) :is(h1,h2,h3,.live-brand,.live-heading,.live-recommendations-heading,.subscription-live-brand,.subscription-live-heading,.subscription-content-title,.subscription-chat-heading){color:#12324c!important}
+:is(.live-page,.subscription-live-page) :is(p,small,.live-eyebrow,.live-details p,.live-comment-notice,.live-recommendations-empty,.subscription-chat-message,.subscription-payment-price){color:#536b80!important}
+:is(.live-comment-input-row input,.live-comment-form input,.subscription-chat-form input){background:#fff!important;color:#17324b!important;border-color:#c8dcec!important}
+:is(.live-back,.live-open-twitch,.subscription-demo-pay-button,.subscription-cancel-payment){background:#087bd1!important;color:#fff!important;border-color:#087bd1!important}
+:is(.live-player,.onlystream-embed-wrap,.subscription-big-player,.subscription-locked-player,.subscription-player-live,.subscription-viewer-live-video){background:#071522!important;color:#fff!important}
+:is(.live-status,.subscription-pill,.subscription-viewer-stream-status .subscription-pill){background:#e6f3ff!important;color:#075a9b!important;border-color:#b8dcf8!important}
+
+@media(prefers-reduced-motion:no-preference){.model-card,.stream-card,.vertical-stream-card,.creator-stat-card,.creator-info-card,.auth-card{animation:osFinalFade .45s ease both}}
+@keyframes osFinalFade{from{opacity:.65;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
