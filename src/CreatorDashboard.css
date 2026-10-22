@@ -1228,3 +1228,251 @@
   .creator-video-stage { aspect-ratio: 3 / 4; }
   .creator-preview-switcher button { padding: 6px 7px; font-size: 9px; }
 }
+
+
+/* FINAL RESPONSIVE VIDEO LAYOUT FIX
+   Keep both video elements inside one stage and prevent duplicated/overlapping
+   positioning rules from older patches from taking control. */
+.creator-dashboard,
+.creator-dashboard * {
+  box-sizing: border-box;
+}
+
+.creator-dashboard {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.creator-dashboard-grid,
+.creator-camera-panel,
+.creator-video-stage,
+.creator-chat-panel,
+.creator-stats-column {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.creator-video-stage {
+  position: relative !important;
+  isolation: isolate;
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: 16 / 10 !important;
+  overflow: hidden !important;
+  contain: layout paint;
+  border-radius: clamp(12px, 2vw, 18px);
+  background: #08060c;
+}
+
+.creator-video-stage video.creator-remote-video,
+.creator-video-stage video.creator-preview-video {
+  display: block;
+  position: absolute !important;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  object-position: center;
+  background: #08060c;
+}
+
+.creator-video-stage video.creator-remote-video {
+  inset: 0 !important;
+  z-index: 1;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  transform: none !important;
+}
+
+.creator-video-stage video.creator-preview-video {
+  inset: 0 !important;
+  z-index: 2;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transform: scaleX(-1);
+}
+
+/* Caller is the main view: creator's camera becomes a single compact overlay. */
+.creator-video-stage.creator-main-caller video.creator-preview-video.creator-preview-small {
+  inset: auto 12px 62px auto !important;
+  z-index: 4;
+  width: clamp(112px, 24%, 220px) !important;
+  height: auto !important;
+  aspect-ratio: 3 / 4;
+  object-fit: cover !important;
+  border: 2px solid rgba(255,255,255,.92);
+  border-radius: 13px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45);
+}
+
+/* Creator is the main view: remote caller becomes the compact overlay. */
+.creator-video-stage.creator-main-self video.creator-remote-video.creator-video-small {
+  inset: auto 12px 62px auto !important;
+  z-index: 4;
+  width: clamp(112px, 24%, 220px) !important;
+  height: auto !important;
+  aspect-ratio: 3 / 4;
+  object-fit: cover !important;
+  border: 2px solid rgba(255,255,255,.92);
+  border-radius: 13px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45);
+}
+
+.creator-preview-switcher {
+  position: absolute !important;
+  z-index: 8 !important;
+  left: 12px !important;
+  right: 12px;
+  bottom: 12px !important;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+}
+
+.creator-preview-switcher button {
+  pointer-events: auto;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  font-size: clamp(11px, 1.2vw, 13px);
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.creator-live-label,
+.creator-call-label {
+  z-index: 7 !important;
+  max-width: calc(100% - 24px);
+}
+
+.creator-camera-placeholder {
+  z-index: 0;
+  pointer-events: none;
+}
+
+.creator-video-stage video {
+  border-radius: inherit;
+}
+
+.creator-chat-panel {
+  width: 100%;
+  overflow: hidden;
+}
+
+.creator-chat-messages {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+}
+
+.creator-chat-form {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.creator-chat-form input,
+.creator-chat-form textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 901px) {
+  .creator-dashboard-grid {
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, .8fr);
+    align-items: start;
+  }
+
+  .creator-video-stage {
+    aspect-ratio: 16 / 10 !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .creator-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100%;
+  }
+
+  .creator-video-stage {
+    aspect-ratio: 4 / 3 !important;
+  }
+
+  .creator-stats-column {
+    width: 100%;
+  }
+}
+
+@media (max-width: 540px) {
+  .creator-dashboard {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .creator-camera-panel {
+    padding: 10px !important;
+  }
+
+  /* Larger phone preview while preserving a portrait-friendly player. */
+  .creator-video-stage {
+    aspect-ratio: 4 / 3 !important;
+    min-height: 0 !important;
+    border-radius: 13px;
+  }
+
+  .creator-video-stage.creator-main-caller video.creator-preview-video.creator-preview-small,
+  .creator-video-stage.creator-main-self video.creator-remote-video.creator-video-small {
+    inset: auto 8px 58px auto !important;
+    width: clamp(104px, 30%, 142px) !important;
+    aspect-ratio: 3 / 4;
+  }
+
+  .creator-preview-switcher {
+    left: 8px !important;
+    right: 8px;
+    bottom: 8px !important;
+    gap: 6px;
+    max-width: calc(100% - 16px);
+  }
+
+  .creator-preview-switcher button {
+    flex: 0 1 auto;
+    min-height: 36px;
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+
+  .creator-chat-panel {
+    min-height: 0;
+  }
+
+  .creator-chat-messages {
+    max-height: 42vh;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .creator-video-stage.creator-main-caller video.creator-preview-video.creator-preview-small,
+  .creator-video-stage.creator-main-self video.creator-remote-video.creator-video-small {
+    width: 96px !important;
+    inset: auto 6px 54px auto !important;
+  }
+
+  .creator-preview-switcher {
+    gap: 5px;
+  }
+
+  .creator-preview-switcher button {
+    padding: 6px 7px;
+    font-size: 10px;
+  }
+}
