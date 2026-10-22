@@ -1012,7 +1012,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
             <video
               ref={remoteVideoRef}
               onClick={() => callConnected && setCreatorMainPreview("caller")}
-              className={`creator-remote-video ${callConnected && creatorMainPreview === "caller" ? "creator-video-small" : ""}`}
+              className={`creator-remote-video ${callConnected && creatorMainPreview === "self" ? "creator-video-small" : ""}`}
               autoPlay playsInline
             />
             <video
