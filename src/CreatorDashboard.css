@@ -1137,39 +1137,94 @@
 .creator-preview-video.creator-preview-small { cursor: pointer; }
 
 
-/* Call preview stacking: the selected source fills the stage; the other is a true inset. */
-.creator-video-stage { isolation: isolate; }
-.creator-remote-video {
-  z-index: 0;
-  display: block;
+/* MOBILE RESPONSIVE FIX — shared by regular and subscription creator dashboards */
+.creator-dashboard {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  padding-left: clamp(12px, 3.5vw, 48px);
+  padding-right: clamp(12px, 3.5vw, 48px);
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
 }
-.creator-preview-video {
-  z-index: 1;
+.creator-dashboard-grid,
+.creator-welcome { min-width: 0; }
+.creator-dashboard-grid > *,
+.creator-stats-column > *,
+.creator-camera-panel > *,
+.creator-chat-panel > * { min-width: 0; }
+.creator-chat-messages,
+.creator-chat-panel,
+.creator-camera-panel,
+.creator-info-card { overflow-wrap: anywhere; }
+.creator-chat-form input,
+.creator-chat-form textarea,
+.creator-chat-form button { min-width: 0; }
+.creator-camera-actions > *,
+.creator-media-controls > *,
+.creator-chat-form > * { min-width: 0; }
+.creator-video-stage { max-width: 100%; }
+.creator-preview-video,
+.creator-remote-video { max-width: 100%; }
+
+@media (max-width: 900px) {
+  .creator-dashboard { padding-top: 16px; }
+  .creator-header { margin-bottom: 26px; }
+  .creator-dashboard-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 16px; }
+  .creator-stats-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .creator-chat-panel { min-height: 360px; max-height: none; }
+  .creator-chat-messages { min-height: 180px; max-height: 42vh; overflow-y: auto; }
+  .creator-camera-panel { padding: clamp(12px, 3vw, 22px); }
+  .creator-video-stage { min-height: 0; aspect-ratio: 16 / 10; }
 }
-.creator-remote-video.creator-video-small {
-  inset: auto 12px 58px auto;
-  width: clamp(100px, 28%, 190px);
-  height: auto;
-  aspect-ratio: 3 / 4;
-  z-index: 3;
-  border: 2px solid rgba(255,255,255,.9);
-  border-radius: 12px;
-  object-fit: cover;
+
+@media (max-width: 600px) {
+  .creator-dashboard { padding: 12px 12px max(24px, env(safe-area-inset-bottom)); }
+  .creator-header { min-height: 42px; gap: 8px; margin-bottom: 22px; }
+  .creator-brand { font-size: 21px; letter-spacing: -.6px; }
+  .creator-logout, .creator-back { font-size: 12px; gap: 6px; }
+  .creator-logout { padding: 9px 10px; white-space: nowrap; }
+  .creator-back { margin-bottom: 20px; }
+  .creator-welcome h1 { font-size: clamp(25px, 7vw, 34px); line-height: 1.12; overflow-wrap: anywhere; }
+  .creator-eyebrow { font-size: 9px; letter-spacing: 1.4px; }
+  .creator-subtitle { margin: 9px 0 20px; font-size: 13px; }
+  .creator-dashboard-grid { gap: 13px; }
+  .creator-camera-panel, .creator-chat-panel, .creator-info-card, .creator-stat-card { border-radius: 15px; }
+  .creator-camera-panel { padding: 12px; }
+  .creator-panel-heading { flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 12px; }
+  .creator-panel-heading h2 { font-size: 17px; }
+  .creator-status { align-self: flex-start; font-size: 9px; padding: 7px 9px; }
+  .creator-video-stage { aspect-ratio: 4 / 3; min-height: 0; border-radius: 12px; }
+  .creator-camera-placeholder { padding: 12px; }
+  .creator-camera-icon { width: 48px; height: 48px; margin-bottom: 10px; border-radius: 15px; }
+  .creator-camera-placeholder h3 { font-size: 15px; }
+  .creator-camera-placeholder p { font-size: 11px; }
+  .creator-live-label { top: 8px; left: 8px; padding: 6px 8px; font-size: 9px; }
+  .creator-camera-actions { flex-direction: column; gap: 9px; margin-top: 12px; }
+  .creator-go-live, .creator-end-live { min-height: 46px; padding: 11px 12px; font-size: 13px; }
+  .creator-stats-column { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .creator-stat-card { padding: 14px; }
+  .creator-chat-panel { min-height: 330px; }
+  .creator-chat-heading { padding: 13px; gap: 8px; }
+  .creator-chat-messages { padding: 12px; max-height: 38vh; }
+  .creator-chat-form { padding: 10px; gap: 8px; }
+  .creator-chat-form input, .creator-chat-form textarea { width: 100%; min-width: 0; font-size: 16px; }
+  .creator-chat-form button { flex-shrink: 0; }
+  .creator-preview-switcher { left: 7px; bottom: 7px; gap: 5px; max-width: calc(100% - 14px); }
+  .creator-preview-switcher button { padding: 7px 9px; font-size: 10px; }
+  .creator-remote-video.creator-video-small { inset: auto 8px 46px auto; width: clamp(76px, 25%, 112px); border-radius: 9px; }
+  .creator-media-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+  .creator-media-controls button, .creator-media-button { flex: 1 1 calc(50% - 8px); min-height: 42px; }
+  .creator-earnings-summary-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .creator-period-tabs { flex-wrap: wrap; gap: 7px; }
+  .creator-period-tabs button { flex: 1 1 auto; }
+  .creator-earnings-page { padding-left: 0; padding-right: 0; }
 }
-.creator-preview-video:not(.creator-preview-small) {
-  z-index: 2;
-}
-.creator-preview-switcher {
-  z-index: 10;
-  max-width: calc(100% - 24px);
-  flex-wrap: wrap;
-}
-.creator-preview-switcher button {
-  padding: 7px 10px;
-  font-size: 11px;
-  line-height: 1.2;
-}
-@media (max-width: 540px) {
-  .creator-preview-switcher { left: 8px; bottom: 8px; gap: 6px; }
-  .creator-preview-switcher button { padding: 6px 8px; font-size: 10px; }
+
+@media (max-width: 380px) {
+  .creator-dashboard { padding-left: 9px; padding-right: 9px; }
+  .creator-brand { font-size: 19px; }
+  .creator-logout { padding: 8px; }
+  .creator-camera-panel { padding: 9px; }
+  .creator-video-stage { aspect-ratio: 3 / 4; }
+  .creator-preview-switcher button { padding: 6px 7px; font-size: 9px; }
 }
