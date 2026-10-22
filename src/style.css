@@ -2212,137 +2212,116 @@ input,textarea,select{color:#142b43}
 
 
 /* =========================================================
-   ONLYSTREAM BLUE-WHITE COIN WALLET / PAYMENT POPUP POLISH
-   CSS-only layer: preserves wallet and purchase handlers.
+   ONLYSTREAM — FINAL BLUE + WHITE CALL / CHAT / COIN WALLET
+   Design-only overrides; no React/payment logic changed.
 ========================================================= */
-.coin-modal-backdrop {
-  padding: 16px !important;
-  background: rgba(12, 29, 49, .58) !important;
-  backdrop-filter: blur(12px) saturate(115%) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(115%) !important;
+:root {
+  color-scheme: light;
+  --bg: #f3f8fd !important;
+  --panel: #ffffff !important;
+  --panel-light: #edf6ff !important;
+  --purple: #087bd1 !important;
+  --purple-bright: #1687dc !important;
+  --muted: #5c748b !important;
+  --border: #d7e5f1 !important;
 }
-.coin-modal {
-  width: min(100%, 490px) !important;
-  max-height: min(92dvh, 850px) !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  padding: clamp(20px, 5vw, 30px) !important;
-  border: 1px solid #d8e8f6 !important;
-  border-radius: 25px !important;
-  background: #fff !important;
-  color: #17283d !important;
-  box-shadow: 0 28px 90px rgba(7, 33, 62, .28) !important;
-}
-.coin-modal-close {
-  background: #f2f7fc !important;
-  color: #34516e !important;
-  border: 1px solid #dce7f2 !important;
-  border-radius: 12px !important;
-  transition: background .18s ease, transform .18s ease !important;
-}
-.coin-modal-close:hover { background: #e5f2fd !important; transform: rotate(4deg); }
-.coin-modal-icon {
-  background: #e8f4ff !important;
-  border: 1px solid #c8e4fa !important;
-  color: #087bd1 !important;
-  border-radius: 16px !important;
-}
-.coin-modal > .eyebrow {
-  color: #087bd1 !important;
-  letter-spacing: 1.7px;
-}
+html, body, #root { background: #f3f8fd !important; color: #17324b !important; }
+.app-shell { color: #17324b !important; background: #f3f8fd !important; }
+.app-shell .topbar { background: #fff !important; border-bottom: 1px solid #dbe7f2 !important; box-shadow: 0 5px 22px rgba(25,74,115,.06) !important; }
+.app-shell .brand { color: #123653 !important; }
+.app-shell .brand span, .app-shell .brand i { color: #087bd1 !important; }
+.app-shell .topbar-label { color: #526b82 !important; }
+.app-shell .wallet-button { color: #075da8 !important; background: #e8f4ff !important; border: 1px solid #c6e1f7 !important; }
+.app-shell .wallet-add { color: #fff !important; background: #087bd1 !important; }
+.app-shell .section-heading h1,
+.app-shell .section-heading h2,
+.app-shell .section-heading h3,
+.app-shell .video-section h1,
+.app-shell .video-section h2 { color: #123653 !important; }
+.app-shell .section-heading p,
+.app-shell .call-status-text,
+.app-shell .privacy-note,
+.app-shell .local-placeholder p { color: #526b82 !important; }
+.app-shell .video-card { border-color: #cbddec !important; box-shadow: 0 14px 34px rgba(21,66,105,.12) !important; }
+.app-shell .remote-card { background: #050b13 !important; }
+.app-shell .local-card { background: #e7f2fb !important; }
+.app-shell .video-feed { background: #050b13 !important; }
+.app-shell .video-placeholder { background: radial-gradient(ellipse at center,#eaf5ff,#dcecf9) !important; color: #234967 !important; }
+.app-shell .video-placeholder h2,
+.app-shell .video-placeholder p { color: #234967 !important; }
+.app-shell .placeholder-orb { color: #087bd1 !important; background: #fff !important; border-color: #c5e0f5 !important; }
+.app-shell .video-top-label,
+.app-shell .video-bottom-label,
+.app-shell .local-label { color: #fff !important; background: rgba(8,34,57,.78) !important; }
+.app-shell .controls-panel { color: #17324b !important; background: #fff !important; border: 1px solid #d8e5f1 !important; box-shadow: 0 10px 30px rgba(25,74,115,.07) !important; }
+.app-shell .start-button,
+.app-shell .next-button,
+.app-shell .utility-button,
+.app-shell .fullscreen-button { color: #075da8 !important; background: #e8f4ff !important; border: 1px solid #c7e1f6 !important; }
+.app-shell .start-button,
+.app-shell .next-button { color: #fff !important; background: #087bd1 !important; border-color: #087bd1 !important; }
+.app-shell .stop-button { color: #b4233c !important; background: #fff0f2 !important; border: 1px solid #ffd0d8 !important; }
+.app-shell .start-button:hover,
+.app-shell .next-button:hover { background: #0565b0 !important; }
+
+/* Chat panel and all chat text */
+.app-shell .chat-panel { color: #17324b !important; background: #fff !important; border: 1px solid #d8e5f1 !important; box-shadow: 0 14px 34px rgba(25,74,115,.08) !important; }
+.app-shell .chat-heading { background: #fff !important; border-bottom: 1px solid #e1ebf4 !important; }
+.app-shell .chat-heading .eyebrow { color: #087bd1 !important; }
+.app-shell .chat-heading h2 { color: #123653 !important; }
+.app-shell .chat-heading h2 span { color: #087bd1 !important; }
+.app-shell .chat-count { color: #075da8 !important; background: #e8f4ff !important; border: 1px solid #c6e1f7 !important; }
+.app-shell .chat-status { color: #526b82 !important; background: #f4f9fe !important; border-bottom: 1px solid #e1ebf4 !important; }
+.app-shell .messages-area { color: #17324b !important; background: #f8fbff !important; }
+.app-shell .empty-chat { color: #526b82 !important; }
+.app-shell .empty-chat h3 { color: #234967 !important; }
+.app-shell .chat-art { color: #087bd1 !important; background: #e5f3ff !important; border-color: #cbe4f8 !important; }
+.app-shell .message-bubble { color: #17324b !important; background: #eaf3fb !important; border: 1px solid #d5e4f1 !important; }
+.app-shell .own-message .message-bubble,
+.app-shell .message-row.own-message .message-bubble { color: #fff !important; background: #087bd1 !important; border-color: #087bd1 !important; }
+.app-shell .message-author { color: #5c748b !important; }
+.app-shell .typing-bubble { background: #e4f1fc !important; border-color: #cfe3f4 !important; }
+.app-shell .typing-bubble span { background: #1687dc !important; }
+.app-shell .typing-label { color: #526b82 !important; }
+.app-shell .chat-form { background: #fff !important; border-top: 1px solid #dfeaf3 !important; }
+.app-shell .chat-form input { color: #17324b !important; background: #f7fbff !important; border: 1px solid #cbddec !important; }
+.app-shell .chat-form input::placeholder { color: #647f96 !important; opacity: 1 !important; }
+.app-shell .chat-form input:focus { border-color: #1687dc !important; box-shadow: 0 0 0 3px rgba(8,123,209,.12) !important; outline: none !important; }
+.app-shell .chat-form button { color: #fff !important; background: #087bd1 !important; border: 1px solid #087bd1 !important; }
+.app-shell .chat-form button:hover:not(:disabled) { background: #0565b0 !important; }
+.app-shell .chat-form button:disabled { color: #8ba3b8 !important; background: #e5edf4 !important; border-color: #d9e4ed !important; }
+.app-shell .footer { color: #637b92 !important; border-color: #dbe7f2 !important; }
+
+/* Coin wallet popup and package cards */
+.coin-modal-backdrop { background: rgba(7,27,46,.62) !important; backdrop-filter: blur(9px) !important; }
+.coin-modal { color: #17324b !important; background: #fff !important; border: 1px solid #cbddec !important; box-shadow: 0 28px 90px rgba(13,48,79,.28) !important; }
+.coin-modal::before { background: linear-gradient(90deg,transparent,#087bd1,transparent) !important; }
+.coin-modal-close { color: #526b82 !important; background: #f2f7fc !important; border: 1px solid #d8e5f1 !important; }
+.coin-modal .eyebrow { color: #087bd1 !important; }
 .coin-modal h2,
 .coin-modal h3,
-.coin-modal strong { color: #14243a !important; }
-.coin-modal-description { color: #5e7187 !important; }
-.coin-balance-card {
-  background: linear-gradient(135deg, #edf7ff, #f8fbff) !important;
-  border: 1px solid #cfe5f7 !important;
-  border-radius: 18px !important;
-}
-.coin-balance-card > span {
-  color: #5e7187 !important;
-}
-.coin-balance-card strong {
-  color: #075da8 !important;
-}
-.coin-balance-card strong svg { color: #087bd1 !important; }
-.coin-balance-card small { color: #657b91 !important; }
-.coin-notice {
-  color: #075da8 !important;
-  background: #edf7ff !important;
-  border: 1px solid #cfe7fb !important;
-  border-radius: 12px !important;
-}
-.coin-error {
-  color: #a32735 !important;
-  background: #fff1f2 !important;
-  border: 1px solid #ffd0d5 !important;
-  border-radius: 12px !important;
-}
-.coin-package-heading h3 { color: #17283d !important; }
-.coin-package-heading > span {
-  color: #075da8 !important;
-  background: #e8f4ff !important;
-  border: 1px solid #cfe7fb !important;
-  border-radius: 999px !important;
-}
-.coin-packages { gap: 10px !important; }
-.coin-package {
-  gap: 12px !important;
-  padding: 14px !important;
-  background: #fff !important;
-  color: #17283d !important;
-  border: 1px solid #dce7f2 !important;
-  border-radius: 16px !important;
-  box-shadow: 0 3px 12px rgba(24, 61, 98, .035);
-  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease !important;
-}
-.coin-package:hover:not(:disabled) {
-  transform: translateY(-2px);
-  background: #f5faff !important;
-  border-color: #83c2f1 !important;
-  box-shadow: 0 10px 24px rgba(8, 123, 209, .10);
-}
-.coin-package-featured {
-  background: #eff8ff !important;
-  border: 1.5px solid #168fe5 !important;
-  box-shadow: 0 8px 22px rgba(8, 123, 209, .10);
-}
-.coin-package-icon {
-  flex: 0 0 auto;
-  color: #087bd1 !important;
-  background: #e5f3ff !important;
-  border: 1px solid #cfe7fb !important;
-  border-radius: 12px !important;
-}
-.coin-package-info strong { color: #17283d !important; }
-.coin-package-info small { color: #667b90 !important; }
-.coin-package-price { color: #075da8 !important; font-weight: 850 !important; }
-.coin-package-loading { color: #087bd1 !important; }
-.coin-modal-disclaimer {
-  color: #687d91 !important;
-  background: #f7fafd;
-  border: 1px solid #e3edf5;
-  border-radius: 12px;
-  padding: 11px 13px;
-  line-height: 1.55;
-}
-.coin-modal button:focus-visible {
-  outline: 3px solid rgba(8,123,209,.28) !important;
-  outline-offset: 3px;
-}
-@media (max-width: 520px) {
-  .coin-modal-backdrop { align-items: flex-end !important; padding: 8px !important; }
-  .coin-modal {
-    width: 100% !important;
-    max-height: min(92dvh, 850px) !important;
-    padding: 22px 17px calc(18px + env(safe-area-inset-bottom)) !important;
-    border-radius: 23px 23px 17px 17px !important;
-  }
-  .coin-balance-card strong { font-size: 28px !important; }
-  .coin-package { padding: 12px !important; gap: 9px !important; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .coin-modal, .coin-modal * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+.coin-package-heading h3 { color: #123653 !important; }
+.coin-modal-description,
+.coin-modal-disclaimer { color: #526b82 !important; }
+.coin-modal-icon { color: #087bd1 !important; background: #e8f4ff !important; border: 1px solid #c7e1f6 !important; }
+.coin-balance-card { color: #fff !important; background: linear-gradient(135deg,#087bd1,#075da8) !important; border: 1px solid #087bd1 !important; }
+.coin-balance-card span,
+.coin-balance-card strong { color: #fff !important; }
+.coin-packages { background: transparent !important; }
+.coin-package { color: #17324b !important; background: #fff !important; border: 1px solid #d5e3ef !important; box-shadow: 0 5px 16px rgba(25,74,115,.05) !important; }
+.coin-package:hover { background: #f3f9ff !important; border-color: #8dc9f4 !important; box-shadow: 0 10px 24px rgba(8,123,209,.12) !important; }
+.coin-package-featured { color: #123653 !important; background: #edf6ff !important; border: 1px solid #1687dc !important; box-shadow: 0 0 0 2px rgba(8,123,209,.08) !important; }
+.coin-package-icon { color: #087bd1 !important; background: #e4f2ff !important; border: 1px solid #cbe4f8 !important; }
+.coin-package-info strong { color: #123653 !important; }
+.coin-package-info small { color: #5c748b !important; }
+.coin-package-price { color: #075da8 !important; }
+.coin-package-heading span { color: #075da8 !important; background: #e8f4ff !important; border: 1px solid #c7e1f6 !important; }
+.coin-notice { color: #075da8 !important; background: #edf7ff !important; border: 1px solid #cde6f8 !important; }
+.coin-error { color: #9f2437 !important; background: #fff0f2 !important; border: 1px solid #ffd0d8 !important; }
+.coin-package-loading { color: #526b82 !important; }
+.coin-modal button:focus-visible,
+.coin-modal a:focus-visible { outline: 3px solid rgba(8,123,209,.3) !important; outline-offset: 2px; }
+@media (max-width: 600px) {
+  .app-shell .chat-panel { background: #fff !important; }
+  .coin-modal { max-height: calc(100dvh - 24px) !important; overflow-y: auto !important; }
 }
