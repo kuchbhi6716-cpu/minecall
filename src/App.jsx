@@ -1184,7 +1184,7 @@ function CallPage() {
                 </div>
               )}
 
-              {mainPreview === "self" && <button type="button" className="preview-choice-button" onClick={() => setMainPreview("remote")} aria-pressed={false}>Make main</button>}
+              {mainPreview === "self" && <button type="button" className="preview-choice-button" onClick={() => setMainPreview("remote")} aria-pressed={false}>Swap</button>}
 
               <div className="video-top-label">
                 <span className="camera-icon">◉</span>
