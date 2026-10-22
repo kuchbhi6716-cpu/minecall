@@ -1506,3 +1506,10 @@
 .subscription-live-page .subscription-viewer-live-video { object-fit: contain; }
 .subscription-live-page .subscription-viewer-stream-status { top: 18px; left: 18px; padding: 9px 13px; border: 1px solid #ffffff20; border-radius: 999px; background: #070b12d9; backdrop-filter: blur(12px); }
 @media(max-width:700px) { .subscription-live-page .subscription-big-player { min-height: 280px; aspect-ratio: 16 / 10; } .subscription-live-page .subscription-viewer-live-video { object-fit: contain; } }
+
+/* BLUE-WHITE LIVE PAGE THEME — design-only */
+.live-page{color:#142b43!important;background:radial-gradient(ellipse at 50% 0%,rgba(82,177,255,.16),transparent 48%),#f4f9ff!important}
+.live-page h1,.live-page h2,.live-page h3{color:#12324f!important}
+.live-page .live-card,.live-page .stream-card,.live-page .chat-panel,.live-page .live-info,.live-page .stream-details{background:#fff!important;color:#17344e!important;border-color:#d8e8f6!important;box-shadow:0 10px 28px rgba(25,83,128,.07)}
+.live-page button{border-radius:12px;transition:transform .2s,box-shadow .2s}
+.live-page input,.live-page textarea{background:#f7fbff!important;color:#17344e!important;border-color:#cfe2f3!important}
