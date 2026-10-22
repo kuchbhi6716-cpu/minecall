@@ -37,6 +37,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const videoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const streamRef = useRef(null);
+  const thumbnailIntervalRef = useRef(null);
   const socketRef = useRef(null);
   const peerRef = useRef(null);
   const pendingSignalsRef = useRef([]);
@@ -182,6 +183,10 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   }, [stopBilling]);
 
   const stopLocalStream = useCallback(() => {
+    if (thumbnailIntervalRef.current) {
+      window.clearInterval(thumbnailIntervalRef.current);
+      thumbnailIntervalRef.current = null;
+    }
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
 
@@ -589,6 +594,26 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     setChatMessage("");
   }
 
+  function publishLiveThumbnail() {
+    const video = videoRef.current;
+    const socket = socketRef.current;
+    if (!video || !socket?.connected || !isLiveRef.current || video.videoWidth < 2 || video.videoHeight < 2) return;
+
+    try {
+      const canvas = document.createElement("canvas");
+      // Small, compressed live snapshots keep the homepage fast on mobile data.
+      canvas.width = 480;
+      canvas.height = Math.max(1, Math.round(480 * video.videoHeight / video.videoWidth));
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const thumbnail = canvas.toDataURL("image/jpeg", 0.62);
+      socket.emit("creator-live-thumbnail", { thumbnail });
+    } catch (error) {
+      // Snapshot capture can fail temporarily while the camera is starting.
+    }
+  }
+
   async function goLive() {
     setCameraError("");
     setBusy(true);
@@ -644,6 +669,10 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
         isLiveRef.current = true;
         setIsLive(true);
+
+        if (thumbnailIntervalRef.current) window.clearInterval(thumbnailIntervalRef.current);
+        window.setTimeout(publishLiveThumbnail, 900);
+        thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 5000);
 
         localStorage.setItem(LIVE_KEY, JSON.stringify({
           username: creatorUsername,
