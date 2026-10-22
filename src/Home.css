@@ -2166,3 +2166,208 @@ a:focus-visible {
 button,.btn,.primary-button,.start-chat-button,.watch-live-button{border-radius:13px}
 .home-page button,.homepage button,.home-container button,.onlystream-home button{font-weight:750}
 section{animation:osFadeUp .55s both}
+
+
+/* =========================================================
+   ONLYSTREAM BLUE + WHITE THEME — VERIFIED HOMEPAGE OVERRIDES
+   Appended after legacy styles to override purple/green accents.
+   Layout, component names and app logic remain unchanged.
+========================================================= */
+:root {
+  color-scheme: light;
+  --purple: #087bd1 !important;
+  --purple-bright: #0568b7 !important;
+  --muted: #526b83 !important;
+  --border: #d8e7f4 !important;
+}
+body:has(.minebbe) {
+  background: #f4f9ff !important;
+  color: #142b43 !important;
+}
+.minebbe {
+  color: #142b43 !important;
+  background: #f4f9ff !important;
+  background-image: linear-gradient(180deg,#ffffff 0%,#f3f8fe 100%) !important;
+}
+.minebbe .navbar {
+  border-bottom-color: #dbe8f4 !important;
+}
+.minebbe .logo { color: #142b43 !important; }
+.minebbe .logo span,
+.minebbe .hero h1 span,
+.minebbe .footer-main .logo span { color: #087bd1 !important; text-shadow: none !important; }
+.minebbe .online-status {
+  background: #eaf5ff !important;
+  color: #075e9f !important;
+  border-color: #c9e4fa !important;
+}
+.minebbe .hero::before { background: rgba(8,123,209,.10) !important; }
+.minebbe .eyebrow,
+.minebbe .hero .eyebrow { color: #087bd1 !important; }
+.minebbe .hero h1 { color: #142b43 !important; }
+.minebbe .hero > p,
+.minebbe .category-title-wrap p,
+.minebbe .footer-tagline,
+.minebbe .footer-about-card p,
+.minebbe .footer-bottom,
+.minebbe .creator-section-empty { color: #526b83 !important; }
+.minebbe .start-btn,
+.minebbe .view-more-btn,
+.minebbe .creator-refresh-button,
+.minebbe .creator-studio-link {
+  background: linear-gradient(135deg,#0784df,#0568bd) !important;
+  color: #fff !important;
+  border-color: #087bd1 !important;
+  box-shadow: 0 8px 22px rgba(8,123,209,.18) !important;
+}
+.minebbe .start-btn *,
+.minebbe .view-more-btn *,
+.minebbe .creator-refresh-button *,
+.minebbe .creator-studio-link * { color: #fff !important; }
+.minebbe .category-section,
+.minebbe .call-creators-section,
+.minebbe .subscription-creators-section,
+.minebbe .onlystream-live-section {
+  background: #fff !important;
+  background-image: none !important;
+  border: 1px solid #d9e8f5 !important;
+  border-radius: 22px !important;
+  box-shadow: 0 10px 30px rgba(24,76,118,.055) !important;
+}
+.minebbe .category-section { padding: 18px !important; }
+.minebbe .category-title-wrap h2,
+.minebbe .category-heading h2 { color: #142b43 !important; }
+.minebbe .category-icon,
+.minebbe .category-icon.pink,
+.minebbe .subscription-section-icon {
+  background: #e8f4ff !important;
+  color: #087bd1 !important;
+  border-color: #cfe6fa !important;
+}
+.minebbe .category-icon svg,
+.minebbe .subscription-section-icon svg { color: #087bd1 !important; }
+.minebbe .model-card,
+.minebbe .stream-card,
+.minebbe .onlystream-creator-card {
+  background: #fff !important;
+  background-image: none !important;
+  border: 1px solid #d8e7f4 !important;
+  color: #142b43 !important;
+  box-shadow: 0 7px 22px rgba(17,68,109,.08) !important;
+}
+.minebbe .model-card:hover,
+.minebbe .stream-card:hover,
+.minebbe .onlystream-creator-card:hover {
+  border-color: #7fc3f3 !important;
+  box-shadow: 0 14px 30px rgba(8,123,209,.15) !important;
+  transform: translateY(-4px);
+}
+.minebbe .model-card-click { color: #142b43 !important; }
+.minebbe .stream-info,
+.minebbe .stream-info h3 { color: #142b43 !important; }
+.minebbe .stream-info p { color: #526b83 !important; }
+.minebbe .model-online {
+  background: #087bd1 !important;
+  color: #fff !important;
+  border-color: #087bd1 !important;
+}
+/* Specifically replace the old green Exclusive/Subscription styling. */
+.minebbe .subscription-creators-section {
+  background: #fafdff !important;
+  background-image: none !important;
+  border: 1px solid #b9dcf6 !important;
+  box-shadow: 0 10px 30px rgba(8,123,209,.07) !important;
+}
+.minebbe .subscription-section-label {
+  background: #e4f3ff !important;
+  color: #075f9f !important;
+  border: 1px solid #b8ddf7 !important;
+}
+.minebbe .subscription-section-icon {
+  background: #e4f3ff !important;
+  color: #087bd1 !important;
+}
+.minebbe .subscription-creator-card {
+  border: 1px solid #b9dcf6 !important;
+  box-shadow: 0 8px 24px rgba(8,123,209,.10) !important;
+}
+.minebbe .subscription-creator-card .model-thumbnail {
+  border-bottom: 2px solid #1688e8 !important;
+}
+.minebbe .subscription-card-ribbon {
+  background: #087bd1 !important;
+  color: #fff !important;
+  border: 1px solid #087bd1 !important;
+  box-shadow: 0 4px 15px rgba(8,123,209,.24) !important;
+}
+.minebbe .subscription-creator-card .stream-info p {
+  color: #075f9f !important;
+}
+.minebbe .call-creators-section {
+  background: #fff !important;
+  border-color: #d9e8f5 !important;
+}
+.minebbe .creator-section-empty { color: #526b83 !important; }
+.minebbe .site-footer {
+  background: #edf6ff !important;
+  background-image: none !important;
+  border-color: #d0e4f5 !important;
+  box-shadow: none !important;
+  color: #142b43 !important;
+}
+.minebbe .footer-main { border-bottom-color: #d5e6f4 !important; }
+.minebbe .footer-main .logo { color: #142b43 !important; }
+.minebbe .footer-tagline,
+.minebbe .footer-about-card,
+.minebbe .footer-about-card p,
+.minebbe .footer-bottom { color: #526b83 !important; }
+.minebbe .footer-about-card {
+  background: #fff !important;
+  border-color: #d5e6f4 !important;
+}
+.minebbe a:not(.start-btn):not(.view-more-btn):not(.creator-studio-link),
+.minebbe button:not(.start-btn):not(.view-more-btn):not(.creator-refresh-button):not(.creator-studio-link) {
+  outline-color: #087bd1;
+}
+.minebbe .age-gate-backdrop { background: rgba(15,38,59,.58) !important; }
+.minebbe .age-gate {
+  background: #fff !important;
+  color: #142b43 !important;
+  border-color: #d6e6f4 !important;
+  box-shadow: 0 25px 80px rgba(17,55,88,.22) !important;
+}
+.minebbe .age-gate h1,
+.minebbe .age-gate p,
+.minebbe .age-gate-notice { color: #142b43 !important; }
+.minebbe .age-gate-eyebrow,
+.minebbe .age-gate-brand { color: #087bd1 !important; }
+.minebbe .age-gate-confirm {
+  background: #087bd1 !important;
+  color: #fff !important;
+}
+.minebbe .age-gate-leave {
+  background: #eef6fd !important;
+  color: #27445e !important;
+}
+.minebbe :focus-visible { outline-color: #087bd1 !important; }
+@keyframes onlyStreamBlueReveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.minebbe .category-section,
+.minebbe .subscription-creators-section,
+.minebbe .call-creators-section {
+  animation: onlyStreamBlueReveal .42s ease both;
+}
+.minebbe .category-section:nth-child(2) { animation-delay: .04s; }
+.minebbe .category-section:nth-child(3) { animation-delay: .08s; }
+@media (prefers-reduced-motion: reduce) {
+  .minebbe *,
+  .minebbe *::before,
+  .minebbe *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
