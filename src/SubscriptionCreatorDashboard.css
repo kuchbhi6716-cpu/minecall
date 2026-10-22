@@ -76,3 +76,22 @@
 .sub-creator-page .card,.sub-creator-page .panel,.sub-creator-page .dashboard-card{background:#fff!important;color:#17344e!important;border:1px solid #d9e9f7!important;box-shadow:0 10px 28px rgba(25,83,128,.07)!important;border-radius:18px}
 .sub-creator-page button{border-radius:12px;transition:transform .2s,box-shadow .2s}
 .sub-creator-page button:hover{box-shadow:0 8px 22px rgba(22,136,232,.18)}
+
+
+/* FINAL BLUE + WHITE CONTRAST PASS — appended overrides only */
+:root{color-scheme:light;--os-blue:#087bd1;--os-blue-dark:#075a9b;--os-ink:#17324b;--os-muted:#536b80;--os-line:#d5e5f3;--os-surface:#ffffff;--os-page:#f3f8fd}
+body{background:var(--os-page)!important;color:var(--os-ink)!important}
+/* Replace legacy purple surfaces/gradients on page UI with clean white/blue */
+body{background:#f3f8fd!important;color:#17324b!important}
+.sub-creator-page{background:#f3f8fd!important;color:#17324b!important}
+.sub-creator-page :is(.sub-creator-top,.sub-creator-chat,.sub-creator-earnings-grid>*,.sub-creator-info,.sub-creator-panel,.sub-creator-card){background:#fff!important;color:#17324b!important;border-color:#d5e5f3!important}
+.sub-creator-page :is(h1,h2,h3,.sub-creator-logo,.sub-creator-title){color:#12324c!important}
+.sub-creator-page :is(p,small,label,.sub-creator-subtitle,.sub-creator-note){color:#536b80!important}
+.sub-creator-page :is(input,textarea,select){background:#fff!important;color:#17324b!important;border-color:#c8dcec!important}
+.sub-creator-page :is(button,.sub-creator-controls button){background:#edf6ff!important;color:#075a9b!important;border-color:#c8e2f7!important}
+.sub-creator-page :is(.sub-creator-controls .primary,.sub-creator-controls button[type=submit]){background:#087bd1!important;color:#fff!important}
+.sub-creator-page .sub-creator-player,.sub-creator-page .sub-creator-player video{background:#071522!important}
+
+@media(prefers-reduced-motion:no-preference){.model-card,.stream-card,.vertical-stream-card,.creator-stat-card,.creator-info-card,.auth-card{animation:osFinalFade .45s ease both}}
+@keyframes osFinalFade{from{opacity:.65;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
