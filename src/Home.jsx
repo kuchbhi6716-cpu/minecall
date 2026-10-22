@@ -380,8 +380,43 @@ function getSubscriptionPrice(creator) {
   return Number.isFinite(price) && price > 0 ? price : 499;
 }
 
+function getCreatorCardImage(creator) {
+  const possibleImages = [
+    creator?.liveThumbnail,
+    creator?.live_thumbnail,
+    creator?.thumbnail,
+    creator?.profileImage,
+    creator?.profile_image,
+    creator?.avatar,
+    creator?.avatarUrl,
+    creator?.avatar_url,
+    creator?.imageUrl,
+    creator?.image_url,
+    creator?.photoURL,
+    creator?.photoUrl,
+    creator?.profile?.image,
+    creator?.profile?.avatar,
+  ];
+  const suppliedImage = possibleImages.find(
+    (value) => typeof value === "string" && value.trim()
+  );
+  if (suppliedImage) return normalizeImageUrl(suppliedImage);
+
+  // Stable per-creator portrait fallback: it won't change every 5-second refresh.
+  // A real profile/live thumbnail supplied by the backend always takes priority.
+  const username = String(creator?.username || "creator").trim();
+  return `https://i.pravatar.cc/600?u=${encodeURIComponent(username)}`;
+}
+
 function OnlyStreamCreatorCard({ creator, plan = "call" }) {
   const subscription = plan === "subscription";
+  const [imageError, setImageError] = useState(false);
+  const creatorImage = getCreatorCardImage(creator);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [creatorImage]);
+
   function openCreator() {
     if (subscription) {
       const price = getSubscriptionPrice(creator);
@@ -390,10 +425,22 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
       window.location.href = "/call?creator=" + encodeURIComponent(creator.username);
     }
   }
+
   return (
     <article className={`stream-card model-card onlystream-creator-card ${subscription ? "subscription-creator-card" : "call-creator-card"}`}>
       <button type="button" className="model-card-click" onClick={openCreator} aria-label={`${subscription ? "View subscription creator" : "Call creator"} ${creator.username}`}>
-        <div className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"><Radio size={34} /></div>
+        {!imageError && creatorImage ? (
+          <img
+            className="model-thumbnail onlystream-creator-avatar"
+            src={creatorImage}
+            alt={`${creator.username} creator photo`}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"><Radio size={34} /></div>
+        )}
         {subscription && <span className="subscription-card-ribbon">24H EXCLUSIVE</span>}
         <span className="model-online">● {subscription ? "AVAILABLE" : (creator.isLive || creator.is_live ? "LIVE" : "AVAILABLE")}</span>
         <div className="stream-info"><h3>{creator.username}</h3><p>{subscription ? `24-HOUR ACCESS · ₹${getSubscriptionPrice(creator)} ONCE` : "CALL EARNING · PAY PER CALL"}</p></div>
