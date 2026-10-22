@@ -713,3 +713,12 @@
 
 /* Exclusive rent duration selector */
 .creator-hours-field{margin-top:14px}.creator-hours-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.creator-hours-option{padding:11px 8px;border:1px solid rgba(190,160,255,.24);border-radius:11px;background:rgba(16,12,25,.82);color:#e9defc;font:inherit;font-size:12px;font-weight:750;cursor:pointer}.creator-hours-option.selected{border-color:#a66cff;background:linear-gradient(145deg,rgba(111,49,193,.34),rgba(32,23,48,.95));box-shadow:0 0 0 1px rgba(166,108,255,.2);color:#fff}.creator-hours-option:disabled{opacity:.6;cursor:default}
+
+/* BLUE-WHITE AUTH THEME — design-only */
+.auth-page{color:#142b43!important;background:radial-gradient(ellipse at 10% 0%,rgba(63,169,255,.18),transparent 40%),linear-gradient(145deg,#f7fbff,#eaf5ff 65%,#f8fbff)!important}
+.auth-page .auth-card,.auth-page .auth-panel,.auth-page form{background:rgba(255,255,255,.92)!important;color:#142b43!important;border:1px solid #d8eafb!important;box-shadow:0 24px 70px rgba(28,100,158,.12)!important;backdrop-filter:blur(18px)}
+.auth-page h1,.auth-page h2{color:#102d49!important;letter-spacing:-.04em}
+.auth-page input,.auth-page select,.auth-page textarea{background:#f7fbff!important;color:#142b43!important;border:1px solid #cfe2f3!important;border-radius:12px}
+.auth-page input:focus,.auth-page select:focus{outline:3px solid #1688e82b!important;border-color:#1688e8!important}
+.auth-page button{transition:transform .2s,box-shadow .2s!important}
+.auth-page button:hover{box-shadow:0 9px 22px #1688e82b!important}
