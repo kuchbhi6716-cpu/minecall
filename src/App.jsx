@@ -52,6 +52,7 @@ function CallPage() {
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [mainPreview, setMainPreview] = useState("remote");
 
   // Wallet and test coin store.
   const [session, setSession] = useState(() => getStoredSession());
@@ -1140,7 +1141,7 @@ function CallPage() {
             {status}
           </p>
 
-          <div className="video-grid">
+          <div className={`video-grid preview-${mainPreview}-main`}>
             <div className="video-card remote-card">
               <video
                 ref={remoteVideo}
@@ -1183,6 +1184,8 @@ function CallPage() {
                 </div>
               )}
 
+              <button type="button" className="preview-choice-button" onClick={() => setMainPreview("remote")} aria-pressed={mainPreview === "remote"}>Make this main</button>
+
               <div className="video-top-label">
                 <span className="camera-icon">◉</span>
                 {isCreatorCall ? creatorUsername : "STRANGER"}
@@ -1222,6 +1225,7 @@ function CallPage() {
               )}
 
               <span className="local-label">YOU</span>
+              <button type="button" className="preview-choice-button" onClick={() => setMainPreview("self")} aria-pressed={mainPreview === "self"}>Make this main</button>
             </div>
           </div>
 
