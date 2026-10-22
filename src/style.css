@@ -2208,3 +2208,25 @@ input,textarea,select{color:#142b43}
 @keyframes osFadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes osSoftGlow{0%,100%{box-shadow:0 8px 28px rgba(22,136,232,.08)}50%{box-shadow:0 12px 36px rgba(22,136,232,.18)}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
+
+
+/* FINAL BLUE + WHITE CONTRAST PASS — appended overrides only */
+:root{color-scheme:light;--os-blue:#087bd1;--os-blue-dark:#075a9b;--os-ink:#17324b;--os-muted:#536b80;--os-line:#d5e5f3;--os-surface:#ffffff;--os-page:#f3f8fd}
+body{background:var(--os-page)!important;color:var(--os-ink)!important}
+/* Replace legacy purple surfaces/gradients on page UI with clean white/blue */
+body,#root,.app,.app-shell,.page,.main-content,.dashboard,.panel,.card,.modal,.modal-content,.settings-panel,.wallet-panel,.chat-panel,.chat-sidebar,.call-panel,.call-info,.earnings-panel,.earnings-card,.wallet-card,.history-card,.payment-card,.profile-card,.form-card{color:var(--os-ink)}
+:is(.app,.app-shell,.page,.main-content,.dashboard,.auth-page,.creator-dashboard,.creator-earnings-page,.sub-creator-page,.exclusive-access-page,.live-page,.subscription-live-page){background-color:var(--os-page)!important;color:var(--os-ink)!important}
+:is(.panel,.card,.modal,.modal-content,.settings-panel,.wallet-panel,.chat-panel,.chat-sidebar,.call-panel,.call-info,.earnings-panel,.earnings-card,.wallet-card,.history-card,.payment-card,.profile-card,.form-card,.video-controls-panel){background:#fff!important;color:var(--os-ink)!important;border-color:var(--os-line)!important;box-shadow:0 10px 28px rgba(22,83,130,.08)}
+:is(h1,h2,h3,h4,h5,.section-title,.page-title,.panel-title,.card-title,.label,.field-label){color:#12324c!important}
+:is(p,small,label,.muted,.subtitle,.description,.helper-text,.empty-state,.stat-label,.stat-footnote){color:var(--os-muted)!important}
+:is(input,textarea,select){background:#fff!important;color:#17324b!important;border:1px solid #c8dcec!important}
+:is(input,textarea,select)::placeholder{color:#71869a!important;opacity:1}
+button.primary,button[type=submit],.primary-button,.btn-primary,.start-btn,.creator-go-live,.creator-end-live,.exclusive-purchase,.vertical-watch-btn{background:linear-gradient(135deg,#168de2,#0870bf)!important;color:#fff!important;border-color:#087bd1!important}
+button:not(.primary):not([type=submit]):not(.start-btn):not(.creator-go-live):not(.creator-end-live):not(.exclusive-purchase):not(.vertical-watch-btn){color:var(--os-ink)}
+:is(a,.link,.nav-link){color:#0876c6}
+:is(.video-grid,.video-card,.local-card,.remote-card,.video-stage,.creator-video-stage,.creator-player,.sub-creator-player,.live-player,.subscription-big-player,.onlystream-embed-wrap){background:#071522!important;color:#fff!important}
+:is(.video-card,.local-card,.remote-card,.video-stage,.creator-video-stage,.creator-player,.sub-creator-player,.live-player,.subscription-big-player) :is(.video-top-label,.video-bottom-label,.creator-live-label,.creator-call-label){color:#fff!important}
+
+@media(prefers-reduced-motion:no-preference){.model-card,.stream-card,.vertical-stream-card,.creator-stat-card,.creator-info-card,.auth-card{animation:osFinalFade .45s ease both}}
+@keyframes osFinalFade{from{opacity:.65;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
