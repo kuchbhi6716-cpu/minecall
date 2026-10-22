@@ -1225,7 +1225,7 @@ function CallPage() {
               )}
 
               <span className="local-label">YOU</span>
-              {mainPreview === "remote" && <button type="button" className="preview-choice-button" onClick={() => setMainPreview("self")} aria-pressed={false}>Make main</button>}
+              {mainPreview === "remote" && <button type="button" className="preview-choice-button" onClick={() => setMainPreview("self")} aria-pressed={false}>Swap</button>}
             </div>
           </div>
 
