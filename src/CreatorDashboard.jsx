@@ -672,7 +672,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
         if (thumbnailIntervalRef.current) window.clearInterval(thumbnailIntervalRef.current);
         window.setTimeout(publishLiveThumbnail, 900);
-        thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 5000);
+        thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 5 * 60 * 1000);
 
         localStorage.setItem(LIVE_KEY, JSON.stringify({
           username: creatorUsername,
