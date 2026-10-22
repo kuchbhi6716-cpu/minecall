@@ -269,3 +269,10 @@
     }
 
 }
+
+/* BLUE-WHITE EXCLUSIVE ACCESS THEME — design-only */
+.exclusive-access-page{color:#142b43!important;background:radial-gradient(circle at top,#e0f2ff 0%,#f4f9ff 48%,#fff 100%)!important}
+.exclusive-access-header{border-color:#d7e8f7}
+.exclusive-access-page h1,.exclusive-access-page h2,.exclusive-access-page h3{color:#12324f!important}
+.exclusive-access-page .card,.exclusive-access-page .panel,.exclusive-access-page .creator-card{background:#fff!important;color:#17344e!important;border:1px solid #d8e9f7!important;box-shadow:0 16px 42px rgba(25,83,128,.09)!important;border-radius:20px}
+.exclusive-access-page button{border-radius:12px;transition:transform .2s,box-shadow .2s}
