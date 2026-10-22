@@ -1231,3 +1231,22 @@
 .creator-dashboard button:hover{box-shadow:0 8px 22px rgba(22,136,232,.18)}
 .creator-dashboard input,.creator-dashboard textarea,.creator-dashboard select{background:#f8fbff!important;color:#17344e!important;border:1px solid #cfe1f1!important}
 .creator-dashboard .call-player,.creator-dashboard .video-stage,.creator-dashboard .creator-video-stage{border-radius:20px;overflow:hidden;box-shadow:0 16px 40px rgba(11,46,77,.18)}
+
+
+/* FINAL BLUE + WHITE CONTRAST PASS — appended overrides only */
+:root{color-scheme:light;--os-blue:#087bd1;--os-blue-dark:#075a9b;--os-ink:#17324b;--os-muted:#536b80;--os-line:#d5e5f3;--os-surface:#ffffff;--os-page:#f3f8fd}
+body{background:var(--os-page)!important;color:var(--os-ink)!important}
+/* Replace legacy purple surfaces/gradients on page UI with clean white/blue */
+body{background:#f3f8fd!important;color:#17324b!important}
+.creator-dashboard,.creator-earnings-page{background:#f3f8fd!important;color:#17324b!important}
+.creator-dashboard :is(.creator-header,.creator-camera-panel,.creator-chat-panel,.creator-info-card,.creator-stat-card,.creator-earnings-panel,.creator-earnings-summary,.creator-test-card,.creator-earnings-link-card,.creator-withdraw-area){background:#fff!important;color:#17324b!important;border-color:#d5e5f3!important;box-shadow:0 8px 24px rgba(22,83,130,.07)!important}
+.creator-dashboard :is(h1,h2,h3,.creator-brand,.creator-welcome,.creator-panel-heading,.creator-chat-heading,.creator-earnings-heading,.creator-stat-value,.creator-earning-amount,.creator-earning-row-copy){color:#12324c!important}
+.creator-dashboard :is(p,small,.creator-subtitle,.creator-eyebrow,.creator-stat-label,.creator-stat-footnote,.creator-camera-note,.creator-chat-empty,.creator-earning-row){color:#536b80!important}
+.creator-dashboard :is(input,textarea,select){background:#fff!important;color:#17324b!important;border-color:#c8dcec!important}
+.creator-dashboard :is(.creator-go-live,.creator-end-live,.creator-refresh-button,.creator-earnings-link-action){background:#087bd1!important;color:#fff!important;border-color:#087bd1!important}
+.creator-dashboard :is(.creator-period-tabs button,.creator-preview-switcher button,.creator-camera-actions button,.creator-media-controls button,.creator-logout,.creator-back){background:#edf6ff!important;color:#075a9b!important;border-color:#c8e2f7!important}
+.creator-dashboard :is(.creator-video-stage,.creator-video-stage video){background:#071522!important}
+
+@media(prefers-reduced-motion:no-preference){.model-card,.stream-card,.vertical-stream-card,.creator-stat-card,.creator-info-card,.auth-card{animation:osFinalFade .45s ease both}}
+@keyframes osFinalFade{from{opacity:.65;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
