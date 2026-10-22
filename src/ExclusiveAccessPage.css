@@ -276,3 +276,112 @@
 .exclusive-access-page h1,.exclusive-access-page h2,.exclusive-access-page h3{color:#12324f!important}
 .exclusive-access-page .card,.exclusive-access-page .panel,.exclusive-access-page .creator-card{background:#fff!important;color:#17344e!important;border:1px solid #d8e9f7!important;box-shadow:0 16px 42px rgba(25,83,128,.09)!important;border-radius:20px}
 .exclusive-access-page button{border-radius:12px;transition:transform .2s,box-shadow .2s}
+
+
+/* =========================================================
+   EXCLUSIVE ACCESS — BLUE + WHITE HIGH-CONTRAST THEME
+========================================================= */
+.exclusive-access-page {
+  color-scheme: light;
+  color: #142b43 !important;
+  background: linear-gradient(180deg,#ffffff 0%,#f1f7fd 100%) !important;
+}
+.exclusive-access-header {
+  border-bottom: 1px solid #dbe8f4 !important;
+}
+.exclusive-back { color: #31536f !important; }
+.exclusive-back:hover { color: #087bd1 !important; }
+.exclusive-brand { color: #142b43 !important; }
+.exclusive-brand span { color: #087bd1 !important; }
+.exclusive-demo-label {
+  color: #075f9f !important;
+  background: #eaf5ff !important;
+  border-color: #bfdef5 !important;
+}
+.exclusive-access-card {
+  color: #142b43 !important;
+  background: #fff !important;
+  border: 1px solid #d4e5f3 !important;
+  box-shadow: 0 22px 70px rgba(24,76,118,.12) !important;
+}
+.exclusive-access-icon {
+  background: #e5f3ff !important;
+  color: #087bd1 !important;
+}
+.exclusive-kicker { color: #087bd1 !important; }
+.exclusive-access-card h1 { color: #142b43 !important; }
+.exclusive-description { color: #526b83 !important; }
+.exclusive-feature-list > div {
+  color: #24435d !important;
+  background: #f7fbff !important;
+  border-color: #dbeaf6 !important;
+}
+.exclusive-feature-list > div > svg:first-child { color: #087bd1 !important; }
+.exclusive-feature-list > div > svg:last-child { color: #087bd1 !important; }
+.exclusive-price-row span { color: #526b83 !important; }
+.exclusive-price-row strong { color: #142b43 !important; }
+.exclusive-small-note { color: #526b83 !important; }
+.exclusive-purchase > button,
+.exclusive-owned button,
+.exclusive-secondary-button {
+  color: #fff !important;
+  background: linear-gradient(135deg,#0784df,#0568bd) !important;
+  border: 1px solid #087bd1 !important;
+  box-shadow: 0 8px 22px rgba(8,123,209,.17) !important;
+}
+.exclusive-purchase > button:hover,
+.exclusive-owned button:hover,
+.exclusive-secondary-button:hover {
+  filter: brightness(.96);
+  transform: translateY(-1px);
+}
+.exclusive-purchase > button:disabled {
+  color: #fff !important;
+  background: #8aaec8 !important;
+  border-color: #8aaec8 !important;
+  cursor: not-allowed;
+}
+.exclusive-owned,
+.exclusive-occupied {
+  color: #24435d !important;
+  background: #f5faff !important;
+  border: 1px solid #d5e7f5 !important;
+  border-radius: 14px;
+  padding: 16px;
+}
+.exclusive-owned strong,
+.exclusive-occupied strong { color: #142b43 !important; }
+.exclusive-owned span,
+.exclusive-occupied p,
+.exclusive-occupied span { color: #526b83 !important; }
+.exclusive-status { color: #31536f !important; }
+.exclusive-success {
+  color: #075f9f !important;
+  background: #eaf5ff !important;
+  border: 1px solid #bfdef5 !important;
+  padding: 12px;
+  border-radius: 12px;
+}
+.exclusive-error {
+  color: #a12332 !important;
+  background: #fff0f1 !important;
+  border: 1px solid #f4c7cd !important;
+  padding: 12px;
+  border-radius: 12px;
+}
+.exclusive-disclaimer {
+  color: #526b83 !important;
+  border-top: 1px solid #e0ebf5 !important;
+}
+.exclusive-disclaimer svg { color: #087bd1 !important; }
+@media (max-width: 520px) {
+  .exclusive-access-card { padding: 24px 18px !important; }
+  .exclusive-access-header { gap: 10px; }
+  .exclusive-brand { font-size: 20px; }
+  .exclusive-demo-label { font-size: 9px; padding: 7px 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .exclusive-access-page *,
+  .exclusive-access-page *::before,
+  .exclusive-access-page *::after { transition-duration: .01ms !important; }
+}
