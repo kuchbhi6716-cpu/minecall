@@ -246,7 +246,7 @@ async function verifySupabaseCreatorAccess(accessToken, requestedUsername) {
     if (!profile || !profile.id || profile.id !== authUser.id ||
         profile.role !== "creator" ||
         String(profile.gender || "").trim().toLowerCase() !== "female" ||
-        !profileUsername || profileUsername !== requested) {
+        !profileUsername || profileUsername.toLowerCase() !== requested.toLowerCase()) {
       return { ok: false, status: 403, error: "Your Supabase profile must have the matching username, Creator role, and Female gender to go live." };
     }
 
@@ -670,20 +670,31 @@ app.get("/api/aw-video-details", async (req, res) => {
 // -------------------- Creator Live Registry --------------------
 
 function getPublicLiveCreators() {
-  return Array.from(liveCreators.values()).map((creator) => ({
-    username: creator.username,
-    startedAt: creator.startedAt,
-    creatorPlan: creator.creatorPlan || "calls",
-    creator_plan: creator.creatorPlan || "calls",
-    subscriptionPrice: Number(creator.subscriptionPrice) || 499,
-    subscription_price: Number(creator.subscriptionPrice) || 499,
-    subscriptionHours: Number(creator.subscriptionHours) || 24,
-    subscription_hours: Number(creator.subscriptionHours) || 24,
-    isLive: true,
-    is_live: true,
-    liveThumbnail: creator.liveThumbnail || null,
-    live_thumbnail: creator.liveThumbnail || null,
-  }));
+  return Array.from(liveCreators.values()).map((creator) => {
+    const reservation = creator.creatorPlan === "subscription"
+      ? getActiveExclusiveReservation(creator.username)
+      : null;
+    return {
+      username: creator.username,
+      startedAt: creator.startedAt,
+      creatorPlan: creator.creatorPlan || "calls",
+      creator_plan: creator.creatorPlan || "calls",
+      subscriptionPrice: Number(creator.subscriptionPrice) || 499,
+      subscription_price: Number(creator.subscriptionPrice) || 499,
+      subscriptionHours: Number(creator.subscriptionHours) || 24,
+      subscription_hours: Number(creator.subscriptionHours) || 24,
+      isLive: true,
+      is_live: true,
+      isRented: Boolean(reservation),
+      is_rented: Boolean(reservation),
+      rentedUntil: reservation?.expiresAt ? new Date(reservation.expiresAt).toISOString() : null,
+      rented_until: reservation?.expiresAt ? new Date(reservation.expiresAt).toISOString() : null,
+      isAvailableForRent: !reservation,
+      is_available_for_rent: !reservation,
+      liveThumbnail: creator.liveThumbnail || null,
+      live_thumbnail: creator.liveThumbnail || null,
+    };
+  });
 }
 
 function broadcastLiveCreators() {
@@ -1077,7 +1088,7 @@ function startBillableCall({
     if (
       !creatorAccount ||
       creatorAccount.role !== "creator" ||
-      creatorAccount.gender !== "female"
+      String(creatorAccount.gender || "").trim().toLowerCase() !== "female"
     ) {
       return {
         ok: false,
@@ -1239,7 +1250,7 @@ io.on("connection", (socket) => {
     if (!creatorAccount) {
       creatorAccount = getTestAccount(username, "creator", "female");
     }
-    if (!creatorAccount || creatorAccount.role !== "creator" || creatorAccount.gender !== "female") {
+    if (!creatorAccount || creatorAccount.role !== "creator" || String(creatorAccount.gender || "").trim().toLowerCase() !== "female") {
       return reply({
         ok: false,
         error: "This account conflicts with an existing session. Please log out and log in again.",
@@ -1377,7 +1388,7 @@ io.on("connection", (socket) => {
     if (
       !creatorAccount ||
       creatorAccount.role !== "creator" ||
-      creatorAccount.gender !== "female"
+      String(creatorAccount.gender || "").trim().toLowerCase() !== "female"
     ) {
       return reply({
         ok: false,
@@ -1873,9 +1884,13 @@ io.on("connection", (socket) => {
       }
       return reply({ ok: false, error: "This creator is already reserved by another user.", expiresAt: current.expiresAt, remainingMs: Math.max(0, current.expiresAt - Date.now()) });
     }
-    const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+    const rentHours = [3, 5, 7, 24].includes(Number(creator.subscriptionHours))
+      ? Number(creator.subscriptionHours)
+      : 24;
+    const rentDurationMs = rentHours * 60 * 60 * 1000;
+    const expiresAt = Date.now() + rentDurationMs;
     const reservation = {
-      creatorUsername, buyerUsername, amount: price, transactionId,
+      creatorUsername, buyerUsername, amount: price, transactionId, rentHours,
       purchasedAt: Date.now(), expiresAt, timer: null,
     };
     reservation.timer = setTimeout(() => {
@@ -1890,7 +1905,7 @@ io.on("connection", (socket) => {
           if (creatorSocketId) io.to(creatorSocketId).emit("partner-left");
         }
       }
-    }, 24 * 60 * 60 * 1000);
+    }, rentDurationMs);
     exclusiveAccessReservations.set(safeUsername(creatorUsername), reservation);
     if (!subscriptionTransactionIds.has(transactionId)) {
       subscriptionTransactionIds.add(transactionId);
@@ -1908,7 +1923,7 @@ io.on("connection", (socket) => {
       if (liveCreator?.socketId) io.to(liveCreator.socketId).emit("subscription-earnings-updated", { username: creatorUsername });
     }
     console.log(`[Exclusive access] ${buyerUsername} reserved ${creatorUsername} for 24 hours.`);
-    return reply({ ok: true, expiresAt, remainingMs: 24 * 60 * 60 * 1000, price, demoPayment: true });
+    return reply({ ok: true, expiresAt, remainingMs: rentDurationMs, rentHours, price, demoPayment: true });
   });
 
   socket.on("subscription-purchase", (payload, acknowledge) => {
