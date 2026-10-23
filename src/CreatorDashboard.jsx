@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { io } from "socket.io-client";\nimport { supabase } from "./supabaseClient";
+import { io } from "socket.io-client";
+import { supabase } from "./supabaseClient"
 import {
   ArrowLeft, Camera, CameraOff, Gift, LogOut, Phone,
   Radio, ShieldCheck, Video, VideoOff, PhoneOff, Check, X,
