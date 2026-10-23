@@ -202,6 +202,61 @@ function getTestAccount(username, role = "user", gender = "") {
   return account;
 }
 
+async function verifySupabaseCreatorAccess(accessToken, requestedUsername) {
+  const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, "");
+  const apiKey =
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    "";
+
+  if (!supabaseUrl || !apiKey) {
+    return { ok: false, status: 503, error: "Server authentication is not configured. Check SUPABASE_URL and the private Supabase server key in Render." };
+  }
+  if (typeof accessToken !== "string" || accessToken.length < 20 || accessToken.length > 5000) {
+    return { ok: false, status: 401, error: "Your login session is missing or expired. Please log in again." };
+  }
+
+  try {
+    const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: apiKey, Authorization: `Bearer ${accessToken}` },
+    });
+    if (!authResponse.ok) {
+      return { ok: false, status: 401, error: "Your login session could not be verified. Please log in again." };
+    }
+    const authUser = await authResponse.json();
+    if (!authUser?.id) {
+      return { ok: false, status: 401, error: "Your login session could not be verified. Please log in again." };
+    }
+
+    const profileResponse = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(authUser.id)}&select=id,username,role,gender,creator_plan,subscription_price,subscription_hours&limit=1`,
+      { headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` } }
+    );
+    if (!profileResponse.ok) {
+      return { ok: false, status: 503, error: "Could not verify your creator profile in Supabase. Check the server key and profiles table access." };
+    }
+    const profiles = await profileResponse.json();
+    const profile = Array.isArray(profiles) ? profiles[0] : null;
+    const profileUsername = safeUsername(profile?.username);
+    const requested = safeUsername(requestedUsername);
+
+    if (!profile || !profile.id || profile.id !== authUser.id ||
+        profile.role !== "creator" ||
+        String(profile.gender || "").trim().toLowerCase() !== "female" ||
+        !profileUsername || profileUsername !== requested) {
+      return { ok: false, status: 403, error: "Your Supabase profile must have the matching username, Creator role, and Female gender to go live." };
+    }
+
+    return { ok: true, profile };
+  } catch (error) {
+    console.error("Supabase creator verification failed:", error?.message || error);
+    return { ok: false, status: 503, error: "Could not reach Supabase to verify your creator account. Please retry." };
+  }
+}
+
 function publicAccount(account) {
   if (!account) return null;
 
@@ -1158,7 +1213,7 @@ io.on("connection", (socket) => {
     broadcastLiveCreators();
   });
 
-  socket.on("creator-go-live", (payload, acknowledge) => {
+  socket.on("creator-go-live", async (payload, acknowledge) => {
     const reply = (result) => {
       if (typeof acknowledge === "function") acknowledge(result);
     };
@@ -1172,19 +1227,32 @@ io.on("connection", (socket) => {
       });
     }
 
-    // A live creator must have a matching female creator test account.
-    const creatorAccount = testAccounts.get(safeUsername(username));
+    // Verify the real Supabase session and profile before allowing a creator live session.
+    const verification = await verifySupabaseCreatorAccess(payload?.accessToken, username);
+    if (!verification.ok) {
+      return reply({ ok: false, error: verification.error });
+    }
 
-    if (
-      !creatorAccount ||
-      creatorAccount.role !== "creator" ||
-      creatorAccount.gender !== "female"
-    ) {
+    const profile = verification.profile;
+    let creatorAccount = testAccounts.get(safeUsername(username));
+
+    if (!creatorAccount) {
+      creatorAccount = getTestAccount(username, "creator", "female");
+    }
+    if (!creatorAccount || creatorAccount.role !== "creator" || creatorAccount.gender !== "female") {
       return reply({
         ok: false,
-        error: "A valid female creator account is required to go live.",
+        error: "This account conflicts with an existing session. Please log out and log in again.",
       });
     }
+
+    // Keep the existing call/wallet flow compatible while using Supabase as the authority for identity.
+    creatorAccount.creatorPlan = profile.creator_plan === "subscription" ? "subscription" : "calls";
+    creatorAccount.subscriptionPrice = Math.max(1, Number(profile.subscription_price) || 499);
+    creatorAccount.subscriptionHours = [3, 5, 7, 24].includes(Number(profile.subscription_hours))
+      ? Number(profile.subscription_hours)
+      : 24;
+    creatorAccount.supabaseUserId = profile.id;
 
     removeCreatorLive(socket);
 
