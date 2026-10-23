@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { io } from "socket.io-client";
+import { io } from "socket.io-client";\nimport { supabase } from "./supabaseClient";
 import {
   ArrowLeft, Camera, CameraOff, Gift, LogOut, Phone,
   Radio, ShieldCheck, Video, VideoOff, PhoneOff, Check, X,
@@ -656,6 +656,13 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
       const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
       const creatorUsername = session?.username || username;
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const accessToken = authData?.session?.access_token;
+
+      if (authError || !accessToken) {
+        throw new Error("Your login session has expired. Please log in again, then try Go Live.");
+      }
+
       const socket = socketRef.current;
 
       if (!socket?.connected) {
@@ -664,6 +671,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
       socket.emit("creator-go-live", {
         username: creatorUsername,
+        accessToken,
         creatorPlan: exclusiveMode ? "subscription" : "calls",
         subscriptionPrice: exclusiveMode ? Math.max(1, Number(session?.subscriptionPrice) || 499) : 0,
         subscriptionHours: exclusiveMode ? ([3, 5, 7, 24].includes(Number(session?.subscriptionHours)) ? Number(session.subscriptionHours) : 24) : 0,
