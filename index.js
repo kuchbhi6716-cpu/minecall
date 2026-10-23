@@ -2031,6 +2031,4 @@ server.listen(PORT, "0.0.0.0", () => {
     TEST_MODE ? "enabled" : "disabled"
   );
   console.log(
-    `Test billing: ${CONNECTION_START_COINS} coins on connection, then ${COINS_PER_BILLING_TICK} coins every ${BILLING_INTERVAL_MS / 1000} seconds`
-  );
-});
+    `Test billing: ${CONNECTION_START_COINS} coins on connection, then ${COINS_PE
