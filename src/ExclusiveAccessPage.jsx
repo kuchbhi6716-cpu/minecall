@@ -127,10 +127,10 @@ export default function ExclusiveAccessPage() {
       setOccupied(false);
       setExpiresAt(result.expiresAt);
       setRemainingMs(Number(result.remainingMs) || 24 * 60 * 60 * 1000);
-      setNotice("Demo purchase confirmed. Your 24-hour exclusive access is active.");
+      setNotice("Access confirmation received. Your 24-hour exclusive access is active.");
       window.location.href = callUrl;
     } catch (e) {
-      setError(e.message || "Could not complete this demo purchase.");
+      setError(e.message || "Could not complete this purchase.");
       await refreshStatus();
     } finally {
       socket?.disconnect();
@@ -147,7 +147,7 @@ export default function ExclusiveAccessPage() {
       <header className="exclusive-access-header">
         <a href="/" className="exclusive-back"><ArrowLeft size={17} /> Home</a>
         <a href="/" className="exclusive-brand">OnlyStream<span>.</span></a>
-        <span className="exclusive-demo-label">DEMO CHECKOUT</span>
+        <span className="exclusive-demo-label">EXCLUSIVE ACCESS</span>
       </header>
       <section className="exclusive-access-card">
         <div className="exclusive-access-icon"><LockKeyhole size={30} /></div>
@@ -178,14 +178,14 @@ export default function ExclusiveAccessPage() {
             <div className="exclusive-price-row"><span>One-time access fee</span><strong>₹{price.toLocaleString("en-IN")}</strong></div>
             <p className="exclusive-small-note">One purchase · 24 hours · No call coins</p>
             <button type="button" onClick={purchaseAccess} disabled={buying || loading || !creatorAvailable}>
-              {buying ? "Confirming…" : !creatorAvailable ? "Creator is offline" : `Pay ₹${price.toLocaleString("en-IN")} (Demo)`}
+              {buying ? "Confirming…" : !creatorAvailable ? "Creator is offline" : `Continue · ₹${price.toLocaleString("en-IN")}`}
             </button>
           </div>
         )}
         {!creatorAvailable && !occupied && !owned && !loading && <p className="exclusive-status">This creator is currently offline. You can purchase access when they are available.</p>}
         {notice && <p className="exclusive-success">{notice}</p>}
         {error && <p className="exclusive-error" role="alert">{error}</p>}
-        <p className="exclusive-disclaimer"><ShieldCheck size={15} /> This project currently uses demo payment confirmation. No real money is charged.</p>
+        <p className="exclusive-disclaimer"><ShieldCheck size={15} /> Payments are not available yet. No real money is charged.</p>
       </section>
     </main>
   );
