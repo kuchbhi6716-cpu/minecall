@@ -368,7 +368,7 @@ function CallPage() {
                   typeof result.balance === "number" ? result.balance : null;
                 const requiredCoins = Number(result.requiredCoins ?? 10);
                 const insufficientCoins =
-                  result.error === "Not enough test coins to start the call." ||
+                  result.error === "Not enough coins to start the call." ||
                   (balance !== null && balance < requiredCoins);
 
                 if (balance !== null) {
@@ -1030,7 +1030,7 @@ function CallPage() {
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Could not add test coins.");
+        throw new Error(data.error || "Could not add coins.");
       }
 
       const balance = await refreshWallet(currentSession.username);
@@ -1038,7 +1038,7 @@ function CallPage() {
         throw new Error("Coins were added, but the wallet balance could not be refreshed. Please reopen the wallet.");
       }
 
-      setWalletNotice(`${data.message || "Test coins added."} Current balance: ${balance.toLocaleString()} coins.`);
+      setWalletNotice(`${data.message || "Coins added."} Current balance: ${balance.toLocaleString()} coins.`);
       setWalletError("");
 
       if (pendingConnectRef.current && balance >= 10) {
@@ -1049,7 +1049,7 @@ function CallPage() {
         await startChat();
       }
     } catch (error) {
-      setWalletError(error.message || "Coin purchase simulation failed.");
+      setWalletError(error.message || "Coin purchase could not be completed.");
     } finally {
       setBuyingPackage("");
     }
@@ -1301,7 +1301,7 @@ function CallPage() {
               <span>
                 {phase === "connected"
                   ? "Call charges: 10 coins to start, then 100 coins per 60 seconds."
-                  : "Your demo coin balance is used for calls."}
+                  : "Your coin balance is used for calls."}
               </span>
               {phase === "connected" && (
                 <span className="call-wallet-balance">
@@ -1448,7 +1448,7 @@ function CallPage() {
                   ? "—"
                   : walletBalance.toLocaleString()}
               </strong>
-              <small>Demo coins · No real payment is collected</small>
+              <small>Payments are not available yet. No money is charged.</small>
             </div>
 
             {walletNotice && (
@@ -1466,7 +1466,7 @@ function CallPage() {
 
             <div className="coin-package-heading">
               <h3>Choose a coin package</h3>
-              <span>TEST MODE</span>
+              <span>COIN WALLET</span>
             </div>
 
             <div className="coin-packages">
@@ -1484,7 +1484,7 @@ function CallPage() {
 
                   <span className="coin-package-info">
                     <strong>{Number(pack.coins).toLocaleString()} coins</strong>
-                    <small>Simulated package</small>
+                    <small>Coin package</small>
                   </span>
 
                   <span className="coin-package-price">
@@ -1501,7 +1501,7 @@ function CallPage() {
             </div>
 
             <p className="coin-modal-disclaimer">
-              These buttons only add test coins to your demo account. They do
+              Coin purchases are not available yet. These options do
               not charge money. Real payments are not enabled.
             </p>
           </section>
