@@ -738,3 +738,29 @@ body{background:#f3f8fd!important;color:#17324b!important}
 @media(prefers-reduced-motion:no-preference){.model-card,.stream-card,.vertical-stream-card,.creator-stat-card,.creator-info-card,.auth-card{animation:osFinalFade .45s ease both}}
 @keyframes osFinalFade{from{opacity:.65;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* Supabase / Google authentication button */
+.auth-google-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid #d5e2ed;
+  border-radius: 12px;
+  background: #fff;
+  color: #17324b;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.auth-google-button:hover:not(:disabled) {
+  background: #f5f9fc;
+  border-color: #9cb9d0;
+}
+.auth-google-button:active:not(:disabled) { transform: scale(.99); }
+.auth-google-button:disabled { opacity: .65; cursor: wait; }
