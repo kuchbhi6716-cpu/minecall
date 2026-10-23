@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { supabase } from "./supabaseClient";
 import {
   ArrowLeft, Camera, CameraOff, Gift, LogOut, Phone,
   Radio, ShieldCheck, Video, VideoOff, PhoneOff, Check, X,
@@ -404,7 +405,36 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
       return undefined;
     }
 
-    refreshEconomy();
+    // Initialize the demo creator account first so the signup bonus is granted
+    // server-side before the dashboard requests earnings. Supabase remains the
+    // source of identity; the local session is only compatibility metadata.
+    (async () => {
+      try {
+        const { data: authData, error: authError } = await supabase.auth.getSession();
+        if (authError) throw authError;
+        const accessToken = authData?.session?.access_token || "";
+        if (!accessToken) {
+          setCameraError("Your login session is missing or expired. Please log in again.");
+          setEconomyLoading(false);
+          return;
+        }
+        const response = await fetch(`${API_BASE}/api/test-account`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ username: session.username, role: "creator", gender: session.gender || "female" }),
+          cache: "no-store",
+        });
+        const result = await readJson(response);
+        if (!mountedRef.current) return;
+        if (result?.account) setEconomy(result.account);
+        await refreshEconomy();
+      } catch (error) {
+        if (mountedRef.current) {
+          setEconomyError(error?.message || "Could not initialize creator demo earnings.");
+          setEconomyLoading(false);
+        }
+      }
+    })();
 
     const socket = io({ transports: ["websocket", "polling"] });
     socketRef.current = socket;
@@ -629,6 +659,18 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     setBusy(true);
 
     try {
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError) throw authError;
+      let accessToken = authData?.session?.access_token || "";
+      if (!accessToken && authData?.session) {
+        const refreshed = await supabase.auth.refreshSession();
+        if (refreshed.error) throw refreshed.error;
+        accessToken = refreshed.data?.session?.access_token || "";
+      }
+      if (!accessToken) {
+        throw new Error("Your login session is missing or expired. Please log in again.");
+      }
+
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("Camera access requires HTTPS.");
       }
@@ -663,6 +705,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
       socket.emit("creator-go-live", {
         username: creatorUsername,
+        accessToken,
         creatorPlan: exclusiveMode ? "subscription" : "calls",
         subscriptionPrice: exclusiveMode ? Math.max(1, Number(session?.subscriptionPrice) || 499) : 0,
       }, (response) => {
