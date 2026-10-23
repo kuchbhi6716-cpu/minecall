@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { supabase } from "./supabaseClient"
 import {
   ArrowLeft, Camera, CameraOff, Gift, LogOut, Phone,
   Radio, ShieldCheck, Video, VideoOff, PhoneOff, Check, X,
@@ -38,6 +37,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const videoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const streamRef = useRef(null);
+  const thumbnailIntervalRef = useRef(null);
   const socketRef = useRef(null);
   const peerRef = useRef(null);
   const pendingSignalsRef = useRef([]);
@@ -54,7 +54,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const chatMessagesRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const typingRef = useRef(false);
-  const thumbnailIntervalRef = useRef(null);
 
   const [username, setUsername] = useState("Creator");
   const [isLive, setIsLive] = useState(false);
@@ -78,43 +77,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
   const [micMuted, setMicMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
-  const [creatorMainPreview, setCreatorMainPreview] = useState("caller");
   const [facingMode, setFacingMode] = useState("user");
   const [cameraSwitching, setCameraSwitching] = useState(false);
-
-  const publishLiveThumbnail = useCallback(() => {
-    const video = videoRef.current;
-    const socket = socketRef.current;
-    if (!isLiveRef.current || !video || !socket || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
-    try {
-      const canvas = document.createElement("canvas");
-      const maxWidth = 480;
-      const scale = Math.min(1, maxWidth / video.videoWidth);
-      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      socket.emit("creator-live-thumbnail", { username, thumbnail: canvas.toDataURL("image/jpeg", 0.72) });
-    } catch (error) {
-      console.warn("Could not publish live thumbnail:", error);
-    }
-  }, [username]);
-
-  useEffect(() => {
-    if (!isLive) {
-      if (thumbnailIntervalRef.current) window.clearInterval(thumbnailIntervalRef.current);
-      thumbnailIntervalRef.current = null;
-      return undefined;
-    }
-    const firstShot = window.setTimeout(publishLiveThumbnail, 900);
-    thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 30 * 60 * 1000);
-    return () => {
-      window.clearTimeout(firstShot);
-      if (thumbnailIntervalRef.current) window.clearInterval(thumbnailIntervalRef.current);
-      thumbnailIntervalRef.current = null;
-    };
-  }, [isLive, publishLiveThumbnail]);
 
   const refreshEconomy = useCallback(async () => {
     let session;
@@ -219,6 +183,10 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   }, [stopBilling]);
 
   const stopLocalStream = useCallback(() => {
+    if (thumbnailIntervalRef.current) {
+      window.clearInterval(thumbnailIntervalRef.current);
+      thumbnailIntervalRef.current = null;
+    }
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
 
@@ -438,14 +406,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
     refreshEconomy();
 
-    const socket = io({
-      transports: ["websocket", "polling"],
-      auth: (callback) => {
-        supabase.auth.getSession()
-          .then(({ data }) => callback({ accessToken: data?.session?.access_token || "" }))
-          .catch(() => callback({ accessToken: "" }));
-      },
-    });
+    const socket = io({ transports: ["websocket", "polling"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -518,13 +479,23 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
     socket.on("signal", handleSignal);
 
-    socket.on("chat-message", (text) => {
-      if (typeof text !== "string") return;
+    socket.on("chat-message", (payload) => {
+      // The backend sends an object { text, conversationId, senderUsername }.
+      // Accept strings too so older clients remain compatible.
+      const incomingText =
+        typeof payload === "string"
+          ? payload
+          : typeof payload?.text === "string"
+            ? payload.text
+            : "";
+
+      if (!incomingText.trim()) return;
+
       setChatMessages((old) => [
         ...old,
         {
           id: `${Date.now()}-${Math.random()}`,
-          text: text.slice(0, 1000),
+          text: incomingText.trim().slice(0, 1000),
           own: false,
         },
       ]);
@@ -633,6 +604,26 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     setChatMessage("");
   }
 
+  function publishLiveThumbnail() {
+    const video = videoRef.current;
+    const socket = socketRef.current;
+    if (!video || !socket?.connected || !isLiveRef.current || video.videoWidth < 2 || video.videoHeight < 2) return;
+
+    try {
+      const canvas = document.createElement("canvas");
+      // Small, compressed live snapshots keep the homepage fast on mobile data.
+      canvas.width = 480;
+      canvas.height = Math.max(1, Math.round(480 * video.videoHeight / video.videoWidth));
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const thumbnail = canvas.toDataURL("image/jpeg", 0.62);
+      socket.emit("creator-live-thumbnail", { thumbnail });
+    } catch (error) {
+      // Snapshot capture can fail temporarily while the camera is starting.
+    }
+  }
+
   async function goLive() {
     setCameraError("");
     setBusy(true);
@@ -664,13 +655,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
       const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
       const creatorUsername = session?.username || username;
-      const { data: authData, error: authError } = await supabase.auth.getSession();
-      const accessToken = authData?.session?.access_token;
-
-      if (authError || !accessToken) {
-        throw new Error("Your login session has expired. Please log in again, then try Go Live.");
-      }
-
       const socket = socketRef.current;
 
       if (!socket?.connected) {
@@ -679,10 +663,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
       socket.emit("creator-go-live", {
         username: creatorUsername,
-        accessToken,
         creatorPlan: exclusiveMode ? "subscription" : "calls",
         subscriptionPrice: exclusiveMode ? Math.max(1, Number(session?.subscriptionPrice) || 499) : 0,
-        subscriptionHours: exclusiveMode ? ([3, 5, 7, 24].includes(Number(session?.subscriptionHours)) ? Number(session.subscriptionHours) : 24) : 0,
       }, (response) => {
         if (response?.ok === false) {
           isLiveRef.current = false;
@@ -697,6 +679,10 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
         isLiveRef.current = true;
         setIsLive(true);
+
+        if (thumbnailIntervalRef.current) window.clearInterval(thumbnailIntervalRef.current);
+        window.setTimeout(publishLiveThumbnail, 900);
+        thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 5000);
 
         localStorage.setItem(LIVE_KEY, JSON.stringify({
           username: creatorUsername,
@@ -1002,7 +988,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
             <div className="creator-earnings-panel-heading"><div><h3>Earning history</h3><p>{exclusiveMode ? "Individual 24-hour access purchases." : "Signup bonus and individual call earnings."}</p></div></div>
             {earningRows.length ? earningRows.map((row) => <div className="creator-earning-row" key={row.id}><div className="creator-earning-row-icon">{row.isBonus ? <Gift size={18} /> : <Phone size={18} />}</div><div className="creator-earning-row-copy"><strong>{row.isBonus ? "Signup bonus" : row.isExclusiveSale ? "24-hour access fee" : "Earning from call"}</strong><span>{row.date.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}{row.callId ? ` · Call ${String(row.callId).slice(-6)}` : row.transactionId ? ` · Ref ${String(row.transactionId).slice(-6)}` : ""}</span></div><strong className="creator-earning-amount">+₹{row.earningAmount.toFixed(2)}</strong></div>) : <div className="creator-earnings-empty">{exclusiveMode ? "No access purchases have been recorded yet." : "No earning entries have been recorded yet. New call earnings will appear here."}</div>}
           </div>
-          <div className="creator-withdraw-area"><div><h3>Want to withdraw?</h3><p>Manage your creator earnings here.</p></div><button type="button" disabled title="Withdraw earnings"><Wallet size={18} /> Withdraw earnings</button></div>
+          <div className="creator-withdraw-area"><div><h3>Want to withdraw?</h3><p>Withdrawals are not enabled in this testing version. No real payout can be requested yet.</p></div><button type="button" disabled title="Withdrawals are not enabled in test mode"><Wallet size={18} /> Withdraw earnings</button></div>
           {economyError && <p className="creator-error" role="alert">{economyError}</p>}
         </section>
       )}
@@ -1024,17 +1010,17 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
             </span>
           </div>
 
-          <div className={`creator-video-stage creator-main-${creatorMainPreview}`}>
+          <div className="creator-video-stage">
             <video
               ref={remoteVideoRef}
-              onClick={() => callConnected && setCreatorMainPreview("caller")}
-              className={`creator-remote-video ${callConnected && creatorMainPreview === "self" ? "creator-video-small" : ""}`}
+              className="creator-remote-video"
               autoPlay playsInline
             />
             <video
               ref={videoRef}
-              onClick={() => callConnected && setCreatorMainPreview("self")}
-              className={`creator-preview-video ${callConnected && creatorMainPreview !== "self" ? "creator-preview-small" : ""}`}
+              className={callConnected
+                ? "creator-preview-video creator-preview-small"
+                : "creator-preview-video"}
               autoPlay muted playsInline
             />
 
@@ -1046,12 +1032,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
               </div>
             )}
 
-            {callConnected && (
-              <div className="creator-preview-switcher" aria-label="Choose main call preview">
-                <button type="button" onClick={() => setCreatorMainPreview("caller")} className={creatorMainPreview === "caller" ? "active" : ""} aria-pressed={creatorMainPreview === "caller"}>Caller main</button>
-                <button type="button" onClick={() => setCreatorMainPreview("self")} className={creatorMainPreview === "self" ? "active" : ""} aria-pressed={creatorMainPreview === "self"}>My camera main</button>
-              </div>
-            )}
             {isLive && (
               <div className="creator-live-label"><span /> {exclusiveMode ? "AVAILABLE FOR CALLS" : "LIVE NOW"}</div>
             )}
@@ -1237,11 +1217,11 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
           <div className="creator-info-card creator-test-card">
             <div className="creator-info-icon"><Camera size={21} /></div>
-            <h3>Account overview</h3>
+            <h3>Testing version</h3>
             <p>
               {exclusiveMode
-                ? "Exclusive access earnings are estimates until transactions are verified."
-                : "Coin and revenue totals are estimates until transactions are verified."}
+                ? "Exclusive access payments and earnings are demo values. No real payment is collected in this testing version. Production use needs secure server-side authentication, a persistent database, and a verified payment provider."
+                : "Coins and revenue shown here are demo values. This is not a payment processor, and the displayed amount is not withdrawable. Production use needs secure server-side authentication, a persistent database, and a verified payment provider."}
             </p>
           </div>
         </aside>
