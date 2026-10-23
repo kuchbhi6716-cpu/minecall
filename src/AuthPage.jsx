@@ -305,7 +305,7 @@ export default function AuthPage({ initialMode = "login" }) {
           <div className="auth-creator-bonus">
             <strong>₹1,200 Creator Welcome Bonus</strong>
             <span>
-              Test/demo bonus only. It is not real money and cannot be
+              Signup bonus only. It is not real money and cannot be
               withdrawn.
             </span>
           </div>
@@ -330,7 +330,7 @@ export default function AuthPage({ initialMode = "login" }) {
                 </div>
                 <small>Your creator card will appear in the matching homepage section. Existing 24-hour access stays available.</small>
               </div>
-              <div className="creator-price-field"><label htmlFor="creator-subscription-price">One-time access price (₹)</label><input id="creator-subscription-price" type="number" min="1" max="100000" step="1" value={subscriptionPrice} onChange={e => setSubscriptionPrice(e.target.value)} required disabled={busy}/><small>Demo mode: no real payment is collected. The price is saved to this browser account.</small></div>
+              <div className="creator-price-field"><label htmlFor="creator-subscription-price">One-time access price (₹)</label><input id="creator-subscription-price" type="number" min="1" max="100000" step="1" value={subscriptionPrice} onChange={e => setSubscriptionPrice(e.target.value)} required disabled={busy}/><small>Payments are not available yet. The price is saved to this browser account.</small></div>
             </>}
           </div>
         )}
@@ -458,11 +458,7 @@ export default function AuthPage({ initialMode = "login" }) {
           </button>
         </p>
 
-        <p className="auth-testing-note">
-          Testing version: accounts are stored in this browser and the test
-          economy is stored in server memory. Do not use a real or reused
-          password. No real payments or withdrawals are enabled.
-        </p>
+        
       </section>
     </main>
   );
