@@ -402,7 +402,7 @@ app.post("/api/coins/buy-test", (req, res) => {
     username,
     coins: pack.coins,
     testPriceInr: pack.priceInr,
-    note: "Simulated purchase. No real payment was taken.",
+    note: "Payment is not available yet.",
   });
 
   res.set("Cache-Control", "no-store");
@@ -410,7 +410,7 @@ app.post("/api/coins/buy-test", (req, res) => {
   res.json({
     ok: true,
     account: publicAccount(account),
-    message: `Added ${pack.coins} test coins. No real payment was taken.`,
+    message: `Added ${pack.coins} coins. Payments are not available yet.`,
   });
 });
 
@@ -420,7 +420,7 @@ app.get("/api/creator-revenue-test", (req, res) => {
 
   if (!account || account.role !== "creator") {
     return res.status(404).json({
-      error: "Test creator account not found.",
+      error: "Creator account not found.",
     });
   }
 
@@ -429,7 +429,7 @@ app.get("/api/creator-revenue-test", (req, res) => {
   res.json({
     account: publicAccount(account),
     realPayoutEnabled: false,
-    message: "Revenue is simulated test accounting only.",
+    message: "Revenue shown here is not available for payout yet.",
   });
 });
 
@@ -1038,7 +1038,7 @@ function startBillableCall({
   if (user.coins < CONNECTION_START_COINS) {
     return {
       ok: false,
-      error: "Not enough test coins to start the call.",
+      error: "Not enough coins to start the call.",
       balance: user.coins,
       requiredCoins: CONNECTION_START_COINS,
     };
@@ -1848,7 +1848,7 @@ io.on("connection", (socket) => {
     const amount = Number(payload?.amount);
     const transactionId = String(payload?.transactionId || "").slice(0, 120);
     if (!username || !Number.isFinite(amount) || amount < 1 || amount > 100000 || !transactionId) {
-      if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Invalid demo subscription record." });
+      if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Invalid subscription record." });
       return;
     }
     if (!subscriptionTransactionIds.has(transactionId)) {
