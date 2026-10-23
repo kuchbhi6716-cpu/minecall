@@ -136,7 +136,7 @@ export default function AuthPage({ initialMode = "login" }) {
     }
     if (password.length < 6) { setMessage("Password must contain at least 6 characters."); return; }
     if (mode === "signup" && password !== confirmPassword) { setMessage("Passwords do not match."); return; }
-    if (mode === "signup" && role === "creator" && gender !== "female") {
+    if (mode === "signup" && role === "creator" && String(gender || "").trim().toLowerCase() !== "female") {
       setMessage("Creator signup is currently available only to users who select Female."); return;
     }
 
@@ -146,7 +146,7 @@ export default function AuthPage({ initialMode = "login" }) {
         const metadata = {
           username: cleanName,
           role,
-          gender: role === "creator" ? gender : "",
+          gender: role === "creator" ? String(gender || "").trim().toLowerCase() : "",
           creator_plan: role === "creator" ? creatorPlan : "calls",
           subscription_price: role === "creator" && creatorPlan === "subscription" ? Math.max(1, Number(subscriptionPrice) || 1) : 0,
           subscription_hours: [3, 5, 7, 24].includes(Number(subscriptionHours)) ? Number(subscriptionHours) : 24,
@@ -186,13 +186,13 @@ export default function AuthPage({ initialMode = "login" }) {
     if (mode === "signup" && !/^[a-z0-9_.-]{3,30}$/.test(cleanUsername(username))) {
       setMessage("Enter a valid username before continuing with Google."); return;
     }
-    if (mode === "signup" && role === "creator" && gender !== "female") {
+    if (mode === "signup" && role === "creator" && String(gender || "").trim().toLowerCase() !== "female") {
       setMessage("Creator signup is currently available only to users who select Female."); return;
     }
     const metadata = {
       username: mode === "signup" ? cleanUsername(username) : "",
       role: mode === "signup" ? role : "user",
-      gender: mode === "signup" && role === "creator" ? gender : "",
+      gender: mode === "signup" && role === "creator" ? String(gender || "").trim().toLowerCase() : "",
       creatorPlan: mode === "signup" ? creatorPlan : "calls",
       subscriptionPrice,
       subscriptionHours,
