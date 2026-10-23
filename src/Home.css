@@ -2371,3 +2371,7 @@ body:has(.minebbe) {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Rental status on subscription creator cards */
+.subscription-card-ribbon.subscription-card-rented{background:#ffe1e5;color:#a1122b;border:1px solid #f7a6b3}.onlystream-creator-card .model-online.model-online-rented{background:#a1122b;color:#fff}.subscription-creator-card:has(.subscription-card-rented){border-color:rgba(190,30,55,.55)!important}.subscription-creator-card:has(.subscription-card-rented) .stream-info p{color:#b4233c!important}
