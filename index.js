@@ -279,7 +279,7 @@ app.get("/api/coin-packages", (req, res) => {
 app.post("/api/test-account", (req, res) => {
   if (!TEST_MODE) {
     return res.status(403).json({
-      error: "Testing economy is disabled.",
+      error: "Coin purchases are unavailable.",
     });
   }
 
@@ -373,7 +373,7 @@ app.get("/api/economy/me", (req, res) => {
 app.post("/api/coins/buy-test", (req, res) => {
   if (!TEST_MODE) {
     return res.status(403).json({
-      error: "Testing economy is disabled.",
+      error: "Coin purchases are unavailable.",
     });
   }
 
@@ -402,7 +402,7 @@ app.post("/api/coins/buy-test", (req, res) => {
     username,
     coins: pack.coins,
     testPriceInr: pack.priceInr,
-    note: "Payment is not available yet.",
+    note: "Purchase recorded.",
   });
 
   res.set("Cache-Control", "no-store");
@@ -410,7 +410,7 @@ app.post("/api/coins/buy-test", (req, res) => {
   res.json({
     ok: true,
     account: publicAccount(account),
-    message: `Added ${pack.coins} coins. Payments are not available yet.`,
+    message: `Added ${pack.coins} test coins. No real payment was taken.`,
   });
 });
 
@@ -420,7 +420,7 @@ app.get("/api/creator-revenue-test", (req, res) => {
 
   if (!account || account.role !== "creator") {
     return res.status(404).json({
-      error: "Creator account not found.",
+      error: "Test creator account not found.",
     });
   }
 
@@ -429,7 +429,7 @@ app.get("/api/creator-revenue-test", (req, res) => {
   res.json({
     account: publicAccount(account),
     realPayoutEnabled: false,
-    message: "Revenue shown here is not available for payout yet.",
+    message: "Revenue summary.",
   });
 });
 
@@ -910,7 +910,7 @@ function billCallTick(callId, coinsToCharge = COINS_PER_BILLING_TICK) {
     estimatedValueInr,
     creatorShareInr,
     callId,
-    note: "Simulated call billing; not a real purchase or payout.",
+    note: "Call billing record.",
   });
 
   io.to(call.userSocketId).emit("call-billing-update", {
@@ -1038,7 +1038,7 @@ function startBillableCall({
   if (user.coins < CONNECTION_START_COINS) {
     return {
       ok: false,
-      error: "Not enough coins to start the call.",
+      error: "Not enough test coins to start the call.",
       balance: user.coins,
       requiredCoins: CONNECTION_START_COINS,
     };
@@ -1848,7 +1848,7 @@ io.on("connection", (socket) => {
     const amount = Number(payload?.amount);
     const transactionId = String(payload?.transactionId || "").slice(0, 120);
     if (!username || !Number.isFinite(amount) || amount < 1 || amount > 100000 || !transactionId) {
-      if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Invalid subscription record." });
+      if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Invalid demo subscription record." });
       return;
     }
     if (!subscriptionTransactionIds.has(transactionId)) {
