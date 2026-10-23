@@ -438,7 +438,14 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
     refreshEconomy();
 
-    const socket = io({ transports: ["websocket", "polling"] });
+    const socket = io({
+      transports: ["websocket", "polling"],
+      auth: (callback) => {
+        supabase.auth.getSession()
+          .then(({ data }) => callback({ accessToken: data?.session?.access_token || "" }))
+          .catch(() => callback({ accessToken: "" }));
+      },
+    });
     socketRef.current = socket;
 
     socket.on("connect", () => {
