@@ -368,7 +368,7 @@ function CallPage() {
                   typeof result.balance === "number" ? result.balance : null;
                 const requiredCoins = Number(result.requiredCoins ?? 10);
                 const insufficientCoins =
-                  result.error === "Not enough coins to start the call." ||
+                  result.error === "Not enough test coins to start the call." ||
                   (balance !== null && balance < requiredCoins);
 
                 if (balance !== null) {
@@ -696,7 +696,7 @@ function CallPage() {
       return;
     }
 
-    // Make sure the demo account exists before using billing.
+    // Make sure the account exists before using billing.
     try {
       const accountResponse = await fetch(`${API_BASE}/api/test-account`, {
         method: "POST",
@@ -1030,7 +1030,7 @@ function CallPage() {
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Could not add coins.");
+        throw new Error(data.error || "Could not add test coins.");
       }
 
       const balance = await refreshWallet(currentSession.username);
@@ -1038,7 +1038,7 @@ function CallPage() {
         throw new Error("Coins were added, but the wallet balance could not be refreshed. Please reopen the wallet.");
       }
 
-      setWalletNotice(`${data.message || "Coins added."} Current balance: ${balance.toLocaleString()} coins.`);
+      setWalletNotice(`${data.message || "Test coins added."} Current balance: ${balance.toLocaleString()} coins.`);
       setWalletError("");
 
       if (pendingConnectRef.current && balance >= 10) {
@@ -1049,7 +1049,7 @@ function CallPage() {
         await startChat();
       }
     } catch (error) {
-      setWalletError(error.message || "Coin purchase could not be completed.");
+      setWalletError(error.message || "Could not complete coin purchase.");
     } finally {
       setBuyingPackage("");
     }
@@ -1448,7 +1448,7 @@ function CallPage() {
                   ? "—"
                   : walletBalance.toLocaleString()}
               </strong>
-              <small>Payments are not available yet. No money is charged.</small>
+              <small>Coin balance</small>
             </div>
 
             {walletNotice && (
@@ -1501,7 +1501,7 @@ function CallPage() {
             </div>
 
             <p className="coin-modal-disclaimer">
-              Coin purchases are not available yet. These options do
+              Choose a coin package to continue. These
               not charge money. Real payments are not enabled.
             </p>
           </section>
