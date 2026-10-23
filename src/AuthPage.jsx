@@ -201,7 +201,10 @@ export default function AuthPage({ initialMode = "login" }) {
     setBusy(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}${mode === "signup" ? "/signup" : "/login"}` },
+      options: { redirectTo: `${window.location.origin}${mode === "signup" ? "/signup" : "/login"}`,
+               queryParams: {
+                 prompt: "select_account",
+               },
     });
     if (error) { setBusy(false); setMessage(error.message || "Google sign-in could not start."); }
   }
