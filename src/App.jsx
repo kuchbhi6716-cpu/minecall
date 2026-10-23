@@ -1,3 +1,4 @@
+import { supabase } from "./supabaseClient";
 import Home from "./Home";
 import LivePage from "./LivePage";
 import CategoryPage from "./CategoryPage";
@@ -80,6 +81,8 @@ function CallPage() {
   const mountedRef = useRef(false);
   const generationRef = useRef(0);
   const signalLockRef = useRef(false);
+  const conversationIdRef = useRef("");
+  const loadedConversationRef = useRef("");
 
   // Prevent repeated billing-start events for one connection.
   const billingStartedRef = useRef(false);
@@ -201,6 +204,8 @@ function CallPage() {
       stopMedia();
 
       setPhase("idle");
+      conversationIdRef.current = "";
+      loadedConversationRef.current = "";
       setMessages([]);
       setMessage("");
       setPartnerTyping(false);
@@ -462,9 +467,16 @@ function CallPage() {
 
     const socket = io({
       transports: ["websocket", "polling"],
+      auth: (callback) => {
+        supabase.auth.getSession()
+          .then(({ data }) => callback({ accessToken: data?.session?.access_token || "" }))
+          .catch(() => callback({ accessToken: "" }));
+      },
     });
 
     socketRef.current = socket;
+
+    // Chat messages are temporary and are cleared when the call/access ends.
 
     socket.on("connect", () => {
       console.log("[Socket] Connected:", socket.id);
@@ -485,6 +497,9 @@ function CallPage() {
 
     socket.on("matched", (data = {}) => {
       console.log("[Socket] Matched:", data);
+      conversationIdRef.current = String(data.conversationId || "");
+      loadedConversationRef.current = conversationIdRef.current;
+      setMessages([]);
 
       if (!activeRef.current) {
         console.warn("[WebRTC] Ignoring match because call is inactive.");
@@ -552,12 +567,14 @@ function CallPage() {
       void handleSignal(data);
     });
 
-    socket.on("chat-message", (text) => {
+    socket.on("chat-message", (payload) => {
+      const incomingText = typeof payload === "string" ? payload : payload?.text;
+      if (typeof incomingText !== "string") return;
       setMessages((old) => [
         ...old,
         {
           id: `${Date.now()}-${Math.random()}`,
-          text: String(text).slice(0, 1000),
+          text: incomingText.slice(0, 1000),
           own: false,
         },
       ]);
@@ -843,7 +860,8 @@ function CallPage() {
 
     cleanupPeer();
     pendingSignals.current = [];
-    setMessages([]);
+    conversationIdRef.current = "";
+    loadedConversationRef.current = "";
     setMessage("");
     setPartnerTyping(false);
     setPhase("waiting");
