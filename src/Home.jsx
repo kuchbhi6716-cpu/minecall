@@ -447,9 +447,9 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
         ) : (
           <div className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"><Radio size={34} /></div>
         )}
-        {subscription && <span className="subscription-card-ribbon">{getSubscriptionHours(creator)}H EXCLUSIVE</span>}
-        <span className="model-online">● {subscription ? "AVAILABLE" : (creator.isLive || creator.is_live ? "LIVE" : "AVAILABLE")}</span>
-        <div className="stream-info"><h3>{creator.username}</h3><p>{subscription ? `${getSubscriptionHours(creator)}-HOUR ACCESS · ₹${getSubscriptionPrice(creator)} ONCE` : "CALL EARNING · PAY PER CALL"}</p></div>
+        {subscription && <span className={`subscription-card-ribbon ${creator.isRented || creator.is_rented ? "subscription-card-rented" : ""}`}>{creator.isRented || creator.is_rented ? "RENTED" : `${getSubscriptionHours(creator)}H EXCLUSIVE`}</span>}
+        <span className={`model-online ${(creator.isRented || creator.is_rented) ? "model-online-rented" : ""}`}>● {subscription ? ((creator.isRented || creator.is_rented) ? "RENTED" : "AVAILABLE") : (creator.isLive || creator.is_live ? "LIVE" : "AVAILABLE")}</span>
+        <div className="stream-info"><h3>{creator.username}</h3><p>{subscription ? ((creator.isRented || creator.is_rented) ? `RENTED · ${getSubscriptionHours(creator)}-HOUR ACCESS` : `${getSubscriptionHours(creator)}-HOUR ACCESS · ₹${getSubscriptionPrice(creator)} ONCE`) : "CALL EARNING · PAY PER CALL"}</p></div>
       </button>
     </article>
   );
