@@ -986,7 +986,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
             <div className="creator-earnings-panel-heading"><div><h3>Earning history</h3><p>{exclusiveMode ? "Individual 24-hour access purchases." : "Signup bonus and individual call earnings."}</p></div></div>
             {earningRows.length ? earningRows.map((row) => <div className="creator-earning-row" key={row.id}><div className="creator-earning-row-icon">{row.isBonus ? <Gift size={18} /> : <Phone size={18} />}</div><div className="creator-earning-row-copy"><strong>{row.isBonus ? "Signup bonus" : row.isExclusiveSale ? "24-hour access fee" : "Earning from call"}</strong><span>{row.date.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}{row.callId ? ` · Call ${String(row.callId).slice(-6)}` : row.transactionId ? ` · Ref ${String(row.transactionId).slice(-6)}` : ""}</span></div><strong className="creator-earning-amount">+₹{row.earningAmount.toFixed(2)}</strong></div>) : <div className="creator-earnings-empty">{exclusiveMode ? "No access purchases have been recorded yet." : "No earning entries have been recorded yet. New call earnings will appear here."}</div>}
           </div>
-          <div className="creator-withdraw-area"><div><h3>Want to withdraw?</h3><p>Withdrawals are not enabled in this testing version. No real payout can be requested yet.</p></div><button type="button" disabled title="Withdrawals are not enabled in test mode"><Wallet size={18} /> Withdraw earnings</button></div>
+          <div className="creator-withdraw-area"><div><h3>Want to withdraw?</h3><p>Withdrawals are not available yet. No payout can be requested.</p></div><button type="button" disabled title="Withdrawals are not available yet"><Wallet size={18} /> Withdraw earnings</button></div>
           {economyError && <p className="creator-error" role="alert">{economyError}</p>}
         </section>
       )}
@@ -1221,11 +1221,11 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
           <div className="creator-info-card creator-test-card">
             <div className="creator-info-icon"><Camera size={21} /></div>
-            <h3>Testing version</h3>
+            <h3>Account information</h3>
             <p>
               {exclusiveMode
-                ? "Exclusive access payments and earnings are demo values. No real payment is collected in this testing version. Production use needs secure server-side authentication, a persistent database, and a verified payment provider."
-                : "Coins and revenue shown here are demo values. This is not a payment processor, and the displayed amount is not withdrawable. Production use needs secure server-side authentication, a persistent database, and a verified payment provider."}
+                ? "Exclusive access payments are not available yet. Earnings shown here are not verified payouts."
+                : "Coin purchases and payouts are not available yet. Amounts shown here are not withdrawable."}
             </p>
           </div>
         </aside>
