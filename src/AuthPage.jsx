@@ -205,6 +205,7 @@ export default function AuthPage({ initialMode = "login" }) {
                queryParams: {
                  prompt: "select_account",
                },
+               },
     });
     if (error) { setBusy(false); setMessage(error.message || "Google sign-in could not start."); }
   }
