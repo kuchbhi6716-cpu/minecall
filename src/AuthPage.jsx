@@ -305,7 +305,7 @@ export default function AuthPage({ initialMode = "login" }) {
           <div className="auth-creator-bonus">
             <strong>₹1,200 Creator Welcome Bonus</strong>
             <span>
-              Signup bonus only. It is not real money and cannot be
+              Promotional bonus only. It cannot be
               withdrawn.
             </span>
           </div>
@@ -330,7 +330,7 @@ export default function AuthPage({ initialMode = "login" }) {
                 </div>
                 <small>Your creator card will appear in the matching homepage section. Existing 24-hour access stays available.</small>
               </div>
-              <div className="creator-price-field"><label htmlFor="creator-subscription-price">One-time access price (₹)</label><input id="creator-subscription-price" type="number" min="1" max="100000" step="1" value={subscriptionPrice} onChange={e => setSubscriptionPrice(e.target.value)} required disabled={busy}/><small>Payments are not available yet. The price is saved to this browser account.</small></div>
+              <div className="creator-price-field"><label htmlFor="creator-subscription-price">One-time access price (₹)</label><input id="creator-subscription-price" type="number" min="1" max="100000" step="1" value={subscriptionPrice} onChange={e => setSubscriptionPrice(e.target.value)} required disabled={busy}/><small>Set the one-time access price for your creator page.</small></div>
             </>}
           </div>
         )}
@@ -457,8 +457,6 @@ export default function AuthPage({ initialMode = "login" }) {
             {mode === "signup" ? "Log in" : "Sign up"}
           </button>
         </p>
-
-        
       </section>
     </main>
   );
