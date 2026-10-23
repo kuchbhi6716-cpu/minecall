@@ -1,6 +1,7 @@
 const express = require("express");
 const http = require("http");
 const path = require("path");
+const { randomUUID } = require("crypto");
 const { Server } = require("socket.io");
 
 const app = express();
@@ -56,6 +57,8 @@ const exclusiveAccessReservations = new Map();
 const subscriptionMediaStore = new Map();
 const waiting = [];
 const partners = new Map();
+const chatConversationBySocket = new Map();
+const chatWritesByConversation = new Map();
 const pendingCreatorCalls = new Map();
 const liveRoomPrefix = "live:";
 const commentRateLimits = new Map();
@@ -246,7 +249,7 @@ async function verifySupabaseCreatorAccess(accessToken, requestedUsername) {
     if (!profile || !profile.id || profile.id !== authUser.id ||
         profile.role !== "creator" ||
         String(profile.gender || "").trim().toLowerCase() !== "female" ||
-        !profileUsername || profileUsername.toLowerCase() !== requested.toLowerCase()) {
+        !profileUsername || profileUsername !== requested) {
       return { ok: false, status: 403, error: "Your Supabase profile must have the matching username, Creator role, and Female gender to go live." };
     }
 
@@ -670,31 +673,20 @@ app.get("/api/aw-video-details", async (req, res) => {
 // -------------------- Creator Live Registry --------------------
 
 function getPublicLiveCreators() {
-  return Array.from(liveCreators.values()).map((creator) => {
-    const reservation = creator.creatorPlan === "subscription"
-      ? getActiveExclusiveReservation(creator.username)
-      : null;
-    return {
-      username: creator.username,
-      startedAt: creator.startedAt,
-      creatorPlan: creator.creatorPlan || "calls",
-      creator_plan: creator.creatorPlan || "calls",
-      subscriptionPrice: Number(creator.subscriptionPrice) || 499,
-      subscription_price: Number(creator.subscriptionPrice) || 499,
-      subscriptionHours: Number(creator.subscriptionHours) || 24,
-      subscription_hours: Number(creator.subscriptionHours) || 24,
-      isLive: true,
-      is_live: true,
-      isRented: Boolean(reservation),
-      is_rented: Boolean(reservation),
-      rentedUntil: reservation?.expiresAt ? new Date(reservation.expiresAt).toISOString() : null,
-      rented_until: reservation?.expiresAt ? new Date(reservation.expiresAt).toISOString() : null,
-      isAvailableForRent: !reservation,
-      is_available_for_rent: !reservation,
-      liveThumbnail: creator.liveThumbnail || null,
-      live_thumbnail: creator.liveThumbnail || null,
-    };
-  });
+  return Array.from(liveCreators.values()).map((creator) => ({
+    username: creator.username,
+    startedAt: creator.startedAt,
+    creatorPlan: creator.creatorPlan || "calls",
+    creator_plan: creator.creatorPlan || "calls",
+    subscriptionPrice: Number(creator.subscriptionPrice) || 499,
+    subscription_price: Number(creator.subscriptionPrice) || 499,
+    subscriptionHours: Number(creator.subscriptionHours) || 24,
+    subscription_hours: Number(creator.subscriptionHours) || 24,
+    isLive: true,
+    is_live: true,
+    liveThumbnail: creator.liveThumbnail || null,
+    live_thumbnail: creator.liveThumbnail || null,
+  }));
 }
 
 function broadcastLiveCreators() {
@@ -723,12 +715,21 @@ function isSocketBusy(id) {
 
 function disconnectPartner(id) {
   const partnerId = partners.get(id);
-  if (!partnerId) return;
+  const conversationId = chatConversationBySocket.get(id) || (partnerId ? chatConversationBySocket.get(partnerId) : "");
 
-  partners.delete(id);
-  partners.delete(partnerId);
+  if (partnerId) {
+    partners.delete(id);
+    partners.delete(partnerId);
+    io.to(partnerId).emit("partner-left");
+  }
 
-  io.to(partnerId).emit("partner-left");
+  // A call's chat is temporary: remove it from Supabase when either participant ends,
+  // disconnects, or loses access. Also clear both socket mappings to prevent stale reuse.
+  if (conversationId) {
+    chatConversationBySocket.delete(id);
+    if (partnerId) chatConversationBySocket.delete(partnerId);
+    void deleteChatConversation(conversationId);
+  }
 }
 
 function cancelPendingRequest(requestId, reason, notifyCaller = true) {
@@ -1088,7 +1089,7 @@ function startBillableCall({
     if (
       !creatorAccount ||
       creatorAccount.role !== "creator" ||
-      String(creatorAccount.gender || "").trim().toLowerCase() !== "female"
+      creatorAccount.gender !== "female"
     ) {
       return {
         ok: false,
@@ -1200,7 +1201,121 @@ function canPostComment(socket) {
   return true;
 }
 
+// Persistent chat helpers. Only authenticated Supabase users are saved.
+function getSupabaseServerConfig() {
+  const url = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "")
+    .replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, "");
+  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  return url && key ? { url, key } : null;
+}
+
+async function verifyChatSocket(accessToken) {
+  const config = getSupabaseServerConfig();
+  if (!config || typeof accessToken !== "string" || accessToken.length < 20 || accessToken.length > 5000) return null;
+  try {
+    const authRes = await fetch(`${config.url}/auth/v1/user`, {
+      headers: { apikey: config.key, Authorization: `Bearer ${accessToken}` },
+    });
+    if (!authRes.ok) return null;
+    const user = await authRes.json();
+    if (!user?.id) return null;
+    const profileRes = await fetch(`${config.url}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=id,username&limit=1`, {
+      headers: { apikey: config.key, Authorization: `Bearer ${config.key}` },
+    });
+    if (!profileRes.ok) return null;
+    const rows = await profileRes.json();
+    const profile = Array.isArray(rows) ? rows[0] : null;
+    if (!profile?.id || profile.id !== user.id || !profile.username) return null;
+    return { id: profile.id, username: safeUsername(profile.username) };
+  } catch (error) {
+    console.error("[Chat persistence] Session verification failed:", error.message);
+    return null;
+  }
+}
+
+async function persistChatMessage({ conversationId, sender, receiver, message }) {
+  const config = getSupabaseServerConfig();
+  if (!config || !conversationId || !sender?.id || !receiver?.id || !message) return;
+
+  // Serialize writes per conversation so cleanup can wait for pending inserts.
+  const previous = chatWritesByConversation.get(conversationId) || Promise.resolve();
+  const write = previous.catch(() => {}).then(async () => {
+    const currentConfig = getSupabaseServerConfig();
+    if (!currentConfig) return;
+    const response = await fetch(`${currentConfig.url}/rest/v1/chat_messages`, {
+      method: "POST",
+      headers: {
+        apikey: currentConfig.key,
+        Authorization: `Bearer ${currentConfig.key}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        conversation_id: conversationId,
+        sender_id: sender.id,
+        receiver_id: receiver.id,
+        sender_username: sender.username,
+        receiver_username: receiver.username,
+        message,
+      }),
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      console.error("[Chat persistence] Save failed:", response.status, detail.slice(0, 300));
+    }
+  }).catch((error) => {
+    console.error("[Chat persistence] Save failed:", error.message);
+  });
+  chatWritesByConversation.set(conversationId, write);
+  await write;
+}
+
+async function deleteChatConversation(conversationId) {
+  if (!conversationId) return;
+  const pendingWrite = chatWritesByConversation.get(conversationId);
+  if (pendingWrite) await pendingWrite.catch(() => {});
+
+  const config = getSupabaseServerConfig();
+  if (!config) {
+    console.warn("[Chat cleanup] Supabase server key is not configured; database deletion was skipped.");
+    return;
+  }
+  try {
+    const response = await fetch(
+      `${config.url}/rest/v1/chat_messages?conversation_id=eq.${encodeURIComponent(conversationId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          apikey: config.key,
+          Authorization: `Bearer ${config.key}`,
+          Prefer: "return=minimal",
+        },
+      }
+    );
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      console.error("[Chat cleanup] Delete failed:", response.status, detail.slice(0, 300));
+      return;
+    }
+    console.log("[Chat cleanup] Deleted temporary conversation:", conversationId);
+  } catch (error) {
+    console.error("[Chat cleanup] Delete failed:", error.message);
+  } finally {
+    chatWritesByConversation.delete(conversationId);
+  }
+}
+
 // -------------------- Socket.IO --------------------
+
+io.use(async (socket, next) => {
+  // Authenticate before this socket can enter the stranger queue.
+  const account = await verifyChatSocket(socket.handshake?.auth?.accessToken);
+  if (account) {
+    socket.data.chatUser = account;
+    socket.data.authUsername = account.username;
+  }
+  next();
+});
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
@@ -1250,7 +1365,7 @@ io.on("connection", (socket) => {
     if (!creatorAccount) {
       creatorAccount = getTestAccount(username, "creator", "female");
     }
-    if (!creatorAccount || creatorAccount.role !== "creator" || String(creatorAccount.gender || "").trim().toLowerCase() !== "female") {
+    if (!creatorAccount || creatorAccount.role !== "creator" || creatorAccount.gender !== "female") {
       return reply({
         ok: false,
         error: "This account conflicts with an existing session. Please log out and log in again.",
@@ -1388,7 +1503,7 @@ io.on("connection", (socket) => {
     if (
       !creatorAccount ||
       creatorAccount.role !== "creator" ||
-      String(creatorAccount.gender || "").trim().toLowerCase() !== "female"
+      creatorAccount.gender !== "female"
     ) {
       return reply({
         ok: false,
@@ -1461,15 +1576,28 @@ io.on("connection", (socket) => {
       creatorUsername: request.creatorUsername,
     });
 
+    const pairCallerSocket = io.sockets.sockets.get(request.callerId);
+    const pairCreatorSocket = io.sockets.sockets.get(request.creatorId);
+    const conversationId = pairCallerSocket?.data?.chatUser && pairCreatorSocket?.data?.chatUser
+      ? randomUUID()
+      : "";
+    if (conversationId) {
+      chatConversationBySocket.set(request.callerId, conversationId);
+      chatConversationBySocket.set(request.creatorId, conversationId);
+    }
     io.to(request.callerId).emit("matched", {
       initiator: request.callerId < request.creatorId,
       callType: "creator",
       creatorUsername: request.creatorUsername,
+      conversationId,
+      partnerUserId: pairCreatorSocket?.data?.chatUser?.id || "",
     });
     io.to(request.creatorId).emit("matched", {
       initiator: request.creatorId < request.callerId,
       callType: "creator",
       callerName: request.callerName,
+      conversationId,
+      partnerUserId: pairCallerSocket?.data?.chatUser?.id || "",
     });
 
     reply({
@@ -1538,16 +1666,29 @@ io.on("connection", (socket) => {
       creatorUsername: request.creatorUsername,
     });
 
+    const pairCallerSocket = io.sockets.sockets.get(request.callerId);
+    const pairCreatorSocket = io.sockets.sockets.get(request.creatorId);
+    const conversationId = pairCallerSocket?.data?.chatUser && pairCreatorSocket?.data?.chatUser
+      ? randomUUID()
+      : "";
+    if (conversationId) {
+      chatConversationBySocket.set(request.callerId, conversationId);
+      chatConversationBySocket.set(request.creatorId, conversationId);
+    }
     io.to(request.callerId).emit("matched", {
       initiator: request.callerId < request.creatorId,
       callType: "creator",
       creatorUsername: request.creatorUsername,
+      conversationId,
+      partnerUserId: pairCreatorSocket?.data?.chatUser?.id || "",
     });
 
     io.to(request.creatorId).emit("matched", {
       initiator: request.creatorId < request.callerId,
       callType: "creator",
       callerName: request.callerName,
+      conversationId,
+      partnerUserId: pairCallerSocket?.data?.chatUser?.id || "",
     });
 
     reply({ ok: true, message: "Call accepted." });
@@ -1767,14 +1908,27 @@ io.on("connection", (socket) => {
       partners.set(socket.id, partnerId);
       partners.set(partnerId, socket.id);
 
+      const partnerSocket = io.sockets.sockets.get(partnerId);
+      const conversationId = socket.data.chatUser && partnerSocket?.data?.chatUser
+        ? randomUUID()
+        : "";
+      if (conversationId) {
+        chatConversationBySocket.set(socket.id, conversationId);
+        chatConversationBySocket.set(partnerId, conversationId);
+      }
+
       socket.emit("matched", {
         initiator: socket.id < partnerId,
         callType: "random",
+        conversationId,
+        partnerUserId: partnerSocket?.data?.chatUser?.id || "",
       });
 
       io.to(partnerId).emit("matched", {
         initiator: partnerId < socket.id,
         callType: "random",
+        conversationId,
+        partnerUserId: socket.data.chatUser?.id || "",
       });
 
       console.log("Matched:", socket.id, partnerId);
@@ -1789,7 +1943,6 @@ io.on("connection", (socket) => {
 
   socket.on("stop-chat", () => {
     stopSearching(socket);
-
     cancelPendingCallsForSocket(
       socket.id,
       "The participant ended the call request."
@@ -1847,7 +2000,23 @@ io.on("connection", (socket) => {
         }
       }
     }
-    io.to(partnerId).emit("chat-message", message.trim().slice(0, 1000));
+    const cleanMessage = message.trim().slice(0, 1000);
+    const senderAccount = sender?.data?.chatUser;
+    const receiverAccount = receiver?.data?.chatUser;
+    const conversationId = chatConversationBySocket.get(socket.id);
+    if (conversationId && senderAccount && receiverAccount) {
+      void persistChatMessage({
+        conversationId,
+        sender: senderAccount,
+        receiver: receiverAccount,
+        message: cleanMessage,
+      });
+    }
+    io.to(partnerId).emit("chat-message", {
+      text: cleanMessage,
+      conversationId: conversationId || "",
+      senderUsername: senderAccount?.username || "",
+    });
   });
 
   // Demo subscription ledger: kept on the server so creator dashboard refresh works across browsers while this process is running.
@@ -1884,13 +2053,13 @@ io.on("connection", (socket) => {
       }
       return reply({ ok: false, error: "This creator is already reserved by another user.", expiresAt: current.expiresAt, remainingMs: Math.max(0, current.expiresAt - Date.now()) });
     }
-    const rentHours = [3, 5, 7, 24].includes(Number(creator.subscriptionHours))
+    const accessHours = [3, 5, 7, 24].includes(Number(creator.subscriptionHours))
       ? Number(creator.subscriptionHours)
       : 24;
-    const rentDurationMs = rentHours * 60 * 60 * 1000;
-    const expiresAt = Date.now() + rentDurationMs;
+    const accessDurationMs = accessHours * 60 * 60 * 1000;
+    const expiresAt = Date.now() + accessDurationMs;
     const reservation = {
-      creatorUsername, buyerUsername, amount: price, transactionId, rentHours,
+      creatorUsername, buyerUsername, amount: price, transactionId,
       purchasedAt: Date.now(), expiresAt, timer: null,
     };
     reservation.timer = setTimeout(() => {
@@ -1905,7 +2074,7 @@ io.on("connection", (socket) => {
           if (creatorSocketId) io.to(creatorSocketId).emit("partner-left");
         }
       }
-    }, rentDurationMs);
+    }, accessDurationMs);
     exclusiveAccessReservations.set(safeUsername(creatorUsername), reservation);
     if (!subscriptionTransactionIds.has(transactionId)) {
       subscriptionTransactionIds.add(transactionId);
@@ -1923,7 +2092,7 @@ io.on("connection", (socket) => {
       if (liveCreator?.socketId) io.to(liveCreator.socketId).emit("subscription-earnings-updated", { username: creatorUsername });
     }
     console.log(`[Exclusive access] ${buyerUsername} reserved ${creatorUsername} for 24 hours.`);
-    return reply({ ok: true, expiresAt, remainingMs: rentDurationMs, rentHours, price, demoPayment: true });
+    return reply({ ok: true, expiresAt, remainingMs: 24 * 60 * 60 * 1000, price, demoPayment: true });
   });
 
   socket.on("subscription-purchase", (payload, acknowledge) => {
