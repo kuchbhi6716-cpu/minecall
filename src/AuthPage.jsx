@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Eye,
@@ -6,77 +6,60 @@ import {
   LockKeyhole,
   UserRound,
   Video,
+  Mail,
 } from "lucide-react";
+import { supabase } from "./supabaseClient";
 
-const ACCOUNTS_KEY = "onlystream-test-accounts-v1";
 const SESSION_KEY = "onlystream-test-session-v1";
-const API_BASE = "";
+const PENDING_OAUTH_KEY = "onlystream-pending-oauth-profile-v1";
 
-function readAccounts() {
-  try {
-    const saved = localStorage.getItem(ACCOUNTS_KEY);
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
-}
-
-async function hashPassword(password) {
-  const bytes = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function getSafeNextPath(role) {
+function getSafeNextPath(role, creatorPlan) {
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
   const safeNext = Boolean(
-    next &&
-    next.startsWith("/") &&
-    !next.startsWith("//") &&
-    !next.includes("\\") &&
-    !/^\/(?:login|signup|creator)(?:[/?#]|$)/i.test(next)
+    next && next.startsWith("/") && !next.startsWith("//") &&
+    !next.includes("\\") && !/^\/(?:login|signup|creator)(?:[/?#]|$)/i.test(next)
   );
-
-  if (role === "creator") {
-    try {
-      const session = JSON.parse(localStorage.getItem("onlystream-test-session-v1") || "null");
-      if (session?.creatorPlan === "subscription") return "/subscription-creator";
-    } catch {}
-    return "/creator";
-  }
-
-  // Users normally land on Home, but subscription login links return them
-  // to the exact creator page they tried to open before authentication.
-  if (role === "user") return safeNext ? next : "/";
+  if (role === "creator") return creatorPlan === "subscription" ? "/subscription-creator" : "/creator";
   return safeNext ? next : "/";
 }
 
-async function initializeTestAccount(username, role, gender = "") {
-  const response = await fetch(`${API_BASE}/api/test-account`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, role, gender }),
-  });
+function normalizedProfile(profile, authUser) {
+  const metadata = authUser?.user_metadata || {};
+  const emailName = (authUser?.email || "").split("@")[0].toLowerCase();
+  return {
+    id: authUser?.id || profile?.id || "",
+    email: authUser?.email || "",
+    username: profile?.username || metadata.username || emailName || `user_${String(authUser?.id || "").replaceAll("-", "").slice(0, 12)}`,
+    role: profile?.role || metadata.role || "user",
+    creatorPlan: profile?.creator_plan || metadata.creator_plan || "calls",
+    subscriptionPrice: Number(profile?.subscription_price ?? metadata.subscription_price ?? 0),
+    subscriptionHours: Number(profile?.subscription_hours ?? metadata.subscription_hours ?? 24),
+    gender: profile?.gender || metadata.gender || "",
+  };
+}
 
-  let data = {};
+async function saveCompatibilitySession(user, profile) {
+  const account = normalizedProfile(profile, user);
+  const { data: walletData } = await supabase
+    .from("wallets")
+    .select("coin_balance")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const session = {
+    ...account,
+    loggedInAt: new Date().toISOString(),
+    authProvider: user.app_metadata?.provider || "email",
+    testMode: true,
+    coins: Number(walletData?.coin_balance ?? 0),
+    testBonusInr: 0,
+  };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  return account;
+}
 
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error("The server returned an invalid response.");
-  }
-
-  if (!response.ok || !data.account) {
-    throw new Error(
-      data.error || "Could not initialize the test account."
-    );
-  }
-
-  return data.account;
+function cleanUsername(value) {
+  return value.trim().toLowerCase();
 }
 
 export default function AuthPage({ initialMode = "login" }) {
@@ -89,6 +72,7 @@ export default function AuthPage({ initialMode = "login" }) {
   const [creatorPlan, setCreatorPlan] = useState("calls");
   const [subscriptionPrice, setSubscriptionPrice] = useState("499");
   const [subscriptionHours, setSubscriptionHours] = useState("24");
+  const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -96,133 +80,130 @@ export default function AuthPage({ initialMode = "login" }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    async function finishOAuthIfPresent() {
+      const { data, error } = await supabase.auth.getSession();
+      if (!active || error || !data.session?.user) return;
+      const user = data.session.user;
+      let pending = null;
+      try { pending = JSON.parse(sessionStorage.getItem(PENDING_OAUTH_KEY) || "null"); } catch {}
+      if (pending) {
+        const patch = {
+          username: pending.username,
+          role: pending.role,
+          gender: pending.role === "creator" ? pending.gender : "",
+          creator_plan: pending.role === "creator" ? pending.creatorPlan : "calls",
+          subscription_price: pending.role === "creator" && pending.creatorPlan === "subscription" ? Math.max(1, Number(pending.subscriptionPrice) || 1) : 0,
+          subscription_hours: [3, 5, 7, 24].includes(Number(pending.subscriptionHours)) ? Number(pending.subscriptionHours) : 24,
+        };
+        const { error: updateError } = await supabase.from("profiles").update(patch).eq("id", user.id);
+        if (updateError) {
+          setMessage("Google sign-in worked, but profile setup failed. Run the Supabase profile policies SQL file, then try again.");
+          return;
+        }
+        sessionStorage.removeItem(PENDING_OAUTH_KEY);
+      }
+      const { data: profileData, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      if (profileError) {
+        setMessage("Login succeeded, but the profile could not be loaded. Please check the Supabase RLS policies.");
+        return;
+      }
+      const account = await saveCompatibilitySession(user, profileData);
+      window.location.replace(getSafeNextPath(account.role, account.creatorPlan));
+    }
+    finishOAuthIfPresent();
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") localStorage.removeItem(SESSION_KEY);
+      if (event === "SIGNED_IN" && session?.user && window.location.pathname !== "/login" && window.location.pathname !== "/signup") {
+        // The auth page effect handles redirect completion on the auth routes.
+      }
+    });
+    return () => { active = false; listener.subscription.unsubscribe(); };
+  }, []);
+
   async function handleSubmit(event) {
     event.preventDefault();
     setMessage("");
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = cleanUsername(username);
 
-    const cleanUsername = username.trim().toLowerCase();
-
-    if (!/^[a-z0-9_.-]{3,30}$/.test(cleanUsername)) {
-      setMessage(
-        "Username must be 3–30 characters and use only letters, numbers, dots, underscores or hyphens."
-      );
-      return;
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+      setMessage("Please enter a valid email address."); return;
     }
-
-    if (password.length < 6) {
-      setMessage("Password must contain at least 6 characters.");
-      return;
+    if (mode === "signup" && !/^[a-z0-9_.-]{3,30}$/.test(cleanName)) {
+      setMessage("Username must be 3–30 characters and use only letters, numbers, dots, underscores or hyphens."); return;
     }
-
-    if (mode === "signup" && password !== confirmPassword) {
-      setMessage("Passwords do not match.");
-      return;
-    }
-
+    if (password.length < 6) { setMessage("Password must contain at least 6 characters."); return; }
+    if (mode === "signup" && password !== confirmPassword) { setMessage("Passwords do not match."); return; }
     if (mode === "signup" && role === "creator" && gender !== "female") {
-      setMessage(
-        "Creator signup is currently available only to users who select Female."
-      );
-      return;
+      setMessage("Creator signup is currently available only to users who select Female."); return;
     }
 
     setBusy(true);
-
     try {
-      const accounts = readAccounts();
-      const passwordHash = await hashPassword(password);
-
-      const existing = accounts.find(
-        (account) => account.username === cleanUsername
-      );
-
-      let account;
-
       if (mode === "signup") {
-        if (existing) {
-          setMessage("That username already exists. Please log in.");
-          return;
-        }
-
-        account = {
-          username: cleanUsername,
+        const metadata = {
+          username: cleanName,
           role,
           gender: role === "creator" ? gender : "",
-          creatorPlan: role === "creator" ? creatorPlan : "",
-          subscriptionPrice: role === "creator" && creatorPlan === "subscription" ? Math.max(1, Number(subscriptionPrice) || 1) : 0,
-          subscriptionHours: role === "creator" && creatorPlan === "subscription" ? [3, 5, 7, 24].includes(Number(subscriptionHours)) ? Number(subscriptionHours) : 24 : 0,
-          passwordHash,
-          createdAt: new Date().toISOString(),
+          creator_plan: role === "creator" ? creatorPlan : "calls",
+          subscription_price: role === "creator" && creatorPlan === "subscription" ? Math.max(1, Number(subscriptionPrice) || 1) : 0,
+          subscription_hours: [3, 5, 7, 24].includes(Number(subscriptionHours)) ? Number(subscriptionHours) : 24,
         };
-
-        localStorage.setItem(
-          ACCOUNTS_KEY,
-          JSON.stringify([...accounts, account])
-        );
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: { data: metadata, emailRedirectTo: `${window.location.origin}/login` },
+        });
+        if (error) throw error;
+        if (!data.session) {
+          setMessage("Account created! Check your email and confirm it, then log in.");
+          return;
+        }
+        const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", data.user.id).maybeSingle();
+        if (profileError) throw new Error("Account created, but profile access is blocked. Run the Supabase profile policies SQL file.");
+        const account = await saveCompatibilitySession(data.user, profile);
+        window.location.replace(getSafeNextPath(account.role, account.creatorPlan));
       } else {
-        if (!existing || existing.passwordHash !== passwordHash) {
-          setMessage("Incorrect username or password.");
-          return;
-        }
-
-        if (existing.role !== role) {
-          setMessage(
-            `This account is registered as ${existing.role}. Choose the correct account type.`
-          );
-          return;
-        }
-
-        if (existing.role === "creator" && existing.gender !== "female") {
-          setMessage(
-            "This creator account does not have the required gender information. Please contact support or create a new account with a different username."
-          );
-          return;
-        }
-
-        account = existing;
-        if (role === "creator" && !account.creatorPlan) account.creatorPlan = "calls";
+        const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+        if (error) throw error;
+        const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", data.user.id).maybeSingle();
+        if (profileError) throw new Error("Logged in, but profile access is blocked. Run the Supabase profile policies SQL file.");
+        if (profile?.role !== role) throw new Error(`This account is registered as ${profile?.role || "user"}. Choose the correct account type.`);
+        const account = await saveCompatibilitySession(data.user, profile);
+        window.location.replace(getSafeNextPath(account.role, account.creatorPlan));
       }
-
-      let economyAccount;
-
-      try {
-        economyAccount = await initializeTestAccount(
-          account.username,
-          account.role,
-          account.gender || ""
-        );
-      } catch (error) {
-        setMessage(
-          `Your local account was ${
-            mode === "signup" ? "created" : "verified"
-          }, but the test server could not initialize it. Check that Render has deployed the updated index.js, then try again. Details: ${error.message}`
-        );
-        return;
-      }
-
-      const session = {
-        username: account.username,
-        role: account.role,
-        creatorPlan: account.creatorPlan || "calls",
-        subscriptionPrice: Number(account.subscriptionPrice || 0),
-        subscriptionHours: [3, 5, 7, 24].includes(Number(account.subscriptionHours)) ? Number(account.subscriptionHours) : 24,
-        loggedInAt: new Date().toISOString(),
-        testMode: true,
-        coins: economyAccount.coins ?? 0,
-        testBonusInr: economyAccount.testBonusInr ?? 0,
-      };
-
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-
-      window.location.replace(getSafeNextPath(account.role));
     } catch (error) {
-      setMessage(
-        error?.message ||
-          "Browser storage is unavailable. Please try again."
-      );
+      setMessage(error?.message || "Could not complete authentication. Please try again.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleGoogleSignIn() {
+    setMessage("");
+    if (mode === "signup" && !/^[a-z0-9_.-]{3,30}$/.test(cleanUsername(username))) {
+      setMessage("Enter a valid username before continuing with Google."); return;
+    }
+    if (mode === "signup" && role === "creator" && gender !== "female") {
+      setMessage("Creator signup is currently available only to users who select Female."); return;
+    }
+    const metadata = {
+      username: mode === "signup" ? cleanUsername(username) : "",
+      role: mode === "signup" ? role : "user",
+      gender: mode === "signup" && role === "creator" ? gender : "",
+      creatorPlan: mode === "signup" ? creatorPlan : "calls",
+      subscriptionPrice,
+      subscriptionHours,
+    };
+    if (mode === "signup") sessionStorage.setItem(PENDING_OAUTH_KEY, JSON.stringify(metadata));
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}${mode === "signup" ? "/signup" : "/login"}` },
+    });
+    if (error) { setBusy(false); setMessage(error.message || "Google sign-in could not start."); }
   }
 
   function changeMode(nextMode) {
@@ -362,21 +343,34 @@ export default function AuthPage({ initialMode = "login" }) {
             </>
           )}
 
-          <label htmlFor="auth-username">Username</label>
-
+          <label htmlFor="auth-email">Email address</label>
           <input
-            id="auth-username"
-            type="text"
-            autoComplete="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder="Enter a username"
-            minLength={3}
-            maxLength={30}
-            pattern="[a-zA-Z0-9_.-]+"
+            id="auth-email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
             required
             disabled={busy}
           />
+
+          {mode === "signup" && <>
+            <label htmlFor="auth-username">Username</label>
+            <input
+              id="auth-username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="Choose a username"
+              minLength={3}
+              maxLength={30}
+              pattern="[a-zA-Z0-9_.-]+"
+              required
+              disabled={busy}
+            />
+          </>}
 
           <label htmlFor="auth-password">Password</label>
 
@@ -442,6 +436,11 @@ export default function AuthPage({ initialMode = "login" }) {
                 : "Log In"}
           </button>
         </form>
+
+        <button type="button" className="auth-google-button" onClick={handleGoogleSignIn} disabled={busy}>
+          <Mail size={18} />
+          {busy ? "Please wait..." : "Continue with Google"}
+        </button>
 
         <p className="auth-switch">
           {mode === "signup"
