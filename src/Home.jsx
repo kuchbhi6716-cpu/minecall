@@ -471,19 +471,25 @@ export default function Home() {
         return;
       }
 
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("id, email, username, role, creator_plan, subscription_price, subscription_hours, gender")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!active) return;
-      if (error || !profile) {
-        setSession(null);
-        return;
+      // Supabase Auth is the source of truth for whether someone is signed in.
+      // The profile row enriches the account, but a temporary profile/RLS query
+      // error must not make a successfully signed-in user appear logged out.
+      let profile = null;
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, email, username, role, creator_plan, subscription_price, subscription_hours, gender")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!error) profile = data;
+        else console.error("OnlyStream profile load failed:", error.message);
+      } catch (profileLoadError) {
+        console.error("OnlyStream profile load failed:", profileLoadError);
       }
 
-      const role = String(profile.role || "user").trim().toLowerCase();
+      if (!active) return;
+      const metadata = user.user_metadata || {};
+      const role = String(profile?.role || metadata.role || "user").trim().toLowerCase();
       if (role !== "user" && role !== "creator") {
         setSession(null);
         return;
@@ -491,13 +497,13 @@ export default function Home() {
 
       setSession({
         id: user.id,
-        email: user.email || profile.email || "",
-        username: profile.username || (user.email || "").split("@")[0],
+        email: user.email || profile?.email || "",
+        username: profile?.username || metadata.username || (user.email || "").split("@")[0],
         role,
-        creatorPlan: profile.creator_plan || "calls",
-        subscriptionPrice: Number(profile.subscription_price || 0),
-        subscriptionHours: Number(profile.subscription_hours || 24),
-        gender: profile.gender || "",
+        creatorPlan: profile?.creator_plan || metadata.creator_plan || metadata.creatorPlan || "calls",
+        subscriptionPrice: Number(profile?.subscription_price ?? metadata.subscription_price ?? 0),
+        subscriptionHours: Number(profile?.subscription_hours ?? metadata.subscription_hours ?? 24),
+        gender: profile?.gender || metadata.gender || "",
       });
     }
 
@@ -507,8 +513,8 @@ export default function Home() {
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, authSession) => {
-      // Supabase is the source of truth; account details are loaded from profiles.
-      loadCurrentAccount(authSession);
+      // Defer the profile query until Supabase has finished its auth callback.
+      Promise.resolve().then(() => loadCurrentAccount(authSession));
     });
 
     return () => {
@@ -802,24 +808,27 @@ export default function Home() {
 
         <div className="home-nav-actions">
           <span className="online-status">● We're online</span>
-          {session?.role === "user" ? (
-            <button
-              type="button"
-              className="creator-studio-link"
-              onClick={logoutUser}
-            >
-              Logout
-              <LogOut size={15} />
-            </button>
-          ) : session?.role === "creator" ? (
-            <button
-              type="button"
-              className="creator-studio-link"
-              onClick={openCreatorStudio}
-            >
-              Creator Studio
-              <ArrowUpRight size={15} />
-            </button>
+          {session ? (
+            <>
+              {session.role === "creator" && (
+                <button
+                  type="button"
+                  className="creator-studio-link"
+                  onClick={openCreatorStudio}
+                >
+                  Creator Studio
+                  <ArrowUpRight size={15} />
+                </button>
+              )}
+              <button
+                type="button"
+                className="creator-studio-link"
+                onClick={logoutUser}
+              >
+                Logout
+                <LogOut size={15} />
+              </button>
+            </>
           ) : (
             <a className="creator-studio-link" href="/login">
               Login
