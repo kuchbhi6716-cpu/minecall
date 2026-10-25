@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
-const SESSION_KEY = "onlystream-test-session-v1";
 const PENDING_OAUTH_KEY = "onlystream-pending-oauth-profile-v1";
 
 function getSafeNextPath(role, creatorPlan) {
@@ -54,7 +53,6 @@ async function saveCompatibilitySession(user, profile) {
     coins: Number(walletData?.coin_balance ?? 0),
     testBonusInr: 0,
   };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   return account;
 }
 
@@ -83,11 +81,16 @@ export default function AuthPage({ initialMode = "login" }) {
   useEffect(() => {
     let active = true;
     async function finishOAuthIfPresent() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasOAuthCallback = urlParams.has("code") || window.location.hash.includes("access_token=");
+      let pending = null;
+      try { pending = JSON.parse(sessionStorage.getItem(PENDING_OAUTH_KEY) || "null"); } catch {}
+      // Do not redirect just because Supabase still has a valid session.
+      // Only finish the OAuth flow when this page is returning from Google.
+      if (!hasOAuthCallback && !pending) return;
       const { data, error } = await supabase.auth.getSession();
       if (!active || error || !data.session?.user) return;
       const user = data.session.user;
-      let pending = null;
-      try { pending = JSON.parse(sessionStorage.getItem(PENDING_OAUTH_KEY) || "null"); } catch {}
       if (pending) {
         const patch = {
           username: pending.username,
@@ -103,6 +106,7 @@ export default function AuthPage({ initialMode = "login" }) {
           return;
         }
         sessionStorage.removeItem(PENDING_OAUTH_KEY);
+        pending = null;
       }
       const { data: profileData, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
       if (profileError) {
@@ -113,11 +117,9 @@ export default function AuthPage({ initialMode = "login" }) {
       window.location.replace(getSafeNextPath(account.role, account.creatorPlan));
     }
     finishOAuthIfPresent();
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") localStorage.removeItem(SESSION_KEY);
-      if (event === "SIGNED_IN" && session?.user && window.location.pathname !== "/login" && window.location.pathname !== "/signup") {
-        // The auth page effect handles redirect completion on the auth routes.
-      }
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      // Deliberately do not redirect on SIGNED_IN here. The explicit form submit
+      // or OAuth callback is responsible for navigation.
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
