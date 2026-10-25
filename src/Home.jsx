@@ -11,14 +11,13 @@ import {
   LogOut,
 } from "lucide-react";
 import "./Home.css";
+import { supabase } from "./supabaseClient";
 
 const API_URL = "/api/aw-models";
 const CREATORS_URL = "/api/live-creators";
 const REFRESH_INTERVAL = 45000;
 const CREATORS_REFRESH_INTERVAL = 5000;
 const MISSING_REFRESH_LIMIT = 2;
-const AGE_CONFIRMATION_KEY = "onlystream-age-confirmed-v1";
-const SESSION_KEY = "onlystream-test-session-v1";
 
 function normalizeImageUrl(url) {
   if (typeof url !== "string") return "";
@@ -460,33 +459,69 @@ export default function Home() {
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
   const [showMoreSections, setShowMoreSections] = useState(false);
-  const [session, setSession] = useState(() => {
-    try {
-      const saved = JSON.parse(
-        window.localStorage.getItem(SESSION_KEY) || "null"
-      );
-      const normalizedRole = String(saved?.role || "").trim().toLowerCase();
-      return saved && (normalizedRole === "user" || normalizedRole === "creator")
-        ? { ...saved, role: normalizedRole }
-        : null;
-    } catch {
-      return null;
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCurrentAccount(authSession) {
+      const user = authSession?.user;
+      if (!user) {
+        if (active) setSession(null);
+        return;
+      }
+
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("id, email, username, role, creator_plan, subscription_price, subscription_hours, gender")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!active) return;
+      if (error || !profile) {
+        setSession(null);
+        return;
+      }
+
+      const role = String(profile.role || "user").trim().toLowerCase();
+      if (role !== "user" && role !== "creator") {
+        setSession(null);
+        return;
+      }
+
+      setSession({
+        id: user.id,
+        email: user.email || profile.email || "",
+        username: profile.username || (user.email || "").split("@")[0],
+        role,
+        creatorPlan: profile.creator_plan || "calls",
+        subscriptionPrice: Number(profile.subscription_price || 0),
+        subscriptionHours: Number(profile.subscription_hours || 24),
+        gender: profile.gender || "",
+      });
     }
-  });
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!error) loadCurrentAccount(data.session);
+      else if (active) setSession(null);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, authSession) => {
+      // Supabase is the source of truth; account details are loaded from profiles.
+      loadCurrentAccount(authSession);
+    });
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   const [onlyStreamCreators, setOnlyStreamCreators] = useState([]);
   const [creatorsLoading, setCreatorsLoading] = useState(true);
   const [creatorsError, setCreatorsError] = useState("");
 
-  const [ageConfirmed, setAgeConfirmed] = useState(() => {
-    try {
-      return (
-        window.localStorage.getItem(AGE_CONFIRMATION_KEY) === "true"
-      );
-    } catch {
-      return false;
-    }
-  });
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   const missingCountsRef = useRef(new Map());
 
@@ -548,12 +583,6 @@ export default function Home() {
   }, []);
 
   function confirmAge() {
-    try {
-      window.localStorage.setItem(AGE_CONFIRMATION_KEY, "true");
-    } catch {
-      // Continue for the current session if storage is unavailable.
-    }
-
     setAgeConfirmed(true);
   }
 
@@ -711,14 +740,13 @@ export default function Home() {
     window.location.href = "/login?next=%2Fcreator";
   }
 
-  function logoutUser() {
-    // Logout is only shown to normal user accounts.
+  async function logoutUser() {
     if (session?.role !== "user") return;
 
-    try {
-      window.localStorage.removeItem(SESSION_KEY);
-    } catch {
-      // Continue to the homepage even if browser storage is unavailable.
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("OnlyStream logout failed:", error.message);
+      return;
     }
 
     setSession(null);
