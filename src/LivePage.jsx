@@ -5,6 +5,7 @@ import React, {
   useCallback,
 } from "react";
 import { io } from "socket.io-client";
+import { loadSupabaseAccount } from "./supabaseAccount";
 import {
   ArrowLeft,
   ExternalLink,
@@ -351,13 +352,7 @@ function AWLivePlayer({ username }) {
 // ------------------------------------
 
 function useLiveComments(username) {
-  const [guestName, setGuestName] = useState(() => {
-    try {
-      return localStorage.getItem("onlystream-guest-name") || "";
-    } catch {
-      return "";
-    }
-  });
+  const [guestName, setGuestName] = useState("");
 
   const [message, setMessage] = useState("");
   const [comments, setComments] = useState([]);
@@ -519,12 +514,6 @@ function useLiveComments(username) {
       if (!socketRef.current?.connected) {
         showNotice("Chat reconnect ho raha hai. Dobara try karo.");
         return;
-      }
-
-      try {
-        localStorage.setItem("onlystream-guest-name", name);
-      } catch {
-        // Continue if storage is unavailable.
       }
 
       socketRef.current.emit("live-comment", {
@@ -739,8 +728,7 @@ function SubscriptionCreatorExperience() {
   const params = new URLSearchParams(window.location.search);
   const username = params.get("subscriptionCreator") || "Creator";
   const price = Math.max(1, Number(params.get("subscriptionPrice")) || 499);
-  // Ask for the access fee on every new visit. This avoids old localStorage test flags
-  // silently bypassing the payment popup before opening access.
+  // Access and identity are resolved from Supabase; no browser storage flags.
   const [unlocked, setUnlocked] = useState(false);
   const [showPayment, setShowPayment] = useState(true);
   const [paymentBusy, setPaymentBusy] = useState(false);
@@ -749,16 +737,21 @@ function SubscriptionCreatorExperience() {
   // Require login/signup before showing the subscription payment screen.
   // Keep the full creator URL so AuthPage can return the viewer here after login.
   useEffect(() => {
-    let session = null;
-    try {
-      session = JSON.parse(localStorage.getItem("onlystream-test-session-v1") || "null");
-    } catch {}
-    if (session?.role === "user" || session?.role === "creator") {
-      setViewerAuthReady(true);
-      return;
-    }
-    const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.replace(`/login?next=${encodeURIComponent(returnTo)}`);
+    let active = true;
+    (async () => {
+      try {
+        const account = await loadSupabaseAccount();
+        if (!active) return;
+        if (account && ["user", "creator"].includes(account.role)) {
+          setViewerAuthReady(true);
+          return;
+        }
+      } catch (error) { console.error("Supabase viewer session check failed:", error); }
+      if (!active) return;
+      const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.location.replace(`/login?next=${encodeURIComponent(returnTo)}`);
+    })();
+    return () => { active = false; };
   }, []);
   const [messages, setMessages] = useState([{ id: 1, name: "OnlyStream", text: "Welcome! Keep chat respectful." }]);
   const [message, setMessage] = useState("");
