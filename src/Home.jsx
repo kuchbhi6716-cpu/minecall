@@ -870,27 +870,24 @@ export default function Home() {
 
         <div className="home-nav-actions">
           <span className="online-status">● We're online</span>
-          {session ? (
-            <>
-              {session.role === "creator" && (
-                <button
-                  type="button"
-                  className="creator-studio-link"
-                  onClick={openCreatorStudio}
-                >
-                  Creator Studio
-                  <ArrowUpRight size={15} />
-                </button>
-              )}
-              <button
-                type="button"
-                className="creator-studio-link"
-                onClick={logoutUser}
-              >
-                Logout
-                <LogOut size={15} />
-              </button>
-            </>
+          {session?.role === "creator" ? (
+            <button
+              type="button"
+              className="creator-studio-link"
+              onClick={openCreatorStudio}
+            >
+              Creator Studio
+              <ArrowUpRight size={15} />
+            </button>
+          ) : session?.role === "user" ? (
+            <button
+              type="button"
+              className="creator-studio-link"
+              onClick={logoutUser}
+            >
+              Logout
+              <LogOut size={15} />
+            </button>
           ) : (
             <a className="creator-studio-link" href="/login">
               Login
