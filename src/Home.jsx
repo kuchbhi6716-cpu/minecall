@@ -520,7 +520,17 @@ export default function Home() {
 
       if (!active) return;
       const metadata = user.user_metadata || {};
-      const role = String(profile?.role || metadata.role || "user").trim().toLowerCase();
+      const profileRole = String(profile?.role || "").trim().toLowerCase();
+      const metadataRole = String(metadata.role || "").trim().toLowerCase();
+
+      // Keep creator navigation available if Supabase Auth metadata says creator
+      // but the profile query temporarily returns a stale/missing role. Actual
+      // permissions must still be enforced by the protected backend/pages.
+      const role = profileRole === "creator" || metadataRole === "creator"
+        ? "creator"
+        : profileRole === "user" || metadataRole === "user"
+          ? "user"
+          : "user";
       if (role !== "user" && role !== "creator") {
         setSession(null);
         return;
