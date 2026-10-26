@@ -387,19 +387,25 @@ function getSubscriptionPrice(creator) {
 }
 
 function getCreatorCardImage(creator) {
+  // Homepage creator cards must use the image uploaded on Profile Setup.
+  // Never use snapshots captured from the live camera as a card thumbnail.
   const possibleImages = [
-    creator?.liveThumbnail,
-    creator?.live_thumbnail,
+    creator?.creatorThumbnailUrl,
+    creator?.creator_thumbnail_url,
+    creator?.thumbnail_url,
     creator?.thumbnail,
+    creator?.profile_picture_url,
     creator?.profileImage,
     creator?.profile_image,
-    creator?.avatar,
-    creator?.avatarUrl,
     creator?.avatar_url,
-    creator?.imageUrl,
+    creator?.avatarUrl,
+    creator?.avatar,
     creator?.image_url,
+    creator?.imageUrl,
     creator?.photoURL,
     creator?.photoUrl,
+    creator?.profile?.creator_thumbnail_url,
+    creator?.profile?.profile_picture_url,
     creator?.profile?.image,
     creator?.profile?.avatar,
   ];
@@ -408,10 +414,9 @@ function getCreatorCardImage(creator) {
   );
   if (suppliedImage) return normalizeImageUrl(suppliedImage);
 
-  // Stable per-creator portrait fallback: it won't change every 5-second refresh.
-  // A real profile/live thumbnail supplied by the backend always takes priority.
-  const username = String(creator?.username || "creator").trim();
-  return `https://i.pravatar.cc/600?u=${encodeURIComponent(username)}`;
+  // Do not invent a random portrait when a creator has not uploaded a picture.
+  // The card can use its existing no-image/placeholder styling instead.
+  return "";
 }
 
 function OnlyStreamCreatorCard({ creator, plan = "call" }) {
