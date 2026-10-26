@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
-const PENDING_OAUTH_KEY = "onlystream-pending-oauth-profile-v1";
 
 function getSafeNextPath(role, creatorPlan) {
   const params = new URLSearchParams(window.location.search);
@@ -67,66 +66,7 @@ function normalizedProfile(profile, authUser) {
  * Wallet and compatibility-session errors must not block a valid login.
  */
 async function saveCompatibilitySession(user, profile) {
-  const account = normalizedProfile(profile, user);
-
-  let coins = 0;
-
-  try {
-    const { data: walletData, error: walletError } = await supabase
-      .from("wallets")
-      .select("coins")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (walletError) {
-      console.warn("Wallet lookup failed:", walletError.message);
-    } else {
-      coins = Number(walletData?.coins ?? 0);
-    }
-  } catch (error) {
-    console.warn("Wallet lookup failed:", error);
-  }
-
-  const compatibilitySession = {
-    ...account,
-    loggedInAt: new Date().toISOString(),
-    authProvider: user.app_metadata?.provider || "email",
-    testMode: false,
-    coins,
-    testBonusInr: 0,
-  };
-
-  // Optional compatibility data. Never block login if this column
-  // is missing or its update is denied by the database.
-  try {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ compatibility_session: compatibilitySession })
-      .eq("id", user.id);
-
-    if (error) {
-      console.warn(
-        "Compatibility session was not saved:",
-        error.message
-      );
-    }
-  } catch (error) {
-    console.warn("Compatibility-session update failed:", error);
-  }
-
-  // Compatibility profile cache for older app screens and the existing
-  // economy/call APIs. Supabase remains the source of authentication; this
-  // object contains profile metadata only and must never contain auth tokens.
-  try {
-    localStorage.setItem(
-      "onlystream-test-session-v1",
-      JSON.stringify(compatibilitySession)
-    );
-  } catch (storageError) {
-    console.warn("Compatibility profile cache could not be saved:", storageError);
-  }
-
-  return account;
+  return normalizedProfile(profile, user);
 }
 
 function cleanUsername(value) {
@@ -180,17 +120,16 @@ export default function AuthPage({ initialMode = "login" }) {
         params.has("code") ||
         window.location.hash.includes("access_token=");
 
-      let pending = null;
+      const pending = params.has("os_signup") ? {
+        username: params.get("os_username") || "",
+        role: params.get("os_role") || "user",
+        gender: params.get("os_gender") || "",
+        creatorPlan: params.get("os_plan") || "calls",
+        subscriptionPrice: params.get("os_price") || "499",
+        subscriptionHours: params.get("os_hours") || "24",
+      } : null;
 
-      try {
-        pending = JSON.parse(
-          sessionStorage.getItem(PENDING_OAUTH_KEY) || "null"
-        );
-      } catch {
-        pending = null;
-      }
-
-      if (!hasOAuthCallback && !pending) return;
+      if (!hasOAuthCallback) return;
 
       try {
         const { data, error } = await supabase.auth.getSession();
@@ -228,12 +167,6 @@ export default function AuthPage({ initialMode = "login" }) {
             return;
           }
 
-          try {
-            sessionStorage.removeItem(PENDING_OAUTH_KEY);
-          } catch {
-            // The database update succeeded; temporary storage cleanup
-            // must not block navigation.
-          }
         }
 
         const { data: profile, error: profileError } = await supabase
@@ -506,32 +439,24 @@ export default function AuthPage({ initialMode = "login" }) {
       subscriptionHours,
     };
 
-    if (mode === "signup") {
-      try {
-        sessionStorage.setItem(
-          PENDING_OAUTH_KEY,
-          JSON.stringify(metadata)
-        );
-      } catch {
-        setMessage(
-          "Could not save temporary signup details in this browser. Please try again."
-        );
-        return;
-      }
-    }
-
     setBusy(true);
 
     try {
+      const redirectUrl = new URL(`${window.location.origin}${mode === "signup" ? "/signup" : "/login"}`);
+      if (mode === "signup") {
+        redirectUrl.searchParams.set("os_signup", "1");
+        redirectUrl.searchParams.set("os_username", metadata.username);
+        redirectUrl.searchParams.set("os_role", metadata.role);
+        redirectUrl.searchParams.set("os_gender", metadata.gender);
+        redirectUrl.searchParams.set("os_plan", metadata.creatorPlan);
+        redirectUrl.searchParams.set("os_price", metadata.subscriptionPrice);
+        redirectUrl.searchParams.set("os_hours", metadata.subscriptionHours);
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}${
-            mode === "signup" ? "/signup" : "/login"
-          }`,
-          queryParams: {
-            prompt: "select_account",
-          },
+          redirectTo: redirectUrl.toString(),
+          queryParams: { prompt: "select_account" },
         },
       });
 
