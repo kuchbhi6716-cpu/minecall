@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { supabase } from "./supabaseClient";
+import { loadSupabaseAccount } from "./supabaseAccount";
 import {
   ArrowLeft, Camera, CameraOff, Gift, LogOut, Phone,
   Radio, ShieldCheck, Video, VideoOff, PhoneOff, Check, X,
@@ -8,8 +9,6 @@ import {
 } from "lucide-react";
 import "./CreatorDashboard.css";
 
-const SESSION_KEY = "onlystream-test-session-v1";
-const LIVE_KEY = "onlystream-test-live-v1";
 const API_BASE = "";
 
 const ICE_SERVERS = {
@@ -56,6 +55,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const typingTimeoutRef = useRef(null);
   const typingRef = useRef(false);
 
+  const [account, setAccount] = useState(null);
+  const [accountReady, setAccountReady] = useState(false);
   const [username, setUsername] = useState("Creator");
   const [isLive, setIsLive] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -82,13 +83,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const [cameraSwitching, setCameraSwitching] = useState(false);
 
   const refreshEconomy = useCallback(async () => {
-    let session;
-    try {
-      session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-    } catch {
-      session = null;
-    }
-
+    const session = account;
     if (!session?.username) {
       if (mountedRef.current) setEconomyLoading(false);
       return;
@@ -134,7 +129,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     } finally {
       if (mountedRef.current) setEconomyLoading(false);
     }
-  }, [exclusiveMode]);
+  }, [exclusiveMode, account]);
 
   const stopBilling = useCallback(() => {
     if (!billingStartedRef.current) return;
@@ -374,40 +369,44 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   }, [drainSignals]);
 
   useEffect(() => {
+    let active = true;
+    loadSupabaseAccount()
+      .then((loadedAccount) => {
+        if (!active) return;
+        setAccount(loadedAccount);
+        setAccountReady(true);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setCameraError(error?.message || "Could not verify your Supabase session.");
+        setAccount(null);
+        setAccountReady(true);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!accountReady) return undefined;
     mountedRef.current = true;
+    const session = account;
 
-    try {
-      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-
-      if (!session || session.role !== "creator") {
-        window.location.replace(`/login?next=${encodeURIComponent(exclusiveMode ? "/subscription-creator" : "/creator")}`);
-        return undefined;
-      }
-
-      if (exclusiveMode && session.creatorPlan !== "subscription") {
-        window.location.replace("/creator");
-        return undefined;
-      }
-
-      if (!exclusiveMode && session.creatorPlan === "subscription") {
-        window.location.replace("/subscription-creator");
-        return undefined;
-      }
-
-      setUsername(session.username || "Creator");
-
-      const oldLive = JSON.parse(localStorage.getItem(LIVE_KEY) || "null");
-      if (oldLive?.username === session.username && oldLive.isLive) {
-        localStorage.removeItem(LIVE_KEY);
-      }
-    } catch {
-      window.location.replace("/login");
+    if (!session || session.role !== "creator") {
+      window.location.replace(`/login?next=${encodeURIComponent(exclusiveMode ? "/subscription-creator" : "/creator")}`);
       return undefined;
     }
+    if (exclusiveMode && session.creatorPlan !== "subscription") {
+      window.location.replace("/creator");
+      return undefined;
+    }
+    if (!exclusiveMode && session.creatorPlan === "subscription") {
+      window.location.replace("/subscription-creator");
+      return undefined;
+    }
+    setUsername(session.username || "Creator");
 
     // Initialize the demo creator account first so the signup bonus is granted
-    // server-side before the dashboard requests earnings. Supabase remains the
-    // source of identity; the local session is only compatibility metadata.
+    // server-side before the dashboard requests earnings. Supabase Auth and
+    // the profiles table are the source of account identity.
     (async () => {
       try {
         const { data: authData, error: authError } = await supabase.auth.getSession();
@@ -565,7 +564,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
       setIsLive(false);
       stopLocalStream();
       closePeer();
-      localStorage.removeItem(LIVE_KEY);
       setCameraError("Your live session was replaced by another session.");
     });
 
@@ -583,7 +581,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     };
   }, [
     closePeer, createPeer, drainSignals, handleSignal,
-    refreshEconomy, stopLocalStream
+    refreshEconomy, stopLocalStream, accountReady, account
   ]);
 
   useEffect(() => {
@@ -700,7 +698,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
         await videoRef.current.play();
       }
 
-      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+      const session = account;
       const creatorUsername = session?.username || username;
       const socket = socketRef.current;
 
@@ -732,11 +730,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
         window.setTimeout(publishLiveThumbnail, 900);
         thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 5000);
 
-        localStorage.setItem(LIVE_KEY, JSON.stringify({
-          username: creatorUsername,
-          isLive: true,
-          startedAt: new Date().toISOString(),
-        }));
       });
 
       window.setTimeout(() => {
@@ -921,7 +914,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     isLiveRef.current = false;
     stopLocalStream();
 
-    localStorage.removeItem(LIVE_KEY);
     setIsLive(false);
     setCameraError("");
     setIsEnding(false);
@@ -936,9 +928,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     closePeer();
     stopLocalStream();
 
-    localStorage.removeItem(LIVE_KEY);
-    localStorage.removeItem(SESSION_KEY);
-    // End the real Supabase session as well as clearing compatibility metadata.
+    // Supabase Auth is the only source of login/session state.
     supabase.auth.signOut().finally(() => {
       window.location.replace("/login");
     });
