@@ -8,9 +8,26 @@ import {
 } from "lucide-react";
 import "./CreatorDashboard.css";
 
-const SESSION_KEY = "onlystream-test-session-v1";
-const LIVE_KEY = "onlystream-test-live-v1";
 const API_BASE = "";
+let currentCreatorProfile = null;
+
+async function loadCreatorProfile() {
+  const { data: authData, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  let authSession = authData?.session;
+  if (!authSession?.access_token) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error) throw refreshed.error;
+    authSession = refreshed.data?.session;
+  }
+  if (!authSession?.user?.id || !authSession.access_token) return null;
+  const { data: profile, error } = await supabase.from("profiles")
+    .select("id,username,role,gender,creator_plan,subscription_price,subscription_hours")
+    .eq("id", authSession.user.id).maybeSingle();
+  if (error) throw error;
+  if (!profile) return null;
+  return { ...profile, username: profile.username || authSession.user.email?.split("@")[0] || "Creator", creatorPlan: profile.creator_plan || "calls", subscriptionPrice: Number(profile.subscription_price || 499), subscriptionHours: Number(profile.subscription_hours || 24), accessToken: authSession.access_token };
+}
 
 const ICE_SERVERS = {
   iceServers: [
@@ -82,12 +99,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const [cameraSwitching, setCameraSwitching] = useState(false);
 
   const refreshEconomy = useCallback(async () => {
-    let session;
-    try {
-      session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-    } catch {
-      session = null;
-    }
+    let session = currentCreatorProfile;
+    try { session = await loadCreatorProfile(); currentCreatorProfile = session; } catch (error) { console.error("Could not load creator profile:", error); }
 
     if (!session?.username) {
       if (mountedRef.current) setEconomyLoading(false);
@@ -100,8 +113,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
       const endpoint = exclusiveMode
         ? `${API_BASE}/api/exclusive-earnings?username=${encodeURIComponent(session.username)}`
-        : `${API_BASE}/api/economy/me?username=${encodeURIComponent(session.username)}`;
-      const response = await fetch(endpoint, { headers: { Accept: "application/json" }, cache: "no-store" });
+        : `${API_BASE}/api/economy/me?username=${encodeURIComponent(session.username)}&role=creator`;
+      const response = await fetch(endpoint, { headers: { Accept: "application/json", Authorization: `Bearer ${session.accessToken}` }, cache: "no-store" });
       const data = await readJson(response);
 
       if (mountedRef.current) {
@@ -376,57 +389,28 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   useEffect(() => {
     mountedRef.current = true;
 
-    try {
-      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-
-      if (!session || session.role !== "creator") {
-        window.location.replace(`/login?next=${encodeURIComponent(exclusiveMode ? "/subscription-creator" : "/creator")}`);
-        return undefined;
-      }
-
-      if (exclusiveMode && session.creatorPlan !== "subscription") {
-        window.location.replace("/creator");
-        return undefined;
-      }
-
-      if (!exclusiveMode && session.creatorPlan === "subscription") {
-        window.location.replace("/subscription-creator");
-        return undefined;
-      }
-
-      setUsername(session.username || "Creator");
-
-      const oldLive = JSON.parse(localStorage.getItem(LIVE_KEY) || "null");
-      if (oldLive?.username === session.username && oldLive.isLive) {
-        localStorage.removeItem(LIVE_KEY);
-      }
-    } catch {
-      window.location.replace("/login");
-      return undefined;
-    }
-
-    // Initialize the demo creator account first so the signup bonus is granted
-    // server-side before the dashboard requests earnings. Supabase remains the
-    // source of identity; the local session is only compatibility metadata.
     (async () => {
       try {
-        const { data: authData, error: authError } = await supabase.auth.getSession();
-        if (authError) throw authError;
-        const accessToken = authData?.session?.access_token || "";
-        if (!accessToken) {
-          setCameraError("Your login session is missing or expired. Please log in again.");
-          setEconomyLoading(false);
+        const session = await loadCreatorProfile();
+        currentCreatorProfile = session;
+        if (!mountedRef.current) return;
+        if (!session || session.role !== "creator") {
+          window.location.replace(`/login?next=${encodeURIComponent(exclusiveMode ? "/subscription-creator" : "/creator")}`);
           return;
         }
+        if (exclusiveMode && session.creatorPlan !== "subscription") {
+          window.location.replace("/creator");
+          return;
+        }
+        if (!exclusiveMode && session.creatorPlan === "subscription") {
+          window.location.replace("/subscription-creator");
+          return;
+        }
+        setUsername(session.username || "Creator");
         const response = await fetch(`${API_BASE}/api/test-account`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({
-            username: session.username,
-            role: "creator",
-            gender: session.gender || "female",
-            accessToken,
-          }),
+          headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${session.accessToken}` },
+          body: JSON.stringify({ username: session.username, role: "creator", gender: session.gender || "female" }),
           cache: "no-store",
         });
         const result = await readJson(response);
@@ -435,7 +419,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
         await refreshEconomy();
       } catch (error) {
         if (mountedRef.current) {
-          setEconomyError(error?.message || "Could not initialize creator demo earnings.");
+          setCameraError(error?.message || "Could not load your Supabase creator profile.");
+          setEconomyError(error?.message || "Could not load creator earnings.");
           setEconomyLoading(false);
         }
       }
@@ -565,7 +550,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
       setIsLive(false);
       stopLocalStream();
       closePeer();
-      localStorage.removeItem(LIVE_KEY);
       setCameraError("Your live session was replaced by another session.");
     });
 
@@ -700,8 +684,10 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
         await videoRef.current.play();
       }
 
-      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-      const creatorUsername = session?.username || username;
+      const session = await loadCreatorProfile();
+      if (!session || session.role !== "creator") throw new Error("Your Supabase creator profile is missing. Please sign in again.");
+      currentCreatorProfile = session;
+      const creatorUsername = session.username || username;
       const socket = socketRef.current;
 
       if (!socket?.connected) {
@@ -732,11 +718,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
         window.setTimeout(publishLiveThumbnail, 900);
         thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 5000);
 
-        localStorage.setItem(LIVE_KEY, JSON.stringify({
-          username: creatorUsername,
-          isLive: true,
-          startedAt: new Date().toISOString(),
-        }));
       });
 
       window.setTimeout(() => {
@@ -921,7 +902,6 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     isLiveRef.current = false;
     stopLocalStream();
 
-    localStorage.removeItem(LIVE_KEY);
     setIsLive(false);
     setCameraError("");
     setIsEnding(false);
@@ -936,9 +916,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     closePeer();
     stopLocalStream();
 
-    localStorage.removeItem(LIVE_KEY);
-    localStorage.removeItem(SESSION_KEY);
-    // End the real Supabase session as well as clearing compatibility metadata.
+    currentCreatorProfile = null;
     supabase.auth.signOut().finally(() => {
       window.location.replace("/login");
     });
