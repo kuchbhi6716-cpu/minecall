@@ -136,22 +136,49 @@ export default function ProfileSetupPage() {
       };
       if (role === "creator") patch.creator_thumbnail_url = finalThumbnailUrl || thumbnailUrl || null;
 
-      const { error: updateError } = await supabase.from("profiles").update(patch).eq("id", user.id);
-      if (updateError) throw new Error(`Could not save profile to Supabase: ${updateError.message}`);
+      const { data: savedProfile, error: updateError } = await supabase
+        .from("profiles")
+        .update(patch)
+        .eq("id", user.id)
+        .select("id, role, username, age, profile_picture_url, profile_completed")
+        .maybeSingle();
+
+      if (updateError) {
+        throw new Error(`Could not save profile to Supabase: ${updateError.message}`);
+      }
+      if (!savedProfile) {
+        throw new Error(
+          "Your profile was not updated in Supabase. Check that your profiles row exists and its UPDATE policy allows the signed-in user to update their own row."
+        );
+      }
+      if (
+        savedProfile.profile_completed !== true ||
+        !savedProfile.username ||
+        !savedProfile.age ||
+        !savedProfile.profile_picture_url
+      ) {
+        throw new Error(
+          "Supabase did not confirm that your profile was completed. Please try saving again."
+        );
+      }
 
       setProfileUrl(finalProfileUrl);
       if (role === "creator") setThumbnailUrl(finalThumbnailUrl || thumbnailUrl);
       setProfileFile(null);
       setThumbnailFile(null);
       setMessage("Profile saved to Supabase successfully.");
+      // Prevent profile completion from redirecting back into login/setup.
+      // Creators always return to the homepage after completing their profile.
       const next = new URLSearchParams(window.location.search).get("next");
-      if (next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")) {
-        window.setTimeout(() => window.location.replace(next), 650);
-      } else if (role === "creator") {
-        window.setTimeout(() => window.location.replace("/"), 650);
-      } else {
-        window.setTimeout(() => window.location.replace("/"), 650);
-      }
+      const safeNext = Boolean(
+        next &&
+        next.startsWith("/") &&
+        !next.startsWith("//") &&
+        !next.includes("\\\\") &&
+        !/^\/(?:login|signup|profile|profile-setup)(?:[/?#]|$)/i.test(next)
+      );
+      const destination = role !== "creator" && safeNext ? next : "/";
+      window.setTimeout(() => window.location.replace(destination), 350);
     } catch (saveError) {
       setError(saveError?.message || "Could not save your profile.");
     } finally {
