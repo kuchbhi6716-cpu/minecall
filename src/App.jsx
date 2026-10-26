@@ -21,7 +21,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 
-const SESSION_KEY = "onlystream-test-session-v1";
+let currentAccount = null;
 
 const ICE_SERVERS = {
   iceServers: [
@@ -33,11 +33,19 @@ const ICE_SERVERS = {
 const API_BASE = "";
 
 function getStoredSession() {
-  try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-  } catch {
-    return null;
-  }
+  return currentAccount;
+}
+
+async function loadSupabaseAccount() {
+  const { data: authData, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const authSession = authData?.session;
+  if (!authSession?.user?.id || !authSession.access_token) { currentAccount = null; return null; }
+  const { data: profile, error } = await supabase.from("profiles").select("id,username,role,gender,creator_plan,subscription_price,subscription_hours").eq("id", authSession.user.id).maybeSingle();
+  if (error) throw error;
+  if (!profile) { currentAccount = null; return null; }
+  currentAccount = { id: authSession.user.id, email: authSession.user.email || "", username: profile.username || authSession.user.email?.split("@")[0] || "user", role: profile.role || "user", gender: profile.gender || "", creatorPlan: profile.creator_plan || "calls", subscriptionPrice: Number(profile.subscription_price || 0), subscriptionHours: Number(profile.subscription_hours || 24), accessToken: authSession.access_token };
+  return currentAccount;
 }
 
 function CallPage() {
@@ -96,6 +104,8 @@ function CallPage() {
 
   const refreshWallet = useCallback(async (targetUsername = "") => {
     const name = targetUsername || getStoredSession()?.username;
+    let accessToken = getStoredSession()?.accessToken;
+    try { const loaded = await loadSupabaseAccount(); accessToken = loaded?.accessToken || accessToken; } catch {}
 
     if (!name) {
       setWalletBalance(null);
@@ -104,8 +114,8 @@ function CallPage() {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/economy/me?username=${encodeURIComponent(name)}`,
-        { cache: "no-store" }
+        `${API_BASE}/api/economy/me?username=${encodeURIComponent(name)}&role=${encodeURIComponent(getStoredSession()?.role || "user")}`,
+        { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}, cache: "no-store" }
       );
 
       const data = await response.json();
@@ -148,14 +158,17 @@ function CallPage() {
   }, []);
 
   useEffect(() => {
-    const currentSession = getStoredSession();
-    setSession(currentSession);
-
-    if (currentSession?.role === "user" && currentSession?.username) {
-      void refreshWallet(currentSession.username);
-    }
-
-    void loadCoinPackages();
+    let cancelled = false;
+    (async () => {
+      try {
+        const currentSession = await loadSupabaseAccount();
+        if (cancelled) return;
+        setSession(currentSession);
+        if (currentSession?.role === "user" && currentSession?.username) void refreshWallet(currentSession.username);
+      } catch (error) { console.error("Could not load Supabase account:", error); if (!cancelled) { currentAccount = null; setSession(null); } }
+      if (!cancelled) void loadCoinPackages();
+    })();
+    return () => { cancelled = true; };
   }, [refreshWallet, loadCoinPackages]);
 
   const cleanupPeer = useCallback(() => {
@@ -685,8 +698,9 @@ function CallPage() {
   async function startChat() {
     if (activeRef.current || requestPendingRef.current) return;
 
-    // Both random and creator calls require a user test account.
-    const currentSession = getStoredSession();
+    // Supabase Auth + profiles are the only source of account identity.
+    let currentSession;
+    try { currentSession = await loadSupabaseAccount(); setSession(currentSession); } catch (error) { setStatus(error.message || "Could not verify your login."); return; }
 
     if (
       !currentSession ||
@@ -717,10 +731,11 @@ function CallPage() {
     try {
       const accountResponse = await fetch(`${API_BASE}/api/test-account`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(currentSession.accessToken ? { Authorization: `Bearer ${currentSession.accessToken}` } : {}) },
         body: JSON.stringify({
           username: currentSession.username,
           role: "user",
+          accessToken: currentSession.accessToken,
         }),
       });
 
@@ -1038,10 +1053,11 @@ function CallPage() {
     try {
       const response = await fetch(`${API_BASE}/api/coins/buy-test`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(currentSession.accessToken ? { Authorization: `Bearer ${currentSession.accessToken}` } : {}) },
         body: JSON.stringify({
           username: currentSession.username,
           packageId,
+          accessToken: currentSession.accessToken,
         }),
       });
 
