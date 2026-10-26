@@ -11,6 +11,15 @@ import {
 import { supabase } from "./supabaseClient";
 
 
+function profileNeedsSetup(profile) {
+  return !profile?.profile_completed || !profile?.username || !profile?.age || !profile?.profile_picture_url;
+}
+
+function getPostAuthPath(profile, role, creatorPlan) {
+  if (profileNeedsSetup(profile)) return "/profile-setup";
+  return getSafeNextPath(role, creatorPlan);
+}
+
 function getSafeNextPath(role, creatorPlan) {
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
@@ -196,7 +205,7 @@ export default function AuthPage({ initialMode = "login" }) {
         if (!active) return;
 
         window.location.replace(
-          getSafeNextPath(account.role, account.creatorPlan)
+          getPostAuthPath(profile, account.role, account.creatorPlan)
         );
       } catch (error) {
         if (active) {
@@ -334,7 +343,7 @@ export default function AuthPage({ initialMode = "login" }) {
         );
 
         window.location.replace(
-          getSafeNextPath(account.role, account.creatorPlan)
+          getPostAuthPath(profile, account.role, account.creatorPlan)
         );
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -382,7 +391,7 @@ export default function AuthPage({ initialMode = "login" }) {
         );
 
         window.location.replace(
-          getSafeNextPath(savedAccount.role, savedAccount.creatorPlan)
+          getPostAuthPath(profile, savedAccount.role, savedAccount.creatorPlan)
         );
       }
     } catch (error) {
