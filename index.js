@@ -162,6 +162,97 @@ function normalizeRoomName(value) {
     : "";
 }
 
+
+function supabaseServerConfig() {
+  const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const url = rawUrl.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, "");
+  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (!url || !key) throw new Error("Set SUPABASE_URL and SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) in Render.");
+  return { url, key };
+}
+
+async function supabaseRest(table, query = "", options = {}) {
+  const { url, key } = supabaseServerConfig();
+  const response = await fetch(`${url}/rest/v1/${table}${query ? `?${query}` : ""}`, {
+    method: options.method || "GET",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      Prefer: options.prefer || "return=representation",
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!response.ok) throw new Error(data?.message || data?.error || `Supabase request failed (${response.status})`);
+  return data;
+}
+
+async function supabaseRpc(name, args) {
+  const { url, key } = supabaseServerConfig();
+  const response = await fetch(`${url}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!response.ok) throw new Error(data?.message || data?.error || `Supabase RPC ${name} failed (${response.status})`);
+  return data;
+}
+
+async function verifySupabaseAccount(accessToken, requestedUsername, requestedRole) {
+  if (typeof accessToken !== "string" || accessToken.length < 20 || accessToken.length > 5000) {
+    return { ok: false, status: 401, error: "Your login session is missing or expired. Please log in again." };
+  }
+  try {
+    const { url, key } = supabaseServerConfig();
+    const authResponse = await fetch(`${url}/auth/v1/user`, {
+      headers: { apikey: key, Authorization: `Bearer ${accessToken}` },
+    });
+    if (!authResponse.ok) return { ok: false, status: 401, error: "Your login session could not be verified. Please log in again." };
+    const authUser = await authResponse.json();
+    if (!authUser?.id) return { ok: false, status: 401, error: "Your login session could not be verified. Please log in again." };
+    const rows = await supabaseRest("profiles", `id=eq.${encodeURIComponent(authUser.id)}&select=id,username,role,gender,creator_plan,subscription_price,subscription_hours&limit=1`);
+    const profile = Array.isArray(rows) ? rows[0] : null;
+    const wanted = safeUsername(requestedUsername);
+    if (!profile || profile.id !== authUser.id || safeUsername(profile.username) !== wanted || profile.role !== requestedRole) {
+      return { ok: false, status: 403, error: "Your signed-in Supabase profile does not match this account and role." };
+    }
+    if (requestedRole === "creator" && String(profile.gender || "").toLowerCase() !== "female") {
+      return { ok: false, status: 403, error: "This creator profile does not meet the current Creator requirements." };
+    }
+    return { ok: true, profile, user: authUser };
+  } catch (error) {
+    console.error("Supabase account verification failed:", error?.message || error);
+    return { ok: false, status: 503, error: error?.message || "Could not verify your account with Supabase." };
+  }
+}
+
+async function loadPersistentWallet(userId) {
+  const rows = await supabaseRest("onlystream_wallets", `user_id=eq.${encodeURIComponent(userId)}&select=user_id,coins,creator_earnings_paise&limit=1`);
+  if (Array.isArray(rows) && rows[0]) return rows[0];
+  const created = await supabaseRest("onlystream_wallets", "", { method: "POST", body: { user_id: userId, coins: 0, creator_earnings_paise: 0 } });
+  return Array.isArray(created) ? created[0] : created;
+}
+
+async function loadPersistentLedger(userId, limit = 30) {
+  const rows = await supabaseRest("onlystream_wallet_transactions", `user_id=eq.${encodeURIComponent(userId)}&select=id,transaction_type,coins_delta,amount_paise_delta,related_user_id,reference_id,description,metadata,created_at&order=created_at.desc&limit=${limit}`);
+  return (Array.isArray(rows) ? rows : []).map(row => ({
+    id: row.id, at: row.created_at, type: row.transaction_type,
+    coins: Number(row.coins_delta || 0),
+    amountInr: Number(row.amount_paise_delta || 0) / 100,
+    creatorShareInr: Number(row.amount_paise_delta || 0) / 100,
+    relatedUserId: row.related_user_id || null,
+    referenceId: row.reference_id || null,
+    note: row.description || "",
+    ...(row.metadata && typeof row.metadata === "object" ? row.metadata : {}),
+  }));
+}
+
 // Create test accounts without silently changing an existing account's role.
 // Creator accounts must have gender set to "female".
 function getTestAccount(username, role = "user", gender = "") {
@@ -334,7 +425,7 @@ app.get("/api/coin-packages", (req, res) => {
 });
 
 // Demo bootstrap endpoint. This is not production authentication.
-app.post("/api/test-account", (req, res) => {
+app.post("/api/test-account", async (req, res) => {
   if (!TEST_MODE) {
     return res.status(403).json({
       error: "Coin purchases are unavailable.",
@@ -360,6 +451,9 @@ app.post("/api/test-account", (req, res) => {
       error: "Creator accounts are currently available only to users who select Female.",
     });
   }
+
+  const verification = await verifySupabaseAccount(req.body?.accessToken, username, role);
+  if (!verification.ok) return res.status(verification.status).json({ error: verification.error });
 
   // Prevent changing an existing account's role through this endpoint.
   const existingAccount = testAccounts.get(username);
@@ -388,88 +482,90 @@ app.post("/api/test-account", (req, res) => {
     });
   }
 
-  if (role === "creator") {
-    grantCreatorBonus(account);
+  try {
+    const wallet = await loadPersistentWallet(verification.profile.id);
+    account.supabaseUserId = verification.profile.id;
+    account.coins = Number(wallet?.coins || 0);
+    account.testRevenueInr = Number(wallet?.creator_earnings_paise || 0) / 100;
+    account.creatorPlan = verification.profile.creator_plan === "subscription" ? "subscription" : "calls";
+    account.subscriptionPrice = Math.max(1, Number(verification.profile.subscription_price) || 499);
+    account.subscriptionHours = [3, 5, 7, 24].includes(Number(verification.profile.subscription_hours)) ? Number(verification.profile.subscription_hours) : 24;
+    if (role === "creator") {
+      await supabaseRpc("creator_grant_signup_bonus", {
+        p_creator_id: verification.profile.id,
+        p_amount_paise: CREATOR_SIGNUP_BONUS_INR * 100,
+        p_idempotency_key: `creator-bonus:${verification.profile.id}`,
+      });
+      const refreshedWallet = await loadPersistentWallet(verification.profile.id);
+      account.testRevenueInr = Number(refreshedWallet?.creator_earnings_paise || 0) / 100;
+      account.testBonusInr = CREATOR_SIGNUP_BONUS_INR;
+      account.bonusGranted = true;
+    }
+  } catch (error) {
+    console.error("Persistent wallet initialization failed:", error?.message || error);
+    return res.status(503).json({ error: `Could not load your database wallet: ${error.message}` });
   }
 
   res.set("Cache-Control", "no-store");
   res.json({ account: publicAccount(account), testMode: true });
 });
 
-app.get("/api/economy/me", (req, res) => {
+app.get("/api/economy/me", async (req, res) => {
   const username = safeUsername(req.query.username);
-
-  if (!username) {
-    return res.status(400).json({
-      error: "username query is required.",
-    });
+  const authorization = String(req.headers.authorization || "");
+  const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  const role = String(req.query.role || "user") === "creator" ? "creator" : "user";
+  if (!username) return res.status(400).json({ error: "username query is required." });
+  const verification = await verifySupabaseAccount(accessToken, username, role);
+  if (!verification.ok) return res.status(verification.status).json({ error: verification.error });
+  try {
+    const wallet = await loadPersistentWallet(verification.profile.id);
+    const rows = await loadPersistentLedger(verification.profile.id, 50);
+    const account = {
+      username, role, gender: verification.profile.gender || "",
+      coins: Number(wallet?.coins || 0),
+      testRevenueInr: Number(wallet?.creator_earnings_paise || 0) / 100,
+      testBonusInr: role === "creator" ? CREATOR_SIGNUP_BONUS_INR : 0,
+      withdrawalThresholdInr: CREATOR_WITHDRAWAL_THRESHOLD_INR,
+      withdrawalEligible: role === "creator" && Number(wallet?.creator_earnings_paise || 0) / 100 >= CREATOR_WITHDRAWAL_THRESHOLD_INR,
+      testMode: true,
+    };
+    res.set("Cache-Control", "no-store");
+    return res.json({ account, recentLedger: rows, testMode: true });
+  } catch (error) {
+    console.error("Wallet read failed:", error?.message || error);
+    return res.status(503).json({ error: `Could not read your database wallet: ${error.message}` });
   }
-
-  const account = testAccounts.get(username);
-
-  if (!account) {
-    return res.status(404).json({
-      error: "Test account not found.",
-    });
-  }
-
-  res.set("Cache-Control", "no-store");
-
-  res.json({
-    account: publicAccount(account),
-    recentLedger: economyLedger
-      .filter(
-        (row) =>
-          row.username === username || row.creatorUsername === username
-      )
-      .reverse(),
-    testMode: true,
-  });
 });
 
 // Simulates a purchase. No payment is collected.
-app.post("/api/coins/buy-test", (req, res) => {
-  if (!TEST_MODE) {
-    return res.status(403).json({
-      error: "Coin purchases are unavailable.",
-    });
-  }
-
+app.post("/api/coins/buy-test", async (req, res) => {
+  if (!TEST_MODE) return res.status(403).json({ error: "Test coin credits are disabled." });
   const username = safeUsername(req.body?.username);
   const packageId = String(req.body?.packageId || "");
-
-  const account = testAccounts.get(username);
-  const pack = COIN_PACKAGES.find((item) => item.id === packageId);
-
-  if (!account || account.role !== "user") {
-    return res.status(404).json({
-      error: "Test user account not found.",
+  const pack = COIN_PACKAGES.find(item => item.id === packageId);
+  const authorization = String(req.headers.authorization || "");
+  const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : String(req.body?.accessToken || "");
+  if (!username || !pack) return res.status(400).json({ error: "A valid username and coin package are required." });
+  const verification = await verifySupabaseAccount(accessToken, username, "user");
+  if (!verification.ok) return res.status(verification.status).json({ error: verification.error });
+  try {
+    await supabaseRpc("wallet_credit_coins", {
+      p_user_id: verification.profile.id, p_coins: pack.coins,
+      p_type: "coin_credit", p_description: "TEST MODE: simulated coin credit; no payment collected",
+      p_reference_id: `test-${packageId}-${Date.now()}`,
+      p_idempotency_key: `test-coin-credit:${verification.profile.id}:${randomUUID()}`,
+      p_metadata: { packageId, testPriceInr: pack.priceInr, testMode: true },
     });
+    const wallet = await loadPersistentWallet(verification.profile.id);
+    const account = getTestAccount(username, "user", "");
+    if (account) { account.supabaseUserId = verification.profile.id; account.coins = Number(wallet?.coins || 0); }
+    res.set("Cache-Control", "no-store");
+    return res.json({ ok: true, account: account ? publicAccount(account) : { username, role: "user", coins: Number(wallet?.coins || 0) }, message: `Added ${pack.coins} test coins to your database wallet. No real payment was taken.`, testMode: true });
+  } catch (error) {
+    console.error("Test coin credit failed:", error?.message || error);
+    return res.status(503).json({ error: `Could not credit database wallet: ${error.message}` });
   }
-
-  if (!pack) {
-    return res.status(400).json({
-      error: "Invalid coin package.",
-    });
-  }
-
-  account.coins += pack.coins;
-
-  ledgerEntry({
-    type: "test-coin-credit",
-    username,
-    coins: pack.coins,
-    testPriceInr: pack.priceInr,
-    note: "Purchase recorded.",
-  });
-
-  res.set("Cache-Control", "no-store");
-
-  res.json({
-    ok: true,
-    account: publicAccount(account),
-    message: `Added ${pack.coins} test coins. No real payment was taken.`,
-  });
 });
 
 app.get("/api/creator-revenue-test", (req, res) => {
@@ -913,7 +1009,7 @@ function stopBillingAndDisconnect(callId, reason) {
   disconnectPartner(call.userSocketId);
 }
 
-function billCallTick(callId, coinsToCharge = COINS_PER_BILLING_TICK) {
+async function billCallTick(callId, coinsToCharge = COINS_PER_BILLING_TICK) {
   const call = activeBillableCalls.get(callId);
   if (!call) return false;
 
@@ -944,28 +1040,56 @@ function billCallTick(callId, coinsToCharge = COINS_PER_BILLING_TICK) {
     return false;
   }
 
-  user.coins -= coinsToCharge;
-
   let creatorShareInr = 0;
   let estimatedValueInr = coinsToCharge * 0.4;
+  let creator = null;
 
-  // Only creator calls earn creator demo revenue.
+  // Only creator calls generate creator earnings. Random calls only debit the user wallet.
   if (call.callType === "creator" && call.creatorUsername) {
-    const creator = testAccounts.get(call.creatorUsername);
-
-    if (creator?.role === "creator") {
-      creatorShareInr =
-        Math.round(
-          estimatedValueInr * CREATOR_REVENUE_SHARE * 100
-        ) / 100;
-
-      creator.testRevenueInr =
-        Math.round(
-          (creator.testRevenueInr + creatorShareInr) * 100
-        ) / 100;
+    creator = testAccounts.get(call.creatorUsername);
+    if (!creator || creator.role !== "creator" || !creator.supabaseUserId) {
+      stopBillingAndDisconnect(callId, "account-unavailable");
+      return false;
     }
+    creatorShareInr = Math.round(
+      estimatedValueInr * CREATOR_REVENUE_SHARE * 100
+    ) / 100;
   } else {
     estimatedValueInr = 0;
+  }
+
+  try {
+    if (!user.supabaseUserId) throw new Error("User database identity is missing. Please reconnect.");
+
+    const billingSequence = (call.billingSequence || 0) + 1;
+    const creatorAmountPaise = Math.round(creatorShareInr * 100);
+
+    // One database transaction debits the user and credits the creator together.
+    // This prevents a successful user charge without a matching creator earning.
+    await supabaseRpc("wallet_bill_creator_call", {
+      p_user_id: user.supabaseUserId,
+      p_coins: coinsToCharge,
+      p_creator_id: creator?.supabaseUserId || null,
+      p_creator_amount_paise: creator ? creatorAmountPaise : 0,
+      p_related_user_id: user.supabaseUserId,
+      p_reference_id: callId,
+      p_debit_idempotency_key: `call-debit:${callId}:${billingSequence}`,
+      p_earning_idempotency_key: creator ? `call-earning:${callId}:${billingSequence}` : null,
+      p_metadata: { callType: call.callType, creatorUsername: call.creatorUsername || null, coinsCharged: coinsToCharge },
+    });
+    call.billingSequence = billingSequence;
+
+    const walletAfterDebit = await loadPersistentWallet(user.supabaseUserId);
+    user.coins = Number(walletAfterDebit?.coins || 0);
+
+    if (creator) {
+      const creatorWallet = await loadPersistentWallet(creator.supabaseUserId);
+      creator.testRevenueInr = Number(creatorWallet?.creator_earnings_paise || 0) / 100;
+    }
+  } catch (error) {
+    console.error("Atomic database call billing failed:", error?.message || error);
+    stopBillingAndDisconnect(callId, error.message === "INSUFFICIENT_COINS" ? "insufficient-coins" : "billing-error");
+    return false;
   }
 
   ledgerEntry({
@@ -1002,7 +1126,7 @@ function billCallTick(callId, coinsToCharge = COINS_PER_BILLING_TICK) {
   return true;
 }
 
-function startBillableCall({
+async function startBillableCall({
   username,
   creatorUsername = "",
   userSocketId,
@@ -1125,7 +1249,7 @@ function startBillableCall({
   activeBillableCalls.set(callId, call);
 
   // Charge 10 coins immediately when billing starts.
-  if (!billCallTick(callId, CONNECTION_START_COINS)) {
+  if (!(await billCallTick(callId, CONNECTION_START_COINS))) {
     return {
       ok: false,
       error: "Could not start billing.",
@@ -1135,7 +1259,7 @@ function startBillableCall({
 
   // Charge 100 coins every 60 seconds after the initial charge.
   call.timer = setInterval(() => {
-    billCallTick(callId, COINS_PER_BILLING_TICK);
+    void billCallTick(callId, COINS_PER_BILLING_TICK);
   }, BILLING_INTERVAL_MS);
 
   return {
@@ -1379,6 +1503,14 @@ io.on("connection", (socket) => {
       ? Number(profile.subscription_hours)
       : 24;
     creatorAccount.supabaseUserId = profile.id;
+    try {
+      const persistentWallet = await loadPersistentWallet(profile.id);
+      creatorAccount.coins = Number(persistentWallet?.coins || 0);
+      creatorAccount.testRevenueInr = Number(persistentWallet?.creator_earnings_paise || 0) / 100;
+    } catch (error) {
+      console.error("Creator wallet load failed:", error?.message || error);
+      return reply({ ok: false, error: "Could not load creator wallet from database." });
+    }
 
     removeCreatorLive(socket);
 
@@ -1756,7 +1888,7 @@ io.on("connection", (socket) => {
   });
 
   // Start billing for a connected random or creator call.
-  socket.on("call-billing-start", (payload, acknowledge) => {
+  socket.on("call-billing-start", async (payload, acknowledge) => {
     const reply = (result) => {
       if (typeof acknowledge === "function") acknowledge(result);
     };
@@ -1782,7 +1914,7 @@ io.on("connection", (socket) => {
       }
     }
 
-    const result = startBillableCall({
+    const result = await startBillableCall({
       username,
       creatorUsername,
       userSocketId: socket.id,
