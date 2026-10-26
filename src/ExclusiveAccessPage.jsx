@@ -41,9 +41,14 @@ export default function ExclusiveAccessPage() {
     }
     try {
       setError("");
-      const buyer = session?.role === "user" ? session.username : "";
-      const response = await fetch(`/api/exclusive-access/status?creator=${encodeURIComponent(creator)}&buyer=${encodeURIComponent(buyer)}`, {
-        headers: { Accept: "application/json" },
+      const current = await loadSupabaseAccount();
+      if (!current || current.role !== "user" || !current.accessToken) {
+        window.location.href = loginUrl;
+        return;
+      }
+      if (session?.accessToken !== current.accessToken) setSession(current);
+      const response = await fetch(`/api/exclusive-access/status?creator=${encodeURIComponent(creator)}`, {
+        headers: { Accept: "application/json", Authorization: `Bearer ${current.accessToken}` },
         cache: "no-store",
       });
       const data = await response.json();
@@ -60,7 +65,7 @@ export default function ExclusiveAccessPage() {
     } finally {
       setLoading(false);
     }
-  }, [creator, queryPrice, queryHours, session]);
+  }, [creator, queryPrice, queryHours, session, loginUrl]);
 
   useEffect(() => {
     let active = true;
