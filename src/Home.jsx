@@ -416,6 +416,10 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
   const subscription = plan === "subscription";
   const [imageError, setImageError] = useState(false);
   const creatorImage = getCreatorCardImage(creator);
+  const rented = Boolean(creator.isRented || creator.is_rented);
+  const live = Boolean(creator.isLive || creator.is_live);
+  const hours = getSubscriptionHours(creator);
+  const price = getSubscriptionPrice(creator);
 
   useEffect(() => {
     setImageError(false);
@@ -423,8 +427,6 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
 
   function openCreator() {
     if (subscription) {
-      const price = getSubscriptionPrice(creator);
-      const hours = getSubscriptionHours(creator);
       window.location.href = `/exclusive-access?creator=${encodeURIComponent(creator.username)}&price=${price}&hours=${hours}`;
     } else {
       window.location.href = "/call?creator=" + encodeURIComponent(creator.username);
@@ -433,7 +435,12 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
 
   return (
     <article className={`stream-card model-card onlystream-creator-card ${subscription ? "subscription-creator-card" : "call-creator-card"}`}>
-      <button type="button" className="model-card-click" onClick={openCreator} aria-label={`${subscription ? "View subscription creator" : "Call creator"} ${creator.username}`}>
+      <button
+        type="button"
+        className="model-card-click"
+        onClick={openCreator}
+        aria-label={`${subscription ? "View subscription creator" : "Call creator"} ${creator.username}`}
+      >
         {!imageError && creatorImage ? (
           <img
             className="model-thumbnail onlystream-creator-avatar"
@@ -446,9 +453,31 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
         ) : (
           <div className="model-thumbnail model-thumbnail-fallback onlystream-creator-avatar"><Radio size={34} /></div>
         )}
-        {subscription && <span className={`subscription-card-ribbon ${creator.isRented || creator.is_rented ? "subscription-card-rented" : ""}`}>{creator.isRented || creator.is_rented ? "RENTED" : `${getSubscriptionHours(creator)}H EXCLUSIVE`}</span>}
-        <span className={`model-online ${(creator.isRented || creator.is_rented) ? "model-online-rented" : ""}`}>● {subscription ? ((creator.isRented || creator.is_rented) ? "RENTED" : "AVAILABLE") : (creator.isLive || creator.is_live ? "LIVE" : "AVAILABLE")}</span>
-        <div className="stream-info"><h3>{creator.username}</h3><p>{subscription ? ((creator.isRented || creator.is_rented) ? `RENTED · ${getSubscriptionHours(creator)}-HOUR ACCESS` : `${getSubscriptionHours(creator)}-HOUR ACCESS · ₹${getSubscriptionPrice(creator)} ONCE`) : "CALL EARNING · PAY PER CALL"}</p></div>
+
+        <div className="creator-card-topline">
+          <span className={`model-online ${(subscription && rented) ? "model-online-rented" : ""}`}>
+            <span className="creator-status-dot" />
+            {subscription ? (rented ? "RENTED" : "AVAILABLE") : (live ? "LIVE NOW" : "AVAILABLE")}
+          </span>
+          {subscription && <span className={`subscription-card-ribbon ${rented ? "subscription-card-rented" : ""}`}>{rented ? "RENTED" : `${hours}H ACCESS`}</span>}
+        </div>
+
+        <div className="creator-card-overlay">
+          <div className="stream-info">
+            <h3>{creator.username || "Creator"}</h3>
+            <p>{subscription ? (rented ? `${hours}-HOUR ACCESS · CURRENTLY RENTED` : `${hours}-HOUR EXCLUSIVE ACCESS`) : "PAY PER CALL · CONNECT INSTANTLY"}</p>
+          </div>
+
+          <div className={`creator-plan-pill ${subscription ? "creator-plan-subscription" : "creator-plan-call"}`}>
+            <span className="creator-plan-label">{subscription ? "✦ EXCLUSIVE ACCESS" : "☎ PAY PER CALL"}</span>
+            <strong>{subscription ? `₹${price} / ${hours}h` : "10 coins / min"}</strong>
+          </div>
+
+          <div className={`creator-card-cta ${subscription ? "creator-card-cta-subscription" : "creator-card-cta-call"}`}>
+            <span>{subscription ? (rented ? "View creator" : "Unlock access") : "Call now"}</span>
+            <span className="creator-card-cta-arrow" aria-hidden="true">↗</span>
+          </div>
+        </div>
       </button>
     </article>
   );
