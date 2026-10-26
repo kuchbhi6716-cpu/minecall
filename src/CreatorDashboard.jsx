@@ -409,14 +409,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     // the profiles table are the source of account identity.
     (async () => {
       try {
-        // loadSupabaseAccount already restored/refreshed the signed-in session.
-        // Reuse its access token first instead of racing a second getSession() call.
         let accessToken = session.accessToken || "";
-        if (!accessToken) {
-          const { data: authData, error: authError } = await supabase.auth.getSession();
-          if (authError) throw authError;
-          accessToken = authData?.session?.access_token || "";
-        }
         if (!accessToken) {
           const refreshed = await supabase.auth.refreshSession();
           if (refreshed.error) throw refreshed.error;
@@ -647,20 +640,35 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     setChatMessage("");
   }
 
+  function publishLiveThumbnail() {
+    const video = videoRef.current;
+    const socket = socketRef.current;
+    if (!video || !socket?.connected || !isLiveRef.current || video.videoWidth < 2 || video.videoHeight < 2) return;
+
+    try {
+      const canvas = document.createElement("canvas");
+      // Small, compressed live snapshots keep the homepage fast on mobile data.
+      canvas.width = 480;
+      canvas.height = Math.max(1, Math.round(480 * video.videoHeight / video.videoWidth));
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const thumbnail = canvas.toDataURL("image/jpeg", 0.62);
+      socket.emit("creator-live-thumbnail", { thumbnail });
+    } catch (error) {
+      // Snapshot capture can fail temporarily while the camera is starting.
+    }
+  }
 
   async function goLive() {
     setCameraError("");
     setBusy(true);
 
     try {
-      // Prefer the token restored by loadSupabaseAccount; refresh only if needed.
-      let accessToken = account?.accessToken || "";
-      if (!accessToken) {
-        const { data: authData, error: authError } = await supabase.auth.getSession();
-        if (authError) throw authError;
-        accessToken = authData?.session?.access_token || "";
-      }
-      if (!accessToken) {
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError) throw authError;
+      let accessToken = authData?.session?.access_token || "";
+      if (!accessToken && authData?.session) {
         const refreshed = await supabase.auth.refreshSession();
         if (refreshed.error) throw refreshed.error;
         accessToken = refreshed.data?.session?.access_token || "";
@@ -720,6 +728,10 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
         isLiveRef.current = true;
         setIsLive(true);
+
+        if (thumbnailIntervalRef.current) window.clearInterval(thumbnailIntervalRef.current);
+        window.setTimeout(publishLiveThumbnail, 900);
+        thumbnailIntervalRef.current = window.setInterval(publishLiveThumbnail, 5000);
 
       });
 
