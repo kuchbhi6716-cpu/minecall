@@ -216,7 +216,7 @@ async function verifySupabaseAccount(accessToken, requestedUsername, requestedRo
     if (!authResponse.ok) return { ok: false, status: 401, error: "Your login session could not be verified. Please log in again." };
     const authUser = await authResponse.json();
     if (!authUser?.id) return { ok: false, status: 401, error: "Your login session could not be verified. Please log in again." };
-    const rows = await supabaseRest("profiles", `id=eq.${encodeURIComponent(authUser.id)}&select=id,username,role,gender,creator_plan,subscription_price,subscription_hours,profile_picture_url,creator_thumbnail_url&limit=1`);
+    const rows = await supabaseRest("profiles", `id=eq.${encodeURIComponent(authUser.id)}&select=id,username,role,gender,creator_plan,subscription_price,subscription_hours&limit=1`);
     const profile = Array.isArray(rows) ? rows[0] : null;
     const wanted = safeUsername(requestedUsername);
     if (!profile || profile.id !== authUser.id || safeUsername(profile.username) !== wanted || profile.role !== requestedRole) {
@@ -326,7 +326,7 @@ async function verifySupabaseCreatorAccess(accessToken, requestedUsername) {
     }
 
     const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(authUser.id)}&select=id,username,role,gender,creator_plan,subscription_price,subscription_hours,profile_picture_url,creator_thumbnail_url&limit=1`,
+      `${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(authUser.id)}&select=id,username,role,gender,creator_plan,subscription_price,subscription_hours&limit=1`,
       { headers: { apikey: apiKey, Authorization: `Bearer ${apiKey}` } }
     );
     if (!profileResponse.ok) {
@@ -780,12 +780,10 @@ function getPublicLiveCreators() {
     subscription_hours: Number(creator.subscriptionHours) || 24,
     isLive: true,
     is_live: true,
-    // Use the image uploaded on the creator profile page, never a live-camera capture.
-    creatorThumbnailUrl: creator.creatorThumbnailUrl || creator.profilePictureUrl || null,
-    creator_thumbnail_url: creator.creatorThumbnailUrl || null,
-    profileImage: creator.profilePictureUrl || null,
-    profile_image: creator.profilePictureUrl || null,
-    profile_picture_url: creator.profilePictureUrl || null,
+    isRented: Boolean(getActiveExclusiveReservation(creator.username)),
+    is_rented: Boolean(getActiveExclusiveReservation(creator.username)),
+    liveThumbnail: creator.liveThumbnail || null,
+    live_thumbnail: creator.liveThumbnail || null,
   }));
 }
 
@@ -903,23 +901,80 @@ function getActiveExclusiveReservation(creatorUsername) {
   return reservation;
 }
 
-app.get("/api/exclusive-access/status", (req, res) => {
+async function hydrateExclusiveReservationFromDatabase(creatorUsername) {
+  const creatorName = normalizeCreatorName(creatorUsername);
+  if (!creatorName) return null;
+  const creatorRows = await supabaseRest("profiles", `username=eq.${encodeURIComponent(creatorName)}&select=id,username,creator_plan,subscription_price,subscription_hours&limit=1`);
+  const creatorProfile = Array.isArray(creatorRows) ? creatorRows[0] : null;
+  if (!creatorProfile?.id) return null;
+  const nowIso = new Date().toISOString();
+  const purchases = await supabaseRest("exclusive_purchases", `creator_id=eq.${encodeURIComponent(creatorProfile.id)}&status=eq.active&expires_at=gt.${encodeURIComponent(nowIso)}&select=id,buyer_id,creator_id,status,amount_inr,idempotency_key,purchased_at,expires_at,created_at&order=expires_at.desc&limit=1`);
+  const purchase = Array.isArray(purchases) ? purchases[0] : null;
+  const key = safeUsername(creatorName);
+  if (!purchase) {
+    const old = exclusiveAccessReservations.get(key);
+    if (old && Number(old.expiresAt) <= Date.now()) exclusiveAccessReservations.delete(key);
+    return null;
+  }
+  const buyers = await supabaseRest("profiles", `id=eq.${encodeURIComponent(purchase.buyer_id)}&select=id,username&limit=1`);
+  const buyerProfile = Array.isArray(buyers) ? buyers[0] : null;
+  if (!buyerProfile?.id || !buyerProfile.username) return null;
+  const expiresAt = new Date(purchase.expires_at).getTime();
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+  const current = exclusiveAccessReservations.get(key);
+  if (current && current.transactionId === purchase.idempotency_key && Number(current.expiresAt) === expiresAt) return current;
+  if (current?.timer) clearTimeout(current.timer);
+  const reservation = {
+    creatorUsername: creatorName,
+    buyerUsername: safeUsername(buyerProfile.username),
+    amount: Number(purchase.amount_inr || 0),
+    transactionId: purchase.idempotency_key || purchase.id,
+    purchasedAt: new Date(purchase.purchased_at || purchase.created_at || Date.now()).getTime(),
+    expiresAt,
+    accessHours: Math.max(1, Math.round((expiresAt - new Date(purchase.purchased_at || purchase.created_at || Date.now()).getTime()) / 3600000)),
+    timer: null,
+  };
+  reservation.timer = setTimeout(() => {
+    const currentReservation = exclusiveAccessReservations.get(key);
+    if (currentReservation?.transactionId !== reservation.transactionId) return;
+    exclusiveAccessReservations.delete(key);
+    void supabaseRest("exclusive_purchases", `id=eq.${encodeURIComponent(purchase.id)}`, { method: "PATCH", prefer: "return=minimal", body: { status: "expired" } }).catch(error => console.error("Could not mark exclusive purchase expired:", error?.message || error));
+  }, Math.min(expiresAt - Date.now(), 2147483647));
+  exclusiveAccessReservations.set(key, reservation);
+  return reservation;
+}
+
+app.get("/api/exclusive-access/status", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const creatorUsername = normalizeCreatorName(req.query.creator || "");
-  const buyerUsername = safeUsername(req.query.buyer || "");
   if (!creatorUsername) return res.status(400).json({ error: "Creator username is required." });
-  const reservation = getActiveExclusiveReservation(creatorUsername);
-  const creator = liveCreators.get(creatorUsername);
-  res.json({
-    ok: true,
-    creatorAvailable: Boolean(creator && creator.creatorPlan === "subscription"),
-    price: Number(creator?.subscriptionPrice || testAccounts.get(safeUsername(creatorUsername))?.subscriptionPrice || 499),
-    occupied: Boolean(reservation && reservation.buyerUsername !== buyerUsername),
-    owned: Boolean(reservation && reservation.buyerUsername === buyerUsername),
-    expiresAt: reservation?.expiresAt || null,
-    remainingMs: reservation ? Math.max(0, reservation.expiresAt - Date.now()) : 0,
-    hours: Number(reservation?.accessHours || creator?.subscriptionHours || testAccounts.get(safeUsername(creatorUsername))?.subscriptionHours || 24),
-  });
+  const authorization = String(req.headers.authorization || "");
+  const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  const buyerAccount = await verifyChatSocket(accessToken);
+  if (!buyerAccount) return res.status(401).json({ error: "Your login session is missing or expired. Please log in again." });
+  try {
+    const buyerProfiles = await supabaseRest("profiles", `id=eq.${encodeURIComponent(buyerAccount.id)}&select=id,username,role&limit=1`);
+    const buyerProfile = Array.isArray(buyerProfiles) ? buyerProfiles[0] : null;
+    if (!buyerProfile || buyerProfile.role !== "user") return res.status(403).json({ error: "Please log in with a user account." });
+    const reservation = await hydrateExclusiveReservationFromDatabase(creatorUsername);
+    const creator = liveCreators.get(creatorUsername);
+    const creatorProfiles = await supabaseRest("profiles", `username=eq.${encodeURIComponent(creatorUsername)}&select=id,creator_plan,subscription_price,subscription_hours&limit=1`);
+    const creatorProfile = Array.isArray(creatorProfiles) ? creatorProfiles[0] : null;
+    const active = reservation && Number(reservation.expiresAt) > Date.now() ? reservation : null;
+    res.json({
+      ok: true,
+      creatorAvailable: Boolean((creator && creator.creatorPlan === "subscription") || creatorProfile?.creator_plan === "subscription"),
+      price: Number(creator?.subscriptionPrice || creatorProfile?.subscription_price || 499),
+      occupied: Boolean(active && active.buyerUsername !== buyerProfile.username),
+      owned: Boolean(active && active.buyerUsername === buyerProfile.username),
+      expiresAt: active?.expiresAt || null,
+      remainingMs: active ? Math.max(0, active.expiresAt - Date.now()) : 0,
+      hours: Number(active?.accessHours || creator?.subscriptionHours || creatorProfile?.subscription_hours || 24),
+    });
+  } catch (error) {
+    console.error("Exclusive access status lookup failed:", error?.message || error);
+    return res.status(503).json({ error: "Could not load your saved access from Supabase. Check the exclusive_purchases table and server database key." });
+  }
 });
 
 async function persistExclusiveEarning({ creatorUsername, buyerUsername = "User", grossAmount, creatorAmount, transactionId }) {
@@ -968,9 +1023,18 @@ app.get("/api/exclusive-earnings", async (req, res) => {
   }
 });
 
-app.get("/api/live-creators", (req, res) => {
+app.get("/api/live-creators", async (req, res) => {
   res.set("Cache-Control", "no-store");
-  res.json({ creators: getPublicLiveCreators() });
+  try {
+    const subscriptionCreators = Array.from(liveCreators.values()).filter(creator => creator.creatorPlan === "subscription");
+    await Promise.all(subscriptionCreators.map(creator => hydrateExclusiveReservationFromDatabase(creator.username).catch(error => {
+      console.error("Could not restore saved exclusive access for creator:", creator.username, error?.message || error);
+    })));
+    res.json({ creators: getPublicLiveCreators() });
+  } catch (error) {
+    console.error("Live creator list failed:", error?.message || error);
+    res.json({ creators: getPublicLiveCreators() });
+  }
 });
 
 // -------------------- Test Call Billing --------------------
@@ -1472,6 +1536,21 @@ io.on("connection", (socket) => {
     socket.emit("live-creators-updated", getPublicLiveCreators());
   });
 
+  socket.on("creator-live-thumbnail", (payload) => {
+    const username = socket.data.creatorLiveUsername;
+    if (!username || !payload || typeof payload.thumbnail !== "string") return;
+
+    const thumbnail = payload.thumbnail;
+    // Accept only small JPEG data URLs generated by the creator's own live preview.
+    if (!thumbnail.startsWith("data:image/jpeg;base64,") || thumbnail.length > 220000) return;
+
+    const creator = liveCreators.get(username);
+    if (!creator || creator.socketId !== socket.id) return;
+
+    creator.liveThumbnail = thumbnail;
+    broadcastLiveCreators();
+  });
+
   socket.on("creator-go-live", async (payload, acknowledge) => {
     const reply = (result) => {
       if (typeof acknowledge === "function") acknowledge(result);
@@ -1561,8 +1640,6 @@ io.on("connection", (socket) => {
       creatorPlan,
       subscriptionPrice,
       subscriptionHours: creatorPlan === "subscription" ? subscriptionHours : 0,
-      creatorThumbnailUrl: profile.creator_thumbnail_url || profile.profile_picture_url || null,
-      profilePictureUrl: profile.profile_picture_url || null,
       startedAt: new Date().toISOString(),
     };
 
@@ -2164,80 +2241,95 @@ io.on("connection", (socket) => {
 
   // Demo subscription ledger: kept on the server so creator dashboard refresh works across browsers while this process is running.
   // One-time exclusive access purchase. This is a demo payment flow, not a real charge.
-  socket.on("exclusive-access-purchase", (payload, acknowledge) => {
+  socket.on("exclusive-access-purchase", async (payload, acknowledge) => {
     const reply = (result) => { if (typeof acknowledge === "function") acknowledge(result); };
     const creatorUsername = normalizeCreatorName(payload?.creatorUsername || "");
-    const buyerUsername = safeUsername(payload?.buyerUsername || "");
     const transactionId = String(payload?.transactionId || "").slice(0, 120);
-    if (!creatorUsername || !buyerUsername || !transactionId) {
-      return reply({ ok: false, error: "Missing creator, buyer, or transaction reference." });
+    const buyerIdentity = socket.data?.chatUser;
+    if (!creatorUsername || !transactionId || !buyerIdentity?.id || !buyerIdentity?.username) {
+      return reply({ ok: false, error: "Your login session is missing or expired. Please log in again." });
     }
-    const buyer = testAccounts.get(buyerUsername);
-    if (!buyer || buyer.role !== "user") {
-      return reply({ ok: false, error: "Please sign in with a user account before purchasing access." });
-    }
-    const creatorAccount = testAccounts.get(safeUsername(creatorUsername));
-    const creator = liveCreators.get(creatorUsername);
-    if (!creatorAccount || creatorAccount.role !== "creator" ||
-        (creatorAccount.creatorPlan || "calls") !== "subscription" ||
-        !creator || creator.creatorPlan !== "subscription" ||
-        !io.sockets.sockets.has(creator.socketId)) {
-      return reply({ ok: false, error: "This exclusive creator is currently unavailable. Try again later." });
-    }
-    const price = Math.max(1, Number(creator.subscriptionPrice || creatorAccount.subscriptionPrice || 499));
-    const suppliedAmount = Number(payload?.amount);
-    if (!Number.isFinite(suppliedAmount) || Math.round(suppliedAmount * 100) !== Math.round(price * 100)) {
-      return reply({ ok: false, error: "The access fee changed. Refresh the page and try again." });
-    }
-    const current = getActiveExclusiveReservation(creatorUsername);
-    if (current) {
-      if (current.buyerUsername === buyerUsername) {
-        return reply({ ok: true, alreadyOwned: true, expiresAt: current.expiresAt, remainingMs: Math.max(0, current.expiresAt - Date.now()) });
+    const buyerUsername = safeUsername(buyerIdentity.username);
+    try {
+      const buyerRows = await supabaseRest("profiles", `id=eq.${encodeURIComponent(buyerIdentity.id)}&select=id,username,role&limit=1`);
+      const buyer = Array.isArray(buyerRows) ? buyerRows[0] : null;
+      if (!buyer || buyer.role !== "user" || safeUsername(buyer.username) !== buyerUsername) {
+        return reply({ ok: false, error: "Please sign in with a valid user account before purchasing access." });
       }
-      return reply({ ok: false, error: "This creator is already reserved by another user.", expiresAt: current.expiresAt, remainingMs: Math.max(0, current.expiresAt - Date.now()) });
-    }
-    const accessHours = [3, 5, 7, 24].includes(Number(creator.subscriptionHours))
-      ? Number(creator.subscriptionHours)
-      : 24;
-    const accessDurationMs = accessHours * 60 * 60 * 1000;
-    const expiresAt = Date.now() + accessDurationMs;
-    const reservation = {
-      creatorUsername, buyerUsername, amount: price, transactionId,
-      purchasedAt: Date.now(), expiresAt, accessHours, timer: null,
-    };
-    reservation.timer = setTimeout(() => {
-      const currentReservation = exclusiveAccessReservations.get(safeUsername(creatorUsername));
-      if (currentReservation?.transactionId !== transactionId) return;
-      exclusiveAccessReservations.delete(safeUsername(creatorUsername));
-      const creatorSocketId = liveCreators.get(creatorUsername)?.socketId;
-      for (const [socketId, connectedSocket] of io.sockets.sockets.entries()) {
-        if (connectedSocket.data?.authUsername === buyerUsername && partners.get(socketId) === creatorSocketId) {
-          disconnectPartner(socketId);
-          io.to(socketId).emit("partner-left");
-          if (creatorSocketId) io.to(creatorSocketId).emit("partner-left");
+      const creatorRows = await supabaseRest("profiles", `username=eq.${encodeURIComponent(creatorUsername)}&select=id,username,role,creator_plan,subscription_price,subscription_hours&limit=1`);
+      const creatorProfile = Array.isArray(creatorRows) ? creatorRows[0] : null;
+      const creator = liveCreators.get(creatorUsername);
+      if (!creatorProfile || creatorProfile.role !== "creator" || creatorProfile.creator_plan !== "subscription" || !creator || creator.creatorPlan !== "subscription" || !io.sockets.sockets.has(creator.socketId)) {
+        return reply({ ok: false, error: "This exclusive creator is currently unavailable. Try again later." });
+      }
+      const price = Math.max(1, Number(creator.subscriptionPrice || creatorProfile.subscription_price || 499));
+      const suppliedAmount = Number(payload?.amount);
+      if (!Number.isFinite(suppliedAmount) || Math.round(suppliedAmount * 100) !== Math.round(price * 100)) {
+        return reply({ ok: false, error: "The access fee changed. Refresh the page and try again." });
+      }
+      const current = await hydrateExclusiveReservationFromDatabase(creatorUsername);
+      if (current) {
+        if (current.buyerUsername === buyerUsername) {
+          return reply({ ok: true, alreadyOwned: true, expiresAt: current.expiresAt, remainingMs: Math.max(0, current.expiresAt - Date.now()) });
         }
+        return reply({ ok: false, error: "This creator is already reserved by another user.", expiresAt: current.expiresAt, remainingMs: Math.max(0, current.expiresAt - Date.now()) });
       }
-    }, accessDurationMs);
-    exclusiveAccessReservations.set(safeUsername(creatorUsername), reservation);
-    if (!subscriptionTransactionIds.has(transactionId)) {
-      subscriptionTransactionIds.add(transactionId);
-      const key = creatorUsername.toLowerCase();
-      const rows = subscriptionEarningsLedger.get(key) || [];
-      rows.push({
-        amount: Math.round(price * CREATOR_REVENUE_SHARE * 100) / 100,
-        grossAmount: price,
-        createdAt: new Date().toISOString(),
-        transactionId,
-        buyerUsername,
+      const accessHours = [3, 5, 7, 24].includes(Number(creator.subscriptionHours)) ? Number(creator.subscriptionHours) : 24;
+      const purchasedAt = Date.now();
+      const expiresAt = purchasedAt + accessHours * 60 * 60 * 1000;
+      const purchaseRows = await supabaseRest("exclusive_purchases", "", {
+        method: "POST",
+        prefer: "return=representation",
+        body: {
+          buyer_id: buyer.id,
+          creator_id: creatorProfile.id,
+          status: "active",
+          amount_inr: price,
+          provider: "test",
+          provider_payment_id: transactionId,
+          idempotency_key: transactionId,
+          purchased_at: new Date(purchasedAt).toISOString(),
+          expires_at: new Date(expiresAt).toISOString(),
+        },
       });
-      subscriptionEarningsLedger.set(key, rows);
-      void persistExclusiveEarning({ creatorUsername, buyerUsername, grossAmount: price, creatorAmount: Math.round(price * CREATOR_REVENUE_SHARE * 100) / 100, transactionId })
-        .catch(error => console.error("Exclusive earning persistence failed:", error?.message || error));
-      const liveCreator = liveCreators.get(creatorUsername);
-      if (liveCreator?.socketId) io.to(liveCreator.socketId).emit("subscription-earnings-updated", { username: creatorUsername });
+      const savedPurchase = Array.isArray(purchaseRows) ? purchaseRows[0] : null;
+      if (!savedPurchase) throw new Error("Supabase did not confirm the saved access purchase.");
+      const reservation = {
+        creatorUsername, buyerUsername, amount: price, transactionId,
+        purchasedAt, expiresAt, accessHours, timer: null,
+      };
+      reservation.timer = setTimeout(() => {
+        const currentReservation = exclusiveAccessReservations.get(safeUsername(creatorUsername));
+        if (currentReservation?.transactionId !== transactionId) return;
+        exclusiveAccessReservations.delete(safeUsername(creatorUsername));
+        void supabaseRest("exclusive_purchases", `id=eq.${encodeURIComponent(savedPurchase.id)}`, { method: "PATCH", prefer: "return=minimal", body: { status: "expired" } }).catch(error => console.error("Could not mark exclusive purchase expired:", error?.message || error));
+        const creatorSocketId = liveCreators.get(creatorUsername)?.socketId;
+        for (const [socketId, connectedSocket] of io.sockets.sockets.entries()) {
+          if (connectedSocket.data?.authUsername === buyerUsername && partners.get(socketId) === creatorSocketId) {
+            disconnectPartner(socketId);
+            io.to(socketId).emit("partner-left");
+            if (creatorSocketId) io.to(creatorSocketId).emit("partner-left");
+          }
+        }
+      }, Math.min(expiresAt - Date.now(), 2147483647));
+      exclusiveAccessReservations.set(safeUsername(creatorUsername), reservation);
+      if (!subscriptionTransactionIds.has(transactionId)) {
+        subscriptionTransactionIds.add(transactionId);
+        const key = creatorUsername.toLowerCase();
+        const rows = subscriptionEarningsLedger.get(key) || [];
+        const creatorAmount = Math.round(price * CREATOR_REVENUE_SHARE * 100) / 100;
+        rows.push({ amount: creatorAmount, grossAmount: price, createdAt: new Date().toISOString(), transactionId, buyerUsername });
+        subscriptionEarningsLedger.set(key, rows);
+        void persistExclusiveEarning({ creatorUsername, buyerUsername, grossAmount: price, creatorAmount, transactionId })
+          .catch(error => console.error("Exclusive earning persistence failed:", error?.message || error));
+        if (creator.socketId) io.to(creator.socketId).emit("subscription-earnings-updated", { username: creatorUsername });
+      }
+      console.log(`[Exclusive access] Saved ${buyerUsername}'s ${accessHours}-hour access to ${creatorUsername} in Supabase.`);
+      return reply({ ok: true, expiresAt, remainingMs: expiresAt - Date.now(), price, hours: accessHours, demoPayment: true, persisted: true });
+    } catch (error) {
+      console.error("Exclusive access purchase persistence failed:", error?.message || error);
+      return reply({ ok: false, error: "Could not save this access purchase to Supabase. No access was activated; please retry." });
     }
-    console.log(`[Exclusive access] ${buyerUsername} reserved ${creatorUsername} for ${accessHours} hours.`);
-    return reply({ ok: true, expiresAt, remainingMs: accessDurationMs, price, hours: accessHours, demoPayment: true });
   });
 
   socket.on("subscription-purchase", (payload, acknowledge) => {
