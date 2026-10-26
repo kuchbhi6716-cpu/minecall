@@ -955,9 +955,24 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     economy?.creatorCoins ?? economy?.coins ?? economy?.balance ??
     economy?.wallet?.coins ?? 0;
 
-  const creatorRevenue =
-    economy?.testRevenueInr ?? economy?.creatorRevenue ?? economy?.revenue ??
-    economy?.earnings ?? economy?.wallet?.revenue ?? 0;
+  // Revenue from calls must come from recorded call-earning ledger entries only.
+  // Never fall back to economy.earnings / wallet.revenue here: older demo API
+  // responses can include the signup bonus in those totals, making revenue
+  // appear as ₹1,200 before the creator has earned anything from a call.
+  const callRevenueRows = ledger.filter((row) => {
+    const rowType = String(row.type || row.transactionType || "").toLowerCase();
+    const isBonus = rowType.includes("bonus") || rowType.includes("signup");
+    const isExclusiveSale = rowType.includes("exclusive");
+    const isCallEarning = rowType.includes("call") &&
+      (rowType.includes("earning") || rowType.includes("revenue") || rowType.includes("share"));
+    const rowUsername = String(row.username || row.creatorUsername || "").toLowerCase();
+    return !exclusiveMode && !isBonus && !isExclusiveSale && isCallEarning &&
+      (!rowUsername || rowUsername === String(username || "").toLowerCase());
+  });
+  const creatorRevenue = callRevenueRows.reduce((sum, row) => {
+    const amount = Number(row.creatorShareInr ?? row.amountInr ?? row.amount ?? 0);
+    return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
+  }, 0);
 
   const signupBonus = Number(economy?.testBonusInr ?? 0);
   const earningRows = ledger
