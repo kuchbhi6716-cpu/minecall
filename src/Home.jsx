@@ -502,10 +502,23 @@ export default function Home() {
         return;
       }
 
-      // Supabase Auth is the source of truth for whether someone is signed in.
-      // The profile row enriches the account, but a temporary profile/RLS query
-      // error must not make a successfully signed-in user appear logged out.
+      // Read the role independently first. If an optional profile column is
+      // missing or its query fails, the full profile query must not silently
+      // turn a creator into a normal user in the navbar.
       let profile = null;
+      let roleProfile = null;
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, role")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!error) roleProfile = data;
+        else console.error("OnlyStream role load failed:", error.message);
+      } catch (roleLoadError) {
+        console.error("OnlyStream role load failed:", roleLoadError);
+      }
+
       try {
         const { data, error } = await supabase
           .from("profiles")
@@ -513,35 +526,29 @@ export default function Home() {
           .eq("id", user.id)
           .maybeSingle();
         if (!error) profile = data;
-        else console.error("OnlyStream profile load failed:", error.message);
+        else console.error("OnlyStream profile details load failed:", error.message);
       } catch (profileLoadError) {
-        console.error("OnlyStream profile load failed:", profileLoadError);
+        console.error("OnlyStream profile details load failed:", profileLoadError);
       }
 
       if (!active) return;
       const metadata = user.user_metadata || {};
-      const profileRole = String(profile?.role || "").trim().toLowerCase();
-      const metadataRole = String(metadata.role || "").trim().toLowerCase();
-
-      // Keep creator navigation available if Supabase Auth metadata says creator
-      // but the profile query temporarily returns a stale/missing role. Actual
-      // permissions must still be enforced by the protected backend/pages.
-      const role = profileRole === "creator" || metadataRole === "creator"
-        ? "creator"
-        : profileRole === "user" || metadataRole === "user"
-          ? "user"
-          : "user";
+      const rawRole = roleProfile?.role || profile?.role || metadata.role || "user";
+      const role = String(rawRole).trim().toLowerCase();
       if (role !== "user" && role !== "creator") {
+        console.error("OnlyStream received an unsupported account role:", rawRole);
         setSession(null);
         return;
       }
 
+      const rawPlan = profile?.creator_plan || metadata.creator_plan || metadata.creatorPlan || "calls";
+      const creatorPlan = String(rawPlan).trim().toLowerCase() === "subscription" ? "subscription" : "calls";
       setSession({
         id: user.id,
         email: user.email || profile?.email || "",
         username: profile?.username || metadata.username || (user.email || "").split("@")[0],
         role,
-        creatorPlan: profile?.creator_plan || metadata.creator_plan || metadata.creatorPlan || "calls",
+        creatorPlan,
         subscriptionPrice: Number(profile?.subscription_price ?? metadata.subscription_price ?? 0),
         subscriptionHours: Number(profile?.subscription_hours ?? metadata.subscription_hours ?? 24),
         gender: profile?.gender || metadata.gender || "",
