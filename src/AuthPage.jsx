@@ -114,7 +114,18 @@ async function saveCompatibilitySession(user, profile) {
     console.warn("Compatibility-session update failed:", error);
   }
 
-  // Do not duplicate the authentication session in localStorage.
+  // Compatibility profile cache for older app screens and the existing
+  // economy/call APIs. Supabase remains the source of authentication; this
+  // object contains profile metadata only and must never contain auth tokens.
+  try {
+    localStorage.setItem(
+      "onlystream-test-session-v1",
+      JSON.stringify(compatibilitySession)
+    );
+  } catch (storageError) {
+    console.warn("Compatibility profile cache could not be saved:", storageError);
+  }
+
   return account;
 }
 
@@ -442,10 +453,20 @@ export default function AuthPage({ initialMode = "login" }) {
         );
       }
     } catch (error) {
-      setMessage(
-        error?.message ||
-          "Could not complete authentication. Please try again."
-      );
+      const rawMessage = String(error?.message || "");
+      const lowerMessage = rawMessage.toLowerCase();
+      if (
+        mode === "login" &&
+        (lowerMessage.includes("invalid login credentials") ||
+          lowerMessage.includes("user not found") ||
+          lowerMessage.includes("invalid email or password"))
+      ) {
+        setMessage("No matching login was found, or the password is incorrect. If you haven't created an account yet, choose Sign Up.");
+      } else {
+        setMessage(
+          rawMessage || "Could not complete authentication. Please try again."
+        );
+      }
     } finally {
       setBusy(false);
     }
