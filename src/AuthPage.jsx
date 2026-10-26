@@ -40,19 +40,39 @@ function normalizedProfile(profile, authUser) {
 
 async function saveCompatibilitySession(user, profile) {
   const account = normalizedProfile(profile, user);
-  const { data: walletData } = await supabase
+  const { data: walletData, error: walletError } = await supabase
     .from("wallets")
-    .select("coin_balance")
+    .select("coins")
     .eq("user_id", user.id)
     .maybeSingle();
-  const session = {
+  if (walletError) throw new Error(`Could not load wallet: ${walletError.message}`);
+
+  const compatibilitySession = {
     ...account,
     loggedInAt: new Date().toISOString(),
     authProvider: user.app_metadata?.provider || "email",
     testMode: true,
-    coins: Number(walletData?.coin_balance ?? 0),
+    coins: Number(walletData?.coins ?? 0),
     testBonusInr: 0,
   };
+
+  // Database is the source of truth for the legacy compatibility profile.
+  // CreatorDashboard reads this JSON from profiles after Supabase auth.
+  const { error: saveError } = await supabase
+    .from("profiles")
+    .update({ compatibility_session: compatibilitySession })
+    .eq("id", user.id);
+  if (saveError) {
+    throw new Error(`Could not save compatibility session to database: ${saveError.message}. Run the compatibility-session SQL migration first.`);
+  }
+
+  // A temporary runtime cache keeps older components working, but the profile
+  // above is persisted in Supabase and is reloaded from there on dashboard entry.
+  try {
+    localStorage.setItem("onlystream-test-session-v1", JSON.stringify(compatibilitySession));
+  } catch (storageError) {
+    console.warn("Compatibility session cache unavailable; database session remains saved.", storageError);
+  }
   return account;
 }
 
