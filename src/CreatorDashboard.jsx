@@ -421,7 +421,12 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
         const response = await fetch(`${API_BASE}/api/test-account`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ username: session.username, role: "creator", gender: session.gender || "female" }),
+          body: JSON.stringify({
+            username: session.username,
+            role: "creator",
+            gender: session.gender || "female",
+            accessToken,
+          }),
           cache: "no-store",
         });
         const result = await readJson(response);
