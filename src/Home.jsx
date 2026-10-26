@@ -9,6 +9,8 @@ import {
   LockKeyhole,
   RefreshCw,
   LogOut,
+  UserRound,
+  Pencil,
 } from "lucide-react";
 import "./Home.css";
 import { supabase } from "./supabaseClient";
@@ -507,7 +509,7 @@ export default function Home() {
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("id, email, username, role, creator_plan, subscription_price, subscription_hours, gender")
+          .select("id, email, username, role, creator_plan, subscription_price, subscription_hours, gender, age, profile_picture_url, creator_thumbnail_url, profile_completed")
           .eq("id", user.id)
           .maybeSingle();
         if (!error) profile = data;
@@ -533,6 +535,10 @@ export default function Home() {
         subscriptionPrice: Number(profile?.subscription_price ?? metadata.subscription_price ?? 0),
         subscriptionHours: Number(profile?.subscription_hours ?? metadata.subscription_hours ?? 24),
         gender: profile?.gender || metadata.gender || "",
+        age: Number(profile?.age || 0),
+        profilePictureUrl: profile?.profile_picture_url || "",
+        creatorThumbnailUrl: profile?.creator_thumbnail_url || "",
+        profileCompleted: Boolean(profile?.profile_completed),
       });
     }
 
@@ -579,7 +585,7 @@ export default function Home() {
         }
 
         const data = await response.json();
-        const creators = Array.isArray(data.creators)
+        let creators = Array.isArray(data.creators)
           ? data.creators.filter(
               (creator) =>
                 creator &&
@@ -587,6 +593,18 @@ export default function Home() {
                 creator.username.trim()
             )
           : [];
+
+        // Creator thumbnails are read from Supabase profiles, not browser storage.
+        const { data: creatorProfiles, error: creatorProfilesError } = await supabase
+          .from("creator_public_profiles")
+          .select("username, thumbnail_url");
+        if (!creatorProfilesError && Array.isArray(creatorProfiles)) {
+          const profileMap = new Map(creatorProfiles.map((profile) => [String(profile.username || "").toLowerCase(), profile]));
+          creators = creators.map((creator) => {
+            const profile = profileMap.get(String(creator.username || "").toLowerCase());
+            return profile?.thumbnail_url ? { ...creator, thumbnail: profile.thumbnail_url, creatorThumbnailUrl: profile.thumbnail_url } : creator;
+          });
+        }
 
         if (active) {
           setOnlyStreamCreators(creators);
@@ -834,6 +852,21 @@ export default function Home() {
         <a className="logo" href="/">
           OnlyStream<span>.</span>
         </a>
+        {session && (
+          <a
+            className="profile-nav-button"
+            href="/profile-setup"
+            aria-label="Edit profile"
+            title="Edit profile"
+          >
+            {session.profilePictureUrl ? (
+              <img src={session.profilePictureUrl} alt="Your profile" />
+            ) : (
+              <UserRound size={19} />
+            )}
+            <span className="profile-nav-edit"><Pencil size={10} /></span>
+          </a>
+        )}
 
         <div className="home-nav-actions">
           <span className="online-status">● We're online</span>
