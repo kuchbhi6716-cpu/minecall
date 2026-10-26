@@ -1,17 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
+import { loadSupabaseAccount } from "./supabaseAccount";
 import { ArrowLeft, CheckCircle2, Clock3, LockKeyhole, ShieldCheck, Video, MessageCircle, RefreshCw } from "lucide-react";
 import "./ExclusiveAccessPage.css";
-
-const SESSION_KEY = "onlystream-test-session-v1";
-
-function getSession() {
-  try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-  } catch {
-    return null;
-  }
-}
 
 function formatRemaining(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -25,7 +16,7 @@ export default function ExclusiveAccessPage() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const creator = (params.get("creator") || params.get("subscriptionCreator") || "").trim();
   const queryPrice = Math.max(1, Number(params.get("price") || params.get("subscriptionPrice")) || 499);
-  const [session, setSession] = useState(() => getSession());
+  const [session, setSession] = useState(null);
   const [price, setPrice] = useState(queryPrice);
   const [occupied, setOccupied] = useState(false);
   const [owned, setOwned] = useState(false);
@@ -69,17 +60,23 @@ export default function ExclusiveAccessPage() {
   }, [creator, queryPrice, session]);
 
   useEffect(() => {
-    const current = getSession();
-    if (current?.role === "creator") {
-      window.location.replace("/");
-      return;
-    }
-    if (!current || current.role !== "user" || !current.username) {
-      window.location.replace(loginUrl);
-      return;
-    }
-    void refreshStatus();
-  }, [loginUrl, refreshStatus]);
+    let active = true;
+    (async () => {
+      try {
+        const current = await loadSupabaseAccount();
+        if (!active) return;
+        if (current?.role === "creator") { window.location.replace("/"); return; }
+        if (!current || current.role !== "user") { window.location.replace(loginUrl); return; }
+        setSession(current);
+      } catch (error) {
+        console.error("Could not load Supabase account:", error);
+        if (active) window.location.replace(loginUrl);
+      }
+    })();
+    return () => { active = false; };
+  }, [loginUrl]);
+
+  useEffect(() => { if (session?.role === "user") void refreshStatus(); }, [session, refreshStatus]);
 
   useEffect(() => {
     if (!expiresAt) return undefined;
@@ -90,7 +87,7 @@ export default function ExclusiveAccessPage() {
   }, [expiresAt]);
 
   async function purchaseAccess() {
-    const current = getSession();
+    const current = await loadSupabaseAccount();
     if (!current || current.role !== "user" || !current.username) {
       window.location.href = loginUrl;
       return;
