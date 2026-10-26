@@ -54,12 +54,11 @@ function normalizedProfile(profile, authUser) {
       metadata.username ||
       emailName ||
       `user_${String(userId).replaceAll("-", "").slice(0, 12)}`,
-    role: profile?.role || metadata.role || "user",
+    role: String(profile?.role || metadata.role || "user").trim().toLowerCase(),
     creatorPlan:
-      profile?.creator_plan ||
-      metadata.creator_plan ||
-      metadata.creatorPlan ||
-      "calls",
+      String(profile?.creator_plan || metadata.creator_plan || metadata.creatorPlan || "calls").trim().toLowerCase() === "subscription"
+        ? "subscription"
+        : "calls",
     subscriptionPrice: Number(
       profile?.subscription_price ?? metadata.subscription_price ?? 0
     ),
