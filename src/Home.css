@@ -2645,3 +2645,18 @@ body:has(.minebbe) {
   .onlystream-creator-card,
   .onlystream-creator-card * { transition: none !important; }
 }
+
+/* OnlyStream profile shortcut beside the brand */
+.navbar{gap:10px}
+.profile-nav-button{align-self:center}
+@media(max-width:520px){.navbar{gap:7px}.home-nav-actions{gap:7px}.profile-nav-button{margin-left:2px}}
+
+
+/* Profile control polish: compact, accessible, responsive blue-white nav */
+.minebbe .profile-nav-button{display:inline-flex;align-items:center;gap:9px;border:1px solid #d5e6f5!important;background:#fff!important;color:#142b43!important;border-radius:999px!important;padding:5px 12px 5px 5px!important;box-shadow:0 5px 16px rgba(27,87,137,.07);transition:box-shadow .2s,transform .2s,border-color .2s}
+.minebbe .profile-nav-button:hover{border-color:#8fc7f0!important;box-shadow:0 8px 22px rgba(8,123,209,.14);transform:translateY(-1px)}
+.minebbe .profile-nav-button img,.minebbe .profile-nav-button .profile-nav-avatar{width:34px;height:34px;min-width:34px;border-radius:50%;object-fit:cover;border:2px solid #d8edff;background:#edf7ff}
+.minebbe .profile-nav-button svg{color:#087bd1}
+.minebbe .creator-card img,.minebbe .stream-card img,.minebbe .onlystream-creator-card img{object-fit:cover}
+.minebbe .creator-card,.minebbe .stream-card,.minebbe .onlystream-creator-card{overflow:hidden}
+@media(max-width:600px){.minebbe .navbar{gap:8px}.minebbe .logo{font-size:23px;letter-spacing:-1.2px}.minebbe .profile-nav-button{padding:4px!important}.minebbe .profile-nav-button img,.minebbe .profile-nav-button .profile-nav-avatar{width:32px;height:32px;min-width:32px}}
