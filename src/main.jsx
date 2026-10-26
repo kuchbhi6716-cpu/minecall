@@ -6,6 +6,8 @@ import CreatorDashboard from "./CreatorDashboard.jsx";
 import SubscriptionCreatorDashboard from "./SubscriptionCreatorDashboard.jsx";
 import LivePage from "./LivePage.jsx";
 import ExclusiveAccessPage from "./ExclusiveAccessPage.jsx";
+import ProfileSetupPage from "./ProfileSetupPage.jsx";
+import "./ProfileSetupPage.css";
 import "./style.css";
 import "./AuthPage.css";
 import "./CreatorDashboard.css";
@@ -15,6 +17,7 @@ import "./ExclusiveAccessPage.css";
 
 function RootApp() {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (path === "/profile-setup" || path === "/profile") return <ProfileSetupPage />;
   if (path === "/login") return <AuthPage />;
   if (path === "/signup") return <AuthPage initialMode="signup" />;
   if (path === "/creator") return <CreatorDashboard />;
