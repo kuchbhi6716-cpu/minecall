@@ -914,6 +914,7 @@ app.get("/api/exclusive-access/status", (req, res) => {
     owned: Boolean(reservation && reservation.buyerUsername === buyerUsername),
     expiresAt: reservation?.expiresAt || null,
     remainingMs: reservation ? Math.max(0, reservation.expiresAt - Date.now()) : 0,
+    hours: Number(reservation?.accessHours || creator?.subscriptionHours || testAccounts.get(safeUsername(creatorUsername))?.subscriptionHours || 24),
   });
 });
 
@@ -2192,7 +2193,7 @@ io.on("connection", (socket) => {
     const expiresAt = Date.now() + accessDurationMs;
     const reservation = {
       creatorUsername, buyerUsername, amount: price, transactionId,
-      purchasedAt: Date.now(), expiresAt, timer: null,
+      purchasedAt: Date.now(), expiresAt, accessHours, timer: null,
     };
     reservation.timer = setTimeout(() => {
       const currentReservation = exclusiveAccessReservations.get(safeUsername(creatorUsername));
@@ -2223,8 +2224,8 @@ io.on("connection", (socket) => {
       const liveCreator = liveCreators.get(creatorUsername);
       if (liveCreator?.socketId) io.to(liveCreator.socketId).emit("subscription-earnings-updated", { username: creatorUsername });
     }
-    console.log(`[Exclusive access] ${buyerUsername} reserved ${creatorUsername} for 24 hours.`);
-    return reply({ ok: true, expiresAt, remainingMs: 24 * 60 * 60 * 1000, price, demoPayment: true });
+    console.log(`[Exclusive access] ${buyerUsername} reserved ${creatorUsername} for ${accessHours} hours.`);
+    return reply({ ok: true, expiresAt, remainingMs: accessDurationMs, price, hours: accessHours, demoPayment: true });
   });
 
   socket.on("subscription-purchase", (payload, acknowledge) => {
