@@ -105,7 +105,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
           setEconomy({
             testRevenueInr: Number(earnings.total || 0),
             creatorRevenue: Number(earnings.total || 0),
-            testBonusInr: 0,
+            testBonusInr: Number(economy?.testBonusInr || 1200),
             coins: 0,
           });
           setLedger((Array.isArray(data.rows) ? data.rows : []).map((row) => ({
@@ -1210,14 +1210,14 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
             <span className="creator-earnings-link-action">View earnings <ArrowUpRight size={16} /></span>
           </button>
 
-          {!exclusiveMode && <div className="creator-stat-card">
+          <div className="creator-stat-card">
             <div className="creator-stat-icon"><Gift size={22} /></div>
             <p className="creator-stat-label">Creator signup bonus</p>
             <div className="creator-stat-value">
               {economyLoading ? "…" : `₹${formatNumber(signupBonus)}`}
             </div>
             <p className="creator-stat-footnote">Test signup bonus · not withdrawable</p>
-          </div>}
+          </div>
 
           <div className="creator-stat-card">
             <div className="creator-stat-icon"><Wallet size={22} /></div>
