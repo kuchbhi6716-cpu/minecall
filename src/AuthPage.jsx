@@ -15,69 +15,130 @@ const PENDING_OAUTH_KEY = "onlystream-pending-oauth-profile-v1";
 function getSafeNextPath(role, creatorPlan) {
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
+
   const safeNext = Boolean(
-    next && next.startsWith("/") && !next.startsWith("//") &&
-    !next.includes("\\") && !/^\/(?:login|signup|creator)(?:[/?#]|$)/i.test(next)
+    next &&
+      next.startsWith("/") &&
+      !next.startsWith("//") &&
+      !next.includes("\\") &&
+      !/^\/(?:login|signup|creator)(?:[/?#]|$)/i.test(next)
   );
-  if (role === "creator") return creatorPlan === "subscription" ? "/subscription-creator" : "/creator";
+
+  if (role === "creator") {
+    return creatorPlan === "subscription"
+      ? "/subscription-creator"
+      : "/creator";
+  }
+
   return safeNext ? next : "/";
 }
 
 function normalizedProfile(profile, authUser) {
   const metadata = authUser?.user_metadata || {};
   const emailName = (authUser?.email || "").split("@")[0].toLowerCase();
+  const userId = authUser?.id || profile?.id || "";
+
   return {
-    id: authUser?.id || profile?.id || "",
+    id: userId,
     email: authUser?.email || "",
-    username: profile?.username || metadata.username || emailName || `user_${String(authUser?.id || "").replaceAll("-", "").slice(0, 12)}`,
+    username:
+      profile?.username ||
+      metadata.username ||
+      emailName ||
+      `user_${String(userId).replaceAll("-", "").slice(0, 12)}`,
     role: profile?.role || metadata.role || "user",
-    creatorPlan: profile?.creator_plan || metadata.creator_plan || "calls",
-    subscriptionPrice: Number(profile?.subscription_price ?? metadata.subscription_price ?? 0),
-    subscriptionHours: Number(profile?.subscription_hours ?? metadata.subscription_hours ?? 24),
+    creatorPlan:
+      profile?.creator_plan ||
+      metadata.creator_plan ||
+      metadata.creatorPlan ||
+      "calls",
+    subscriptionPrice: Number(
+      profile?.subscription_price ?? metadata.subscription_price ?? 0
+    ),
+    subscriptionHours: Number(
+      profile?.subscription_hours ?? metadata.subscription_hours ?? 24
+    ),
     gender: profile?.gender || metadata.gender || "",
   };
 }
 
+/**
+ * Authentication is handled by Supabase Auth.
+ * Wallet and compatibility-session errors must not block a valid login.
+ */
 async function saveCompatibilitySession(user, profile) {
   const account = normalizedProfile(profile, user);
-  const { data: walletData, error: walletError } = await supabase
-    .from("wallets")
-    .select("coins")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (walletError) throw new Error(`Could not load wallet: ${walletError.message}`);
+
+  let coins = 0;
+
+  try {
+    const { data: walletData, error: walletError } = await supabase
+      .from("wallets")
+      .select("coins")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (walletError) {
+      console.warn("Wallet lookup failed:", walletError.message);
+    } else {
+      coins = Number(walletData?.coins ?? 0);
+    }
+  } catch (error) {
+    console.warn("Wallet lookup failed:", error);
+  }
 
   const compatibilitySession = {
     ...account,
     loggedInAt: new Date().toISOString(),
     authProvider: user.app_metadata?.provider || "email",
-    testMode: true,
-    coins: Number(walletData?.coins ?? 0),
+    testMode: false,
+    coins,
     testBonusInr: 0,
   };
 
-  // Database is the source of truth for the legacy compatibility profile.
-  // CreatorDashboard reads this JSON from profiles after Supabase auth.
-  const { error: saveError } = await supabase
-    .from("profiles")
-    .update({ compatibility_session: compatibilitySession })
-    .eq("id", user.id);
-  if (saveError) {
-    throw new Error(`Could not save compatibility session to database: ${saveError.message}. Run the compatibility-session SQL migration first.`);
+  // Optional compatibility data. Never block login if this column
+  // is missing or its update is denied by the database.
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ compatibility_session: compatibilitySession })
+      .eq("id", user.id);
+
+    if (error) {
+      console.warn(
+        "Compatibility session was not saved:",
+        error.message
+      );
+    }
+  } catch (error) {
+    console.warn("Compatibility-session update failed:", error);
   }
 
-  // A temporary runtime cache keeps older components working, but the profile
-  // above is persisted in Supabase and is reloaded from there on dashboard entry.
-  try {
-    localStorage.setItem("onlystream-test-session-v1", JSON.stringify(compatibilitySession));
-  } catch (storageError) {
-    console.warn("Compatibility session cache unavailable; database session remains saved.", storageError);
-  }
+  // Do not duplicate the authentication session in localStorage.
   return account;
 }
 
 function cleanUsername(value) {
   return value.trim().toLowerCase();
+}
+
+function buildProfilePatch(pending) {
+  const plan =
+    pending.role === "creator" ? pending.creatorPlan : "calls";
+
+  const hours = Number(pending.subscriptionHours);
+
+  return {
+    username: pending.username,
+    role: pending.role,
+    gender: pending.role === "creator" ? pending.gender : "",
+    creator_plan: plan,
+    subscription_price:
+      pending.role === "creator" && plan === "subscription"
+        ? Math.max(1, Number(pending.subscriptionPrice) || 1)
+        : 0,
+    subscription_hours: [3, 5, 7, 24].includes(hours) ? hours : 24,
+  };
 }
 
 export default function AuthPage({ initialMode = "login" }) {
@@ -100,104 +161,291 @@ export default function AuthPage({ initialMode = "login" }) {
 
   useEffect(() => {
     let active = true;
+
     async function finishOAuthIfPresent() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const hasOAuthCallback = urlParams.has("code") || window.location.hash.includes("access_token=");
+      const params = new URLSearchParams(window.location.search);
+
+      const hasOAuthCallback =
+        params.has("code") ||
+        window.location.hash.includes("access_token=");
+
       let pending = null;
-      try { pending = JSON.parse(sessionStorage.getItem(PENDING_OAUTH_KEY) || "null"); } catch {}
-      // Do not redirect just because Supabase still has a valid session.
-      // Only finish the OAuth flow when this page is returning from Google.
-      if (!hasOAuthCallback && !pending) return;
-      const { data, error } = await supabase.auth.getSession();
-      if (!active || error || !data.session?.user) return;
-      const user = data.session.user;
-      if (pending) {
-        const patch = {
-          username: pending.username,
-          role: pending.role,
-          gender: pending.role === "creator" ? pending.gender : "",
-          creator_plan: pending.role === "creator" ? pending.creatorPlan : "calls",
-          subscription_price: pending.role === "creator" && pending.creatorPlan === "subscription" ? Math.max(1, Number(pending.subscriptionPrice) || 1) : 0,
-          subscription_hours: [3, 5, 7, 24].includes(Number(pending.subscriptionHours)) ? Number(pending.subscriptionHours) : 24,
-        };
-        const { error: updateError } = await supabase.from("profiles").update(patch).eq("id", user.id);
-        if (updateError) {
-          setMessage("Google sign-in worked, but profile setup failed. Run the Supabase profile policies SQL file, then try again.");
-          return;
-        }
-        sessionStorage.removeItem(PENDING_OAUTH_KEY);
+
+      try {
+        pending = JSON.parse(
+          sessionStorage.getItem(PENDING_OAUTH_KEY) || "null"
+        );
+      } catch {
         pending = null;
       }
-      const { data: profileData, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-      if (profileError) {
-        setMessage("Login succeeded, but the profile could not be loaded. Please check the Supabase RLS policies.");
-        return;
+
+      if (!hasOAuthCallback && !pending) return;
+
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+        if (!active) return;
+
+        if (error) {
+          setMessage(
+            `Google sign-in could not be completed: ${error.message}`
+          );
+          return;
+        }
+
+        const user = data.session?.user;
+
+        if (!user) {
+          setMessage(
+            "Google sign-in did not return an active session. Please try again."
+          );
+          return;
+        }
+
+        if (pending) {
+          const patch = buildProfilePatch(pending);
+
+          const { error: updateError } = await supabase
+            .from("profiles")
+            .update(patch)
+            .eq("id", user.id);
+
+          if (updateError) {
+            setMessage(
+              `Google sign-in succeeded, but profile setup failed: ${updateError.message}. Check the profiles row and its UPDATE policy.`
+            );
+            return;
+          }
+
+          try {
+            sessionStorage.removeItem(PENDING_OAUTH_KEY);
+          } catch {
+            // The database update succeeded; temporary storage cleanup
+            // must not block navigation.
+          }
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!active) return;
+
+        if (profileError) {
+          setMessage(
+            `Google sign-in succeeded, but the profile could not be loaded: ${profileError.message}. Check the profiles SELECT policy.`
+          );
+          return;
+        }
+
+        if (!profile) {
+          setMessage(
+            "Google sign-in succeeded, but no profile exists for this account. Check your Supabase profile-creation trigger."
+          );
+          return;
+        }
+
+        const account = await saveCompatibilitySession(user, profile);
+
+        if (!active) return;
+
+        window.location.replace(
+          getSafeNextPath(account.role, account.creatorPlan)
+        );
+      } catch (error) {
+        if (active) {
+          setMessage(
+            error?.message ||
+              "Google sign-in could not be completed. Please try again."
+          );
+        }
       }
-      const account = await saveCompatibilitySession(user, profileData);
-      window.location.replace(getSafeNextPath(account.role, account.creatorPlan));
     }
+
     finishOAuthIfPresent();
+
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      // Deliberately do not redirect on SIGNED_IN here. The explicit form submit
-      // or OAuth callback is responsible for navigation.
+      // Navigation is handled by form submission or OAuth callback.
     });
-    return () => { active = false; listener.subscription.unsubscribe(); };
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   async function handleSubmit(event) {
     event.preventDefault();
     setMessage("");
+
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = cleanUsername(username);
 
     if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
-      setMessage("Please enter a valid email address."); return;
+      setMessage("Please enter a valid email address.");
+      return;
     }
-    if (mode === "signup" && !/^[a-z0-9_.-]{3,30}$/.test(cleanName)) {
-      setMessage("Username must be 3–30 characters and use only letters, numbers, dots, underscores or hyphens."); return;
+
+    if (
+      mode === "signup" &&
+      !/^[a-z0-9_.-]{3,30}$/.test(cleanName)
+    ) {
+      setMessage(
+        "Username must be 3–30 characters and use only letters, numbers, dots, underscores or hyphens."
+      );
+      return;
     }
-    if (password.length < 6) { setMessage("Password must contain at least 6 characters."); return; }
-    if (mode === "signup" && password !== confirmPassword) { setMessage("Passwords do not match."); return; }
-    if (mode === "signup" && role === "creator" && String(gender || "").trim().toLowerCase() !== "female") {
-      setMessage("Creator signup is currently available only to users who select Female."); return;
+
+    if (password.length < 6) {
+      setMessage("Password must contain at least 6 characters.");
+      return;
+    }
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+
+    if (
+      mode === "signup" &&
+      role === "creator" &&
+      String(gender).trim().toLowerCase() !== "female"
+    ) {
+      setMessage(
+        "Creator signup is currently available only to users who select Female."
+      );
+      return;
     }
 
     setBusy(true);
+
     try {
       if (mode === "signup") {
         const metadata = {
           username: cleanName,
           role,
-          gender: role === "creator" ? String(gender || "").trim().toLowerCase() : "",
+          gender:
+            role === "creator"
+              ? String(gender).trim().toLowerCase()
+              : "",
           creator_plan: role === "creator" ? creatorPlan : "calls",
-          subscription_price: role === "creator" && creatorPlan === "subscription" ? Math.max(1, Number(subscriptionPrice) || 1) : 0,
-          subscription_hours: [3, 5, 7, 24].includes(Number(subscriptionHours)) ? Number(subscriptionHours) : 24,
+          subscription_price:
+            role === "creator" && creatorPlan === "subscription"
+              ? Math.max(1, Number(subscriptionPrice) || 1)
+              : 0,
+          subscription_hours: [3, 5, 7, 24].includes(
+            Number(subscriptionHours)
+          )
+            ? Number(subscriptionHours)
+            : 24,
         };
+
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
-          options: { data: metadata, emailRedirectTo: `${window.location.origin}/login` },
+          options: {
+            data: metadata,
+            emailRedirectTo: `${window.location.origin}/login`,
+          },
         });
+
         if (error) throw error;
+
+        if (!data.user) {
+          throw new Error(
+            "Supabase did not return a user. Please try again."
+          );
+        }
+
         if (!data.session) {
-          setMessage("Account created! Check your email and confirm it, then log in.");
+          setMessage(
+            "Account created! Check your email and confirm it, then log in."
+          );
           return;
         }
-        const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", data.user.id).maybeSingle();
-        if (profileError) throw new Error("Account created, but profile access is blocked. Run the Supabase profile policies SQL file.");
-        const account = await saveCompatibilitySession(data.user, profile);
-        window.location.replace(getSafeNextPath(account.role, account.creatorPlan));
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", data.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          throw new Error(
+            `Account created, but the profile could not be loaded: ${profileError.message}. Check the profiles table and its SELECT policy.`
+          );
+        }
+
+        if (!profile) {
+          throw new Error(
+            "Account created, but no profile row exists yet. Check the Supabase profile-creation trigger."
+          );
+        }
+
+        const account = await saveCompatibilitySession(
+          data.user,
+          profile
+        );
+
+        window.location.replace(
+          getSafeNextPath(account.role, account.creatorPlan)
+        );
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+
         if (error) throw error;
-        const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", data.user.id).maybeSingle();
-        if (profileError) throw new Error("Logged in, but profile access is blocked. Run the Supabase profile policies SQL file.");
-        if (profile?.role !== role) throw new Error(`This account is registered as ${profile?.role || "user"}. Choose the correct account type.`);
-        const account = await saveCompatibilitySession(data.user, profile);
-        window.location.replace(getSafeNextPath(account.role, account.creatorPlan));
+
+        if (!data.user) {
+          throw new Error(
+            "Login did not return a user. Please try again."
+          );
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", data.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          throw new Error(
+            `Password accepted, but the profile could not be loaded: ${profileError.message}. Check the profiles table and its SELECT policy.`
+          );
+        }
+
+        if (!profile) {
+          throw new Error(
+            "Login succeeded, but no profile row exists for this account. Check the Supabase profile-creation trigger."
+          );
+        }
+
+        const account = normalizedProfile(profile, data.user);
+
+        if (account.role !== role) {
+          throw new Error(
+            `This account is registered as ${account.role}. Choose the correct account type.`
+          );
+        }
+
+        const savedAccount = await saveCompatibilitySession(
+          data.user,
+          profile
+        );
+
+        window.location.replace(
+          getSafeNextPath(savedAccount.role, savedAccount.creatorPlan)
+        );
       }
     } catch (error) {
-      setMessage(error?.message || "Could not complete authentication. Please try again.");
+      setMessage(
+        error?.message ||
+          "Could not complete authentication. Please try again."
+      );
     } finally {
       setBusy(false);
     }
@@ -205,31 +453,74 @@ export default function AuthPage({ initialMode = "login" }) {
 
   async function handleGoogleSignIn() {
     setMessage("");
-    if (mode === "signup" && !/^[a-z0-9_.-]{3,30}$/.test(cleanUsername(username))) {
-      setMessage("Enter a valid username before continuing with Google."); return;
+
+    if (
+      mode === "signup" &&
+      !/^[a-z0-9_.-]{3,30}$/.test(cleanUsername(username))
+    ) {
+      setMessage("Enter a valid username before continuing with Google.");
+      return;
     }
-    if (mode === "signup" && role === "creator" && String(gender || "").trim().toLowerCase() !== "female") {
-      setMessage("Creator signup is currently available only to users who select Female."); return;
+
+    if (
+      mode === "signup" &&
+      role === "creator" &&
+      String(gender).trim().toLowerCase() !== "female"
+    ) {
+      setMessage(
+        "Creator signup is currently available only to users who select Female."
+      );
+      return;
     }
+
     const metadata = {
       username: mode === "signup" ? cleanUsername(username) : "",
       role: mode === "signup" ? role : "user",
-      gender: mode === "signup" && role === "creator" ? String(gender || "").trim().toLowerCase() : "",
+      gender:
+        mode === "signup" && role === "creator"
+          ? String(gender).trim().toLowerCase()
+          : "",
       creatorPlan: mode === "signup" ? creatorPlan : "calls",
       subscriptionPrice,
       subscriptionHours,
     };
-    if (mode === "signup") sessionStorage.setItem(PENDING_OAUTH_KEY, JSON.stringify(metadata));
+
+    if (mode === "signup") {
+      try {
+        sessionStorage.setItem(
+          PENDING_OAUTH_KEY,
+          JSON.stringify(metadata)
+        );
+      } catch {
+        setMessage(
+          "Could not save temporary signup details in this browser. Please try again."
+        );
+        return;
+      }
+    }
+
     setBusy(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}${mode === "signup" ? "/signup" : "/login"}`,
-               queryParams: {
-                 prompt: "select_account",
-               },
-               },
-    });
-    if (error) { setBusy(false); setMessage(error.message || "Google sign-in could not start."); }
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}${
+            mode === "signup" ? "/signup" : "/login"
+          }`,
+          queryParams: {
+            prompt: "select_account",
+          },
+        },
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      setBusy(false);
+      setMessage(
+        error?.message || "Google sign-in could not start."
+      );
+    }
   }
 
   function changeMode(nextMode) {
@@ -299,7 +590,9 @@ export default function AuthPage({ initialMode = "login" }) {
 
           <button
             type="button"
-            className={role === "creator" ? "auth-role active" : "auth-role"}
+            className={
+              role === "creator" ? "auth-role active" : "auth-role"
+            }
             onClick={() => changeRole("creator")}
             disabled={busy}
           >
@@ -312,33 +605,115 @@ export default function AuthPage({ initialMode = "login" }) {
           <div className="auth-creator-bonus">
             <strong>₹1,200 Creator Welcome Bonus</strong>
             <span>
-              Promotional bonus only. It cannot be
-              withdrawn.
+              Promotional bonus only. It cannot be withdrawn.
             </span>
           </div>
         )}
 
         {mode === "signup" && role === "creator" && (
           <div className="creator-plan-picker">
-            <p className="creator-plan-title">Choose how you want to earn</p>
+            <p className="creator-plan-title">
+              Choose how you want to earn
+            </p>
+
             <div className="creator-plan-options">
-              <button type="button" className={`creator-plan-card ${creatorPlan === "calls" ? "selected" : ""}`} onClick={() => setCreatorPlan("calls")} disabled={busy}>
-                <span className="creator-plan-tag">POPULAR</span><strong>Call Earning</strong><span>Go live, receive paid calls and earn per call using the existing coin system.</span><b>Earn from calls</b>
+              <button
+                type="button"
+                className={`creator-plan-card ${
+                  creatorPlan === "calls" ? "selected" : ""
+                }`}
+                onClick={() => setCreatorPlan("calls")}
+                disabled={busy}
+              >
+                <span className="creator-plan-tag">POPULAR</span>
+                <strong>Call Earning</strong>
+                <span>
+                  Go live, receive paid calls and earn per call using the
+                  existing coin system.
+                </span>
+                <b>Earn from calls</b>
               </button>
-              <button type="button" className={`creator-plan-card ${creatorPlan === "subscription" ? "selected" : ""}`} onClick={() => setCreatorPlan("subscription")} disabled={busy}>
-                <span className="creator-plan-tag subscription-tag">LIFETIME ACCESS</span><strong>Subscription Creator</strong><span>Set a one-time fee. Subscribers get lifetime access to your live streams, photos and videos, but cannot call you.</span><b>One-time payment</b>
+
+              <button
+                type="button"
+                className={`creator-plan-card ${
+                  creatorPlan === "subscription" ? "selected" : ""
+                }`}
+                onClick={() => setCreatorPlan("subscription")}
+                disabled={busy}
+              >
+                <span className="creator-plan-tag subscription-tag">
+                  LIFETIME ACCESS
+                </span>
+                <strong>Subscription Creator</strong>
+                <span>
+                  Set a one-time fee. Subscribers get lifetime access to
+                  your live streams, photos and videos, but cannot call you.
+                </span>
+                <b>One-time payment</b>
               </button>
             </div>
-            {creatorPlan === "subscription" && <>
-              <div className="creator-price-field creator-hours-field">
-                <label>Choose exclusive rent duration</label>
-                <div className="creator-hours-options" role="group" aria-label="Exclusive rent duration">
-                  {[3, 5, 7, 24].map(hours => <button key={hours} type="button" className={`creator-hours-option ${Number(subscriptionHours) === hours ? "selected" : ""}`} onClick={() => setSubscriptionHours(String(hours))} disabled={busy}>{hours} Hours{hours === 24 ? " · Existing" : " Rent"}</button>)}
+
+            {creatorPlan === "subscription" && (
+              <>
+                <div className="creator-price-field creator-hours-field">
+                  <label>Choose exclusive rent duration</label>
+
+                  <div
+                    className="creator-hours-options"
+                    role="group"
+                    aria-label="Exclusive rent duration"
+                  >
+                    {[3, 5, 7, 24].map((hours) => (
+                      <button
+                        key={hours}
+                        type="button"
+                        className={`creator-hours-option ${
+                          Number(subscriptionHours) === hours
+                            ? "selected"
+                            : ""
+                        }`}
+                        onClick={() =>
+                          setSubscriptionHours(String(hours))
+                        }
+                        disabled={busy}
+                      >
+                        {hours} Hours{hours === 24 ? " · Existing" : " Rent"}
+                      </button>
+                    ))}
+                  </div>
+
+                  <small>
+                    Your creator card will appear in the matching homepage
+                    section. Existing 24-hour access stays available.
+                  </small>
                 </div>
-                <small>Your creator card will appear in the matching homepage section. Existing 24-hour access stays available.</small>
-              </div>
-              <div className="creator-price-field"><label htmlFor="creator-subscription-price">One-time access price (₹)</label><input id="creator-subscription-price" type="number" min="1" max="100000" step="1" value={subscriptionPrice} onChange={e => setSubscriptionPrice(e.target.value)} required disabled={busy}/><small>Set the one-time access price for your creator page.</small></div>
-            </>}
+
+                <div className="creator-price-field">
+                  <label htmlFor="creator-subscription-price">
+                    One-time access price (₹)
+                  </label>
+
+                  <input
+                    id="creator-subscription-price"
+                    type="number"
+                    min="1"
+                    max="100000"
+                    step="1"
+                    value={subscriptionPrice}
+                    onChange={(event) =>
+                      setSubscriptionPrice(event.target.value)
+                    }
+                    required
+                    disabled={busy}
+                  />
+
+                  <small>
+                    Set the one-time access price for your creator page.
+                  </small>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -370,6 +745,7 @@ export default function AuthPage({ initialMode = "login" }) {
           )}
 
           <label htmlFor="auth-email">Email address</label>
+
           <input
             id="auth-email"
             type="email"
@@ -381,22 +757,25 @@ export default function AuthPage({ initialMode = "login" }) {
             disabled={busy}
           />
 
-          {mode === "signup" && <>
-            <label htmlFor="auth-username">Username</label>
-            <input
-              id="auth-username"
-              type="text"
-              autoComplete="username"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              placeholder="Choose a username"
-              minLength={3}
-              maxLength={30}
-              pattern="[a-zA-Z0-9_.-]+"
-              required
-              disabled={busy}
-            />
-          </>}
+          {mode === "signup" && (
+            <>
+              <label htmlFor="auth-username">Username</label>
+
+              <input
+                id="auth-username"
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                placeholder="Choose a username"
+                minLength={3}
+                maxLength={30}
+                pattern="[a-zA-Z0-9_.-]+"
+                required
+                disabled={busy}
+              />
+            </>
+          )}
 
           <label htmlFor="auth-password">Password</label>
 
@@ -422,7 +801,11 @@ export default function AuthPage({ initialMode = "login" }) {
               aria-label={showPassword ? "Hide password" : "Show password"}
               disabled={busy}
             >
-              {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+              {showPassword ? (
+                <EyeOff size={19} />
+              ) : (
+                <Eye size={19} />
+              )}
             </button>
           </div>
 
@@ -437,7 +820,9 @@ export default function AuthPage({ initialMode = "login" }) {
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
                 value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
+                onChange={(event) =>
+                  setConfirmPassword(event.target.value)
+                }
                 placeholder="Enter password again"
                 minLength={6}
                 required
@@ -463,7 +848,12 @@ export default function AuthPage({ initialMode = "login" }) {
           </button>
         </form>
 
-        <button type="button" className="auth-google-button" onClick={handleGoogleSignIn} disabled={busy}>
+        <button
+          type="button"
+          className="auth-google-button"
+          onClick={handleGoogleSignIn}
+          disabled={busy}
+        >
           <Mail size={18} />
           {busy ? "Please wait..." : "Continue with Google"}
         </button>
