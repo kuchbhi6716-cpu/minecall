@@ -93,10 +93,24 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
       setEconomyLoading(true);
       setEconomyError("");
 
+      // Always obtain a current Supabase access token before requesting private earnings.
+      // /api/economy/me verifies the token and rejects requests without Authorization.
+      const currentAccount = await loadSupabaseAccount();
+      const accessToken = currentAccount?.accessToken || session.accessToken || "";
+      if (!accessToken) {
+        throw new Error("Your login session is missing or expired. Please log in again.");
+      }
+      if (currentAccount?.username && currentAccount.username.toLowerCase() !== session.username.toLowerCase()) {
+        throw new Error("The signed-in account changed. Please reopen Creator Studio.");
+      }
+
       const endpoint = exclusiveMode
         ? `${API_BASE}/api/exclusive-earnings?username=${encodeURIComponent(session.username)}`
-        : `${API_BASE}/api/economy/me?username=${encodeURIComponent(session.username)}`;
-      const response = await fetch(endpoint, { headers: { Accept: "application/json" }, cache: "no-store" });
+        : `${API_BASE}/api/economy/me?username=${encodeURIComponent(session.username)}&role=creator`;
+      const response = await fetch(endpoint, {
+        headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
       const data = await readJson(response);
 
       if (mountedRef.current) {
