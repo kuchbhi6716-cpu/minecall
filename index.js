@@ -918,31 +918,50 @@ app.get("/api/exclusive-access/status", (req, res) => {
   });
 });
 
-app.get("/api/exclusive-earnings", (req, res) => {
+async function persistExclusiveEarning({ creatorUsername, buyerUsername = "User", grossAmount, creatorAmount, transactionId }) {
+  const creatorName = safeUsername(creatorUsername);
+  const buyerName = safeUsername(buyerUsername);
+  if (!creatorName || !transactionId) return;
+  const creators = await supabaseRest("profiles", `username=eq.${encodeURIComponent(creatorName)}&select=id,username&limit=1`);
+  const creator = Array.isArray(creators) ? creators[0] : null;
+  if (!creator?.id) throw new Error(`Creator profile not found for ${creatorName}`);
+  const buyers = buyerName ? await supabaseRest("profiles", `username=eq.${encodeURIComponent(buyerName)}&select=id,username&limit=1`) : [];
+  const buyer = Array.isArray(buyers) ? buyers[0] : null;
+  await supabaseRest("onlystream_exclusive_earnings", "", { method: "POST", prefer: "resolution=ignore-duplicates,return=minimal", body: {
+    creator_id: creator.id,
+    buyer_id: buyer?.id || null,
+    transaction_id: transactionId,
+    gross_amount_inr: Number(grossAmount || creatorAmount || 0),
+    creator_amount_inr: Number(creatorAmount || 0),
+    created_at: new Date().toISOString(),
+    buyer_username: buyerName || "User"
+  }});
+}
+
+app.get("/api/exclusive-earnings", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const username = normalizeCreatorName(req.query.username || "");
   if (!username) return res.status(400).json({ error: "Creator username is required." });
-  const rows = subscriptionEarningsLedger.get(username.toLowerCase()) || [];
-  const now = Date.now();
-  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
-  const sumSince = (since) => rows.filter(row => new Date(row.createdAt).getTime() >= since).reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  res.json({
-    ok: true,
-    earnings: {
+  try {
+    const profiles = await supabaseRest("profiles", `username=eq.${encodeURIComponent(username)}&select=id&limit=1`);
+    const creator = Array.isArray(profiles) ? profiles[0] : null;
+    if (!creator?.id) return res.status(404).json({ error: "Creator profile not found." });
+    const rows = await supabaseRest("onlystream_exclusive_earnings", `creator_id=eq.${encodeURIComponent(creator.id)}&select=id,transaction_id,gross_amount_inr,creator_amount_inr,created_at,buyer_username&order=created_at.desc&limit=1000`);
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const now = Date.now();
+    const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+    const sumSince = (since) => safeRows.filter(row => new Date(row.created_at).getTime() >= since).reduce((sum, row) => sum + Number(row.creator_amount_inr || 0), 0);
+    return res.json({ ok: true, earnings: {
       today: Math.round(sumSince(startToday.getTime()) * 100) / 100,
       week: Math.round(sumSince(now - 7 * 24 * 60 * 60 * 1000) * 100) / 100,
       month: Math.round(sumSince(now - 30 * 24 * 60 * 60 * 1000) * 100) / 100,
-      total: Math.round(rows.reduce((sum, row) => sum + Number(row.amount || 0), 0) * 100) / 100,
-      transactions: rows.length,
-    },
-    rows: rows.slice().reverse().map(row => ({
-      id: row.transactionId,
-      amount: Number(row.amount || 0),
-      grossAmount: Number(row.grossAmount || row.amount || 0),
-      createdAt: row.createdAt,
-      buyerUsername: row.buyerUsername || "User",
-    })),
-  });
+      total: Math.round(safeRows.reduce((sum, row) => sum + Number(row.creator_amount_inr || 0), 0) * 100) / 100,
+      transactions: safeRows.length,
+    }, rows: safeRows.map(row => ({ id: row.transaction_id || row.id, amount: Number(row.creator_amount_inr || 0), grossAmount: Number(row.gross_amount_inr || row.creator_amount_inr || 0), createdAt: row.created_at, buyerUsername: row.buyer_username || "User" })) });
+  } catch (error) {
+    console.error("Persistent exclusive earnings read failed:", error?.message || error);
+    return res.status(503).json({ error: "Could not load exclusive earnings from Supabase. Run the exclusive earnings SQL migration." });
+  }
 });
 
 app.get("/api/live-creators", (req, res) => {
@@ -2221,6 +2240,8 @@ io.on("connection", (socket) => {
         buyerUsername,
       });
       subscriptionEarningsLedger.set(key, rows);
+      void persistExclusiveEarning({ creatorUsername, buyerUsername, grossAmount: price, creatorAmount: Math.round(price * CREATOR_REVENUE_SHARE * 100) / 100, transactionId })
+        .catch(error => console.error("Exclusive earning persistence failed:", error?.message || error));
       const liveCreator = liveCreators.get(creatorUsername);
       if (liveCreator?.socketId) io.to(liveCreator.socketId).emit("subscription-earnings-updated", { username: creatorUsername });
     }
@@ -2242,6 +2263,8 @@ io.on("connection", (socket) => {
       const rows = subscriptionEarningsLedger.get(key) || [];
       rows.push({ amount: Math.round(amount * 100) / 100, createdAt: new Date().toISOString(), transactionId });
       subscriptionEarningsLedger.set(key, rows);
+      void persistExclusiveEarning({ creatorUsername: username, buyerUsername: "User", grossAmount: amount, creatorAmount: amount, transactionId })
+        .catch(error => console.error("Subscription earning persistence failed:", error?.message || error));
       const creator = liveCreators.get(username);
       if (creator?.socketId) io.to(creator.socketId).emit("subscription-earnings-updated", { username });
     }
