@@ -933,7 +933,10 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
     localStorage.removeItem(LIVE_KEY);
     localStorage.removeItem(SESSION_KEY);
-    window.location.href = "/";
+    // End the real Supabase session as well as clearing compatibility metadata.
+    supabase.auth.signOut().finally(() => {
+      window.location.replace("/login");
+    });
   }
 
   const creatorCoins =
