@@ -1509,10 +1509,7 @@ io.on("connection", (socket) => {
       creatorAccount.testRevenueInr = Number(persistentWallet?.creator_earnings_paise || 0) / 100;
     } catch (error) {
       console.error("Creator wallet load failed:", error?.message || error);
-      return reply({
-        ok: false,
-        error: `Could not load creator wallet from database: ${error?.message || "Unknown database error"}`,
-      });
+      return reply({ ok: false, error: "Could not load creator wallet from database." });
     }
 
     removeCreatorLive(socket);
