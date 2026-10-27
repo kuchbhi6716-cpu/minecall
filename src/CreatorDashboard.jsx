@@ -970,10 +970,13 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     const rowType = String(row.type || row.transactionType || "").toLowerCase();
     const isBonus = rowType.includes("bonus") || rowType.includes("signup");
     const isExclusiveSale = rowType.includes("exclusive");
-    const isCallEarning = rowType.includes("call") &&
-      (rowType.includes("earning") || rowType.includes("revenue") || rowType.includes("share"));
-    const rowUsername = String(row.username || row.creatorUsername || "").toLowerCase();
-    return !exclusiveMode && !isBonus && !isExclusiveSale && isCallEarning &&
+    // Persistent wallet ledger rows may use types such as "creator_call_earning"
+    // or "creator-earning". The old filter required both "call" and "earning",
+    // which silently hid valid saved creator earnings when the type name differed.
+    const isEarningType = rowType.includes("earning") || rowType.includes("revenue") || rowType.includes("share");
+    const amount = Number(row.creatorShareInr ?? row.amountInr ?? row.amount ?? 0);
+    const rowUsername = String(row.creatorUsername || row.username || "").toLowerCase();
+    return !exclusiveMode && !isBonus && !isExclusiveSale && isEarningType && amount > 0 &&
       (!rowUsername || rowUsername === String(username || "").toLowerCase());
   });
   const creatorRevenue = callRevenueRows.reduce((sum, row) => {
