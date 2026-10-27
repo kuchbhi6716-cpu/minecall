@@ -976,59 +976,9 @@ export default function Home() {
           </>;
         })()}
 
-        {modelsLoading ? (
-          <p>Loading live models...</p>
-        ) : modelsError && models.length === 0 ? (
-          <div className="models-error">
-            <p>Couldn't load live models. {modelsError}</p>
-            <button
-              type="button"
-              className="creator-refresh-button"
-              onClick={() => window.location.reload()}
-            >
-              <RefreshCw size={14} />
-              Retry
-            </button>
-          </div>
-        ) : models.length === 0 ? (
-          <p>No models available right now.</p>
-        ) : (
-          <>
-            {liveSections.slice(0, 2).map(renderLiveSection)}
+        {/* AW Empire live-stream model cards are intentionally hidden.
+            OnlyStream user/creator cards above remain unchanged. */}
 
-            <div
-              className={`extra-sections ${
-                showMoreSections ? "expanded" : ""
-              }`}
-              aria-hidden={!showMoreSections}
-              inert={!showMoreSections}
-            >
-              <div className="extra-sections-inner">
-                {liveSections.slice(2).map(renderLiveSection)}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="view-more-btn"
-              onClick={() =>
-                setShowMoreSections((value) => !value)
-              }
-              aria-expanded={showMoreSections}
-            >
-              <span>
-                {showMoreSections ? "View Less" : "View More"}
-              </span>
-
-              <ChevronDown
-                size={19}
-                className={`view-more-arrow ${
-                  showMoreSections ? "arrow-up" : ""
-                }`}
-              />
-            </button>
-          </>
-        )}
       </section>
 
       <hr />
