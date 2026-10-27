@@ -1250,3 +1250,10 @@ body{background:#f3f8fd!important;color:#17324b!important}
 @media(prefers-reduced-motion:no-preference){.model-card,.stream-card,.vertical-stream-card,.creator-stat-card,.creator-info-card,.auth-card{animation:osFinalFade .45s ease both}}
 @keyframes osFinalFade{from{opacity:.65;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+
+/* Exclusive creator: choose the access duration before going live. */
+.creator-exclusive-hours-picker{display:flex;flex-direction:column;gap:8px;width:min(100%,360px);margin:0 auto 14px;padding:14px 16px;background:#fff;border:1px solid #c8dcec;border-radius:14px;color:#17324b;text-align:left;box-shadow:0 6px 18px rgba(22,83,130,.06)}
+.creator-exclusive-hours-picker>span{font-weight:700;font-size:14px;color:#12324c}
+.creator-exclusive-hours-picker select{width:100%;min-height:42px;padding:9px 12px;border:1px solid #c8dcec;border-radius:9px;background:#fff;color:#17324b;font:inherit}
+.creator-exclusive-hours-picker small{font-size:12px;line-height:1.5;color:#536b80}
