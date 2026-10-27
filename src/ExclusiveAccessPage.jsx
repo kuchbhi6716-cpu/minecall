@@ -16,7 +16,7 @@ export default function ExclusiveAccessPage() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const creator = (params.get("creator") || params.get("subscriptionCreator") || "").trim();
   const queryPrice = Math.max(1, Number(params.get("price") || params.get("subscriptionPrice")) || 499);
-  const queryHours = [3, 5, 7, 24].includes(Number(params.get("hours"))) ? Number(params.get("hours")) : 24;
+  const queryHours = [3, 5, 10, 24].includes(Number(params.get("hours"))) ? Number(params.get("hours")) : 24;
   const [session, setSession] = useState(null);
   const [price, setPrice] = useState(queryPrice);
   const [hours, setHours] = useState(queryHours);
@@ -54,7 +54,7 @@ export default function ExclusiveAccessPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not check creator availability.");
       setPrice(Math.max(1, Number(data.price) || queryPrice));
-      setHours([3, 5, 7, 24].includes(Number(data.hours)) ? Number(data.hours) : queryHours);
+      setHours([3, 5, 10, 24].includes(Number(data.hours)) ? Number(data.hours) : queryHours);
       setOccupied(Boolean(data.occupied));
       setOwned(Boolean(data.owned));
       setCreatorAvailable(Boolean(data.creatorAvailable));
@@ -180,13 +180,13 @@ export default function ExclusiveAccessPage() {
       </header>
       <section className="exclusive-access-card">
         <div className="exclusive-access-icon"><LockKeyhole size={30} /></div>
-        <span className="exclusive-kicker">{hours}-HOUR EXCLUSIVE ACCESS</span>
+        <span className="exclusive-kicker">${{3:7,5:15,10:22,24:44}[hours]}-MINUTE EXCLUSIVE ACCESS</span>
         <h1>{creator || "Creator"}</h1>
-        <p className="exclusive-description">Reserve this creator for {hours} hours. During your access period, you can start unlimited video calls and chat without spending coins.</p>
+        <p className="exclusive-description">Reserve this creator for ${{3:7,5:15,10:22,24:44}[hours]} minutes. During your access period, you can start unlimited video calls and chat without spending coins.</p>
         <div className="exclusive-feature-list">
           <div><Video size={19} /><span>Unlimited video calls during access</span><CheckCircle2 size={17} /></div>
           <div><MessageCircle size={19} /><span>Unlimited chat during access</span><CheckCircle2 size={17} /></div>
-          <div><Clock3 size={19} /><span>{hours} hours from confirmed purchase</span><CheckCircle2 size={17} /></div>
+          <div><Clock3 size={19} /><span>${{3:7,5:15,10:22,24:44}[hours]} minutes from confirmed purchase</span><CheckCircle2 size={17} /></div>
         </div>
         {loading ? <p className="exclusive-status">Checking availability…</p> : null}
         {!loading && owned ? (
@@ -205,7 +205,7 @@ export default function ExclusiveAccessPage() {
         ) : (
           <div className="exclusive-purchase">
             <div className="exclusive-price-row"><span>One-time access fee</span><strong>₹{price.toLocaleString("en-IN")}</strong></div>
-            <p className="exclusive-small-note">One purchase · {hours} hours · No call coins</p>
+            <p className="exclusive-small-note">One purchase · ${{3:7,5:15,10:22,24:44}[hours]} minutes · No call coins</p>
             <button type="button" onClick={purchaseAccess} disabled={buying || loading || !creatorAvailable}>
               {buying ? "Confirming…" : !creatorAvailable ? "Creator is offline" : `Pay ₹${price.toLocaleString("en-IN")}`}
             </button>
