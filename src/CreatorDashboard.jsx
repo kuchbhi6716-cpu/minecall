@@ -59,6 +59,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const [accountReady, setAccountReady] = useState(false);
   const [username, setUsername] = useState("Creator");
   const [isLive, setIsLive] = useState(false);
+  const [selectedSubscriptionHours, setSelectedSubscriptionHours] = useState(24);
   const [busy, setBusy] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [incomingCall, setIncomingCall] = useState(null);
@@ -388,6 +389,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
       .then((loadedAccount) => {
         if (!active) return;
         setAccount(loadedAccount);
+        const savedHours = Number(loadedAccount?.subscriptionHours);
+        setSelectedSubscriptionHours([3, 5, 7, 24].includes(savedHours) ? savedHours : 24);
         setAccountReady(true);
       })
       .catch((error) => {
@@ -728,6 +731,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
         accessToken,
         creatorPlan: exclusiveMode ? "subscription" : "calls",
         subscriptionPrice: exclusiveMode ? Math.max(1, Number(session?.subscriptionPrice) || 499) : 0,
+        subscriptionHours: exclusiveMode ? selectedSubscriptionHours : 0,
       }, (response) => {
         if (response?.ok === false) {
           isLiveRef.current = false;
@@ -1167,6 +1171,22 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
 
           {!isLive ? (
             <div className="creator-camera-actions">
+              {exclusiveMode && (
+                <label className="creator-exclusive-hours-picker">
+                  <span>Choose access duration for this live session</span>
+                  <select
+                    value={selectedSubscriptionHours}
+                    onChange={(event) => setSelectedSubscriptionHours(Number(event.target.value))}
+                    disabled={busy}
+                    aria-label="Choose exclusive access duration before going live"
+                  >
+                    {[3, 5, 7, 24].map((hours) => (
+                      <option key={hours} value={hours}>{hours} hours</option>
+                    ))}
+                  </select>
+                  <small>Your homepage card will appear in the matching {selectedSubscriptionHours}-hour section while you are live.</small>
+                </label>
+              )}
               <button className="creator-go-live" onClick={goLive} disabled={busy}>
                 <Radio size={19} /> {busy ? "Starting camera..." : (exclusiveMode ? "Go Available" : "Go Live")}
               </button>
