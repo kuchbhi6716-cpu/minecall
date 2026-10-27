@@ -489,7 +489,7 @@ app.post("/api/test-account", async (req, res) => {
     account.testRevenueInr = Number(wallet?.creator_earnings_paise || 0) / 100;
     account.creatorPlan = verification.profile.creator_plan === "subscription" ? "subscription" : "calls";
     account.subscriptionPrice = Math.max(1, Number(verification.profile.subscription_price) || 499);
-    account.subscriptionHours = [3, 5, 7, 24].includes(Number(verification.profile.subscription_hours)) ? Number(verification.profile.subscription_hours) : 24;
+    account.subscriptionHours = [3, 5, 10, 24].includes(Number(verification.profile.subscription_hours)) ? Number(verification.profile.subscription_hours) : 24;
     if (role === "creator") {
       await supabaseRpc("creator_grant_signup_bonus", {
         p_creator_id: verification.profile.id,
@@ -1587,7 +1587,7 @@ io.on("connection", (socket) => {
     // Keep the existing call/wallet flow compatible while using Supabase as the authority for identity.
     creatorAccount.creatorPlan = profile.creator_plan === "subscription" ? "subscription" : "calls";
     creatorAccount.subscriptionPrice = Math.max(1, Number(profile.subscription_price) || 499);
-    creatorAccount.subscriptionHours = [3, 5, 7, 24].includes(Number(profile.subscription_hours))
+    creatorAccount.subscriptionHours = [3, 5, 10, 24].includes(Number(profile.subscription_hours))
       ? Number(profile.subscription_hours)
       : 24;
     creatorAccount.supabaseUserId = profile.id;
@@ -1628,7 +1628,11 @@ io.on("connection", (socket) => {
       ? Math.min(Math.round(parsedPrice), 100000)
       : 499;
     const parsedHours = Number(payload?.subscriptionHours ?? payload?.subscription_hours);
-    const subscriptionHours = [3, 5, 7, 24].includes(parsedHours) ? parsedHours : 24;
+    const subscriptionHours = [3, 5, 10, 24].includes(parsedHours) ? parsedHours : 24;
+    const priceLimits = ({ 3: [43, 59], 5: [89, 102], 10: [190, 219], 24: [322, 499] })[subscriptionHours];
+    if (creatorPlan === "subscription" && (!Number.isFinite(parsedPrice) || parsedPrice < priceLimits[0] || parsedPrice > priceLimits[1])) {
+      return reply({ ok: false, error: `For ${subscriptionHours} hours, price must be ₹${priceLimits[0]}–₹${priceLimits[1]}.` });
+    }
 
     creatorAccount.creatorPlan = creatorPlan;
     creatorAccount.subscriptionPrice = creatorPlan === "subscription" ? subscriptionPrice : 0;
@@ -2274,9 +2278,14 @@ io.on("connection", (socket) => {
         }
         return reply({ ok: false, error: "This creator is already reserved by another user.", expiresAt: current.expiresAt, remainingMs: Math.max(0, current.expiresAt - Date.now()) });
       }
-      const accessHours = [3, 5, 7, 24].includes(Number(creator.subscriptionHours)) ? Number(creator.subscriptionHours) : 24;
+      const accessHours = [3, 5, 10, 24].includes(Number(creator.subscriptionHours)) ? Number(creator.subscriptionHours) : 24;
+      const priceLimits = ({ 3: [43, 59], 5: [89, 102], 10: [190, 219], 24: [322, 499] })[accessHours];
+      if (price < priceLimits[0] || price > priceLimits[1]) {
+        return reply({ ok: false, error: "This creator's access price is outside the allowed range. Ask them to update it." });
+      }
       const purchasedAt = Date.now();
-      const expiresAt = purchasedAt + accessHours * 60 * 60 * 1000;
+      const accessMinutes = ({ 3: 7, 5: 15, 10: 22, 24: 44 })[accessHours];
+      const expiresAt = purchasedAt + accessMinutes * 60 * 1000;
       const purchaseRows = await supabaseRest("exclusive_purchases", "", {
         method: "POST",
         prefer: "return=representation",
@@ -2331,7 +2340,7 @@ io.on("connection", (socket) => {
           // Access is already recorded; do not falsely tell the buyer that it was not activated.
         }
       }
-      console.log(`[Exclusive access] Saved ${buyerUsername}'s ${accessHours}-hour access to ${creatorUsername} in Supabase.`);
+      console.log(`[Exclusive access] Saved ${buyerUsername}'s ${accessMinutes}-minute access to ${creatorUsername} in Supabase.`);
       return reply({ ok: true, expiresAt, remainingMs: expiresAt - Date.now(), price, hours: accessHours, demoPayment: true, persisted: true });
     } catch (error) {
       console.error("Exclusive access purchase persistence failed:", error?.message || error);
