@@ -608,66 +608,7 @@ export default function AuthPage({ initialMode = "login" }) {
               </button>
             </div>
 
-            {creatorPlan === "subscription" && (
-              <>
-                <div className="creator-price-field creator-hours-field">
-                  <label>Choose exclusive rent duration</label>
 
-                  <div
-                    className="creator-hours-options"
-                    role="group"
-                    aria-label="Exclusive rent duration"
-                  >
-                    {[3, 5, 7, 24].map((hours) => (
-                      <button
-                        key={hours}
-                        type="button"
-                        className={`creator-hours-option ${
-                          Number(subscriptionHours) === hours
-                            ? "selected"
-                            : ""
-                        }`}
-                        onClick={() =>
-                          setSubscriptionHours(String(hours))
-                        }
-                        disabled={busy}
-                      >
-                        {hours} Hours{hours === 24 ? " · Existing" : " Rent"}
-                      </button>
-                    ))}
-                  </div>
-
-                  <small>
-                    Your creator card will appear in the matching homepage
-                    section. Existing 24-hour access stays available.
-                  </small>
-                </div>
-
-                <div className="creator-price-field">
-                  <label htmlFor="creator-subscription-price">
-                    One-time access price (₹)
-                  </label>
-
-                  <input
-                    id="creator-subscription-price"
-                    type="number"
-                    min="1"
-                    max="100000"
-                    step="1"
-                    value={subscriptionPrice}
-                    onChange={(event) =>
-                      setSubscriptionPrice(event.target.value)
-                    }
-                    required
-                    disabled={busy}
-                  />
-
-                  <small>
-                    Set the one-time access price for your creator page.
-                  </small>
-                </div>
-              </>
-            )}
           </div>
         )}
 
