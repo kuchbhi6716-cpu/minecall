@@ -391,8 +391,11 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
         if (!active) return;
         setAccount(loadedAccount);
         if (loadedAccount?.creatorPlan === "subscription") {
-          setExclusiveHours([3, 5, 7, 24].includes(Number(loadedAccount.subscriptionHours)) ? Number(loadedAccount.subscriptionHours) : 24);
-          setExclusivePrice(String(Math.max(1, Number(loadedAccount.subscriptionPrice) || 499)));
+          setExclusiveHours([3, 5, 10, 24].includes(Number(loadedAccount.subscriptionHours)) ? Number(loadedAccount.subscriptionHours) : 24);
+          const savedHours = [3, 5, 10, 24].includes(Number(loadedAccount.subscriptionHours)) ? Number(loadedAccount.subscriptionHours) : 24;
+          const savedPrice = Number(loadedAccount.subscriptionPrice);
+          const limits = ({ 3: [43, 59], 5: [89, 102], 10: [190, 219], 24: [322, 499] })[savedHours];
+          setExclusivePrice(String(Number.isFinite(savedPrice) && savedPrice >= limits[0] && savedPrice <= limits[1] ? savedPrice : limits[1]));
         }
         setAccountReady(true);
       })
@@ -681,6 +684,14 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   }
 
   async function goLive() {
+    if (exclusiveMode) {
+      const limits = ({ 3: [43, 59], 5: [89, 102], 10: [190, 219], 24: [322, 499] })[exclusiveHours];
+      const selectedPrice = Number(exclusivePrice);
+      if (!limits || !Number.isFinite(selectedPrice) || selectedPrice < limits[0] || selectedPrice > limits[1]) {
+        setCameraError(`For ${{3:7,5:15,10:22,24:44}[exclusiveHours]} minutes, price must be ₹${limits?.[0]}–₹${limits?.[1]}.`);
+        return;
+      }
+    }
     setCameraError("");
     setBusy(true);
 
@@ -1186,12 +1197,13 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
                 <div className="creator-exclusive-live-settings">
                   <h3>Set your exclusive session</h3>
                   <p>Choose how long your card stays available and set your price before going live.</p>
-                  <label htmlFor="exclusive-live-hours">Availability duration</label>
+                  <label htmlFor="exclusive-live-hours">Live duration</label>
                   <select id="exclusive-live-hours" value={exclusiveHours} onChange={(event) => setExclusiveHours(Number(event.target.value))} disabled={busy}>
-                    {[3, 5, 7, 24].map((hours) => <option key={hours} value={hours}>{hours} hours</option>)}
+                    {[3, 5, 10, 24].map((hours) => <option key={hours} value={hours}>${{3:7,5:15,10:22,24:44}[hours]} minutes</option>)}
                   </select>
                   <label htmlFor="exclusive-live-price">Exclusive access price (₹)</label>
-                  <input id="exclusive-live-price" type="number" min="1" max="100000" step="1" value={exclusivePrice} onChange={(event) => setExclusivePrice(event.target.value)} disabled={busy} />
+                  <input id="exclusive-live-price" type="number" min={({3:43,5:89,10:190,24:322})[exclusiveHours]} max={({3:59,5:102,10:219,24:499})[exclusiveHours]} step="1" value={exclusivePrice} onChange={(event) => setExclusivePrice(event.target.value)} disabled={busy} />
+                  <p>Allowed price: ₹{({3:43,5:89,10:190,24:322})[exclusiveHours]}–₹{({3:59,5:102,10:219,24:499})[exclusiveHours]}</p>
                 </div>
               )}
               <button className="creator-go-live" onClick={goLive} disabled={busy}>
