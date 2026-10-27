@@ -1257,3 +1257,182 @@ body{background:#f3f8fd!important;color:#17324b!important}
 .creator-exclusive-hours-picker>span{font-weight:700;font-size:14px;color:#12324c}
 .creator-exclusive-hours-picker select{width:100%;min-height:42px;padding:9px 12px;border:1px solid #c8dcec;border-radius:9px;background:#fff;color:#17324b;font:inherit}
 .creator-exclusive-hours-picker small{font-size:12px;line-height:1.5;color:#536b80}
+
+
+
+/* OnlyStream — Premium Exclusive Hours Picker
+   Paste this block at the VERY END of CreatorDashboard.css.
+   Styling only: does not change dashboard logic or other features. */
+
+.creator-camera-actions {
+  gap: 16px;
+}
+
+.creator-exclusive-hours-picker {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: min(100%, 390px);
+  gap: 10px;
+  margin: 0 auto 16px;
+  padding: 20px;
+  border: 1px solid #c8def7;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(96, 165, 250, .17), transparent 38%),
+    linear-gradient(145deg, #ffffff 0%, #f5faff 58%, #edf6ff 100%);
+  color: #102b49;
+  text-align: left;
+  box-shadow: 0 12px 28px rgba(31, 94, 160, .10), inset 0 1px 0 rgba(255, 255, 255, .95);
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.creator-exclusive-hours-picker::before {
+  content: "EXCLUSIVE LIVE";
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 2px;
+  padding: 5px 9px;
+  border: 1px solid #d6e8ff;
+  border-radius: 999px;
+  background: #eaf4ff;
+  color: #1761b1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  line-height: 1.2;
+}
+
+.creator-exclusive-hours-picker > span {
+  display: block;
+  color: #102b49;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.015em;
+  line-height: 1.45;
+}
+
+.creator-exclusive-hours-picker select {
+  width: 100%;
+  min-height: 49px;
+  padding: 12px 42px 12px 14px;
+  border: 1px solid #b8d3f2;
+  border-radius: 13px;
+  outline: none;
+  background-color: rgba(255, 255, 255, .96);
+  color: #12365c;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 3px 9px rgba(26, 87, 148, .05);
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+
+.creator-exclusive-hours-picker select:hover:not(:disabled) {
+  border-color: #6ba5e8;
+  background-color: #fff;
+}
+
+.creator-exclusive-hours-picker select:focus-visible {
+  border-color: #2878d4;
+  box-shadow: 0 0 0 4px rgba(45, 129, 220, .16);
+}
+
+.creator-exclusive-hours-picker select:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+}
+
+.creator-exclusive-hours-picker select option {
+  background: #fff;
+  color: #12365c;
+  font-weight: 600;
+}
+
+.creator-exclusive-hours-picker small {
+  display: block;
+  padding-left: 1px;
+  color: #4c6682;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.creator-exclusive-hours-picker small::before {
+  content: "✓";
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #e0efff;
+  color: #1768bd;
+  font-size: 11px;
+  font-weight: 900;
+  vertical-align: -2px;
+}
+
+.creator-exclusive-hours-picker:focus-within {
+  border-color: #8ab9ed;
+  box-shadow: 0 14px 32px rgba(31, 94, 160, .14), 0 0 0 3px rgba(61, 139, 222, .08);
+}
+
+.creator-go-live {
+  min-height: 50px;
+  border: 1px solid #1767bf;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #247fe0 0%, #155bb4 100%);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: .01em;
+  box-shadow: 0 9px 20px rgba(25, 99, 188, .22), inset 0 1px 0 rgba(255, 255, 255, .2);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+
+.creator-go-live:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: saturate(1.06);
+  box-shadow: 0 12px 25px rgba(25, 99, 188, .28), inset 0 1px 0 rgba(255, 255, 255, .2);
+}
+
+.creator-go-live:focus-visible {
+  outline: 3px solid rgba(45, 129, 220, .28);
+  outline-offset: 3px;
+}
+
+.creator-go-live:disabled {
+  cursor: not-allowed;
+  opacity: .68;
+  box-shadow: none;
+}
+
+@media (max-width: 600px) {
+  .creator-exclusive-hours-picker {
+    width: 100%;
+    padding: 17px;
+    border-radius: 17px;
+  }
+
+  .creator-exclusive-hours-picker > span {
+    font-size: 14px;
+  }
+
+  .creator-exclusive-hours-picker select {
+    min-height: 47px;
+  }
+
+  .creator-go-live {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .creator-exclusive-hours-picker,
+  .creator-exclusive-hours-picker select,
+  .creator-go-live {
+    transition: none;
+  }
+}
