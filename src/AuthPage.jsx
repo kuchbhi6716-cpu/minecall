@@ -96,7 +96,7 @@ function buildProfilePatch(pending) {
       pending.role === "creator" && plan === "subscription"
         ? Math.max(1, Number(pending.subscriptionPrice) || 1)
         : 0,
-    subscription_hours: [3, 5, 7, 24].includes(hours) ? hours : 24,
+    subscription_hours: [3, 5, 10, 24].includes(hours) ? hours : 24,
   };
 }
 
@@ -287,7 +287,7 @@ export default function AuthPage({ initialMode = "login" }) {
             role === "creator" && creatorPlan === "subscription"
               ? Math.max(1, Number(subscriptionPrice) || 1)
               : 0,
-          subscription_hours: [3, 5, 7, 24].includes(
+          subscription_hours: [3, 5, 10, 24].includes(
             Number(subscriptionHours)
           )
             ? Number(subscriptionHours)
