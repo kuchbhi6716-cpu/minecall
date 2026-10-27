@@ -377,13 +377,15 @@ function getCreatorPlan(creator) {
 
 function getSubscriptionHours(creator) {
   const raw = Number(creator?.subscriptionHours ?? creator?.subscription_hours ?? creator?.account?.subscriptionHours ?? creator?.profile?.subscriptionHours ?? 24);
-  return [3, 5, 7, 24].includes(raw) ? raw : 24;
+  return [3, 5, 10, 24].includes(raw) ? raw : 24;
 }
 
 function getSubscriptionPrice(creator) {
   const raw = creator?.subscriptionPrice ?? creator?.subscription_price ?? creator?.subscriptionAmount ?? creator?.subscription_amount ?? creator?.price;
   const price = Number(raw);
-  return Number.isFinite(price) && price > 0 ? price : 499;
+  const hours = getSubscriptionHours(creator);
+  const limits = ({ 3: [43, 59], 5: [89, 102], 10: [190, 219], 24: [322, 499] })[hours];
+  return Number.isFinite(price) && price >= limits[0] && price <= limits[1] ? price : limits[1];
 }
 
 function getCreatorCardImage(creator) {
@@ -466,18 +468,18 @@ function OnlyStreamCreatorCard({ creator, plan = "call" }) {
             <span className="creator-status-dot" />
             {subscription ? (rented ? "RENTED" : "AVAILABLE") : (live ? "LIVE NOW" : "AVAILABLE")}
           </span>
-          {subscription && <span className={`subscription-card-ribbon ${rented ? "subscription-card-rented" : ""}`}>{rented ? "RENTED" : `${hours}H ACCESS`}</span>}
+          {subscription && <span className={`subscription-card-ribbon ${rented ? "subscription-card-rented" : ""}`}>{rented ? "RENTED" : `${{3:7,5:15,10:22,24:44}[hours]} MIN ACCESS`}</span>}
         </div>
 
         <div className="creator-card-overlay">
           <div className="stream-info">
             <h3>{creator.username || "Creator"}</h3>
-            <p>{subscription ? (rented ? `${hours}-HOUR ACCESS · CURRENTLY RENTED` : `${hours}-HOUR EXCLUSIVE ACCESS`) : "PAY PER CALL · CONNECT INSTANTLY"}</p>
+            <p>{subscription ? (rented ? `${{3:7,5:15,10:22,24:44}[hours]} MIN ACCESS · CURRENTLY RENTED` : `${{3:7,5:15,10:22,24:44}[hours]} MIN EXCLUSIVE ACCESS`) : "PAY PER CALL · CONNECT INSTANTLY"}</p>
           </div>
 
           <div className={`creator-plan-pill ${subscription ? "creator-plan-subscription" : "creator-plan-call"}`}>
             <span className="creator-plan-label">{subscription ? "✦ EXCLUSIVE ACCESS" : "☎ PAY PER CALL"}</span>
-            <strong>{subscription ? `₹${price} / ${hours}h` : "10 coins / min"}</strong>
+            <strong>{subscription ? `₹${price} / ${{3:7,5:15,10:22,24:44}[hours]} min` : "10 coins / min"}</strong>
           </div>
 
           <div className={`creator-card-cta ${subscription ? "creator-card-cta-subscription" : "creator-card-cta-call"}`}>
@@ -950,9 +952,9 @@ export default function Home() {
           const creatorsForHours = hours => subscriptionCreators.filter(c => getSubscriptionHours(c) === hours);
           const callCreators = onlyStreamCreators.filter(c => getCreatorPlan(c) !== "subscription");
           const rentSections = [
-            { hours: 3, title: "3 Hour Rent", label: "3-HOUR EXCLUSIVE RENT", description: "Exclusive access for 3 hours" },
-            { hours: 5, title: "5 Hour Rent", label: "5-HOUR EXCLUSIVE RENT", description: "Exclusive access for 5 hours" },
-            { hours: 7, title: "7 Hour Rent", label: "7-HOUR EXCLUSIVE RENT", description: "Exclusive access for 7 hours" },
+            { hours: 3, title: "7 Minute Access", label: "7-MINUTE EXCLUSIVE ACCESS", description: "Exclusive access for 7 minutes" },
+            { hours: 5, title: "15 Minute Access", label: "15-MINUTE EXCLUSIVE ACCESS", description: "Exclusive access for 15 minutes" },
+            { hours: 10, title: "22 Minute Access", label: "22-MINUTE EXCLUSIVE ACCESS", description: "Exclusive access for 22 minutes" },
           ];
           return <>
             {rentSections.map(({ hours, title, label, description }) => {
@@ -963,8 +965,8 @@ export default function Home() {
               </section>;
             })}
             <section className="category-section onlystream-live-section subscription-creators-section">
-              <div className="category-heading"><div className="category-title-wrap"><span className="category-icon subscription-section-icon"><Radio size={19}/></span><div><span className="subscription-section-label">EXCLUSIVE ACCESS</span><h2>24 Hour Exclusive</h2><p>Pay once for 24-hour unlimited calls and chat without coins</p></div></div><span className="online-status">● {creatorsForHours(24).length} creators</span></div>
-              {creatorsLoading ? <p>Loading subscription creators...</p> : creatorsForHours(24).length ? <div className="category-track">{creatorsForHours(24).map(creator => <OnlyStreamCreatorCard key={creator.username.toLowerCase()} creator={creator} plan="subscription" />)}</div> : <p className="creator-section-empty">No 24-hour exclusive creators available yet.</p>}
+              <div className="category-heading"><div className="category-title-wrap"><span className="category-icon subscription-section-icon"><Radio size={19}/></span><div><span className="subscription-section-label">EXCLUSIVE ACCESS</span><h2>44 Minute Exclusive</h2><p>Pay once for 44-minute unlimited calls and chat without coins</p></div></div><span className="online-status">● {creatorsForHours(24).length} creators</span></div>
+              {creatorsLoading ? <p>Loading subscription creators...</p> : creatorsForHours(24).length ? <div className="category-track">{creatorsForHours(24).map(creator => <OnlyStreamCreatorCard key={creator.username.toLowerCase()} creator={creator} plan="subscription" />)}</div> : <p className="creator-section-empty">No 44-minute exclusive creators available yet.</p>}
             </section>
             <section className="category-section onlystream-live-section call-creators-section">
               <div className="category-heading"><div className="category-title-wrap"><span className="category-icon pink"><Radio size={19}/></span><div><h2>Call Earning Creators</h2><p>Connect through the existing paid-call system</p></div></div><span className="online-status">● {callCreators.length} creators</span></div>
