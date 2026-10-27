@@ -59,7 +59,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const [accountReady, setAccountReady] = useState(false);
   const [username, setUsername] = useState("Creator");
   const [isLive, setIsLive] = useState(false);
-  const [selectedSubscriptionHours, setSelectedSubscriptionHours] = useState(24);
+  const [exclusiveHours, setExclusiveHours] = useState(24);
+  const [exclusivePrice, setExclusivePrice] = useState("499");
   const [busy, setBusy] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [incomingCall, setIncomingCall] = useState(null);
@@ -389,8 +390,10 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
       .then((loadedAccount) => {
         if (!active) return;
         setAccount(loadedAccount);
-        const savedHours = Number(loadedAccount?.subscriptionHours);
-        setSelectedSubscriptionHours([3, 5, 7, 24].includes(savedHours) ? savedHours : 24);
+        if (loadedAccount?.creatorPlan === "subscription") {
+          setExclusiveHours([3, 5, 7, 24].includes(Number(loadedAccount.subscriptionHours)) ? Number(loadedAccount.subscriptionHours) : 24);
+          setExclusivePrice(String(Math.max(1, Number(loadedAccount.subscriptionPrice) || 499)));
+        }
         setAccountReady(true);
       })
       .catch((error) => {
@@ -730,8 +733,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
         username: creatorUsername,
         accessToken,
         creatorPlan: exclusiveMode ? "subscription" : "calls",
-        subscriptionPrice: exclusiveMode ? Math.max(1, Number(session?.subscriptionPrice) || 499) : 0,
-        subscriptionHours: exclusiveMode ? selectedSubscriptionHours : 0,
+        subscriptionPrice: exclusiveMode ? Math.max(1, Number(exclusivePrice) || 499) : 0,
+        subscriptionHours: exclusiveMode ? exclusiveHours : 0,
       }, (response) => {
         if (response?.ok === false) {
           isLiveRef.current = false;
@@ -1172,20 +1175,16 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
           {!isLive ? (
             <div className="creator-camera-actions">
               {exclusiveMode && (
-                <label className="creator-exclusive-hours-picker">
-                  <span>Choose access duration for this live session</span>
-                  <select
-                    value={selectedSubscriptionHours}
-                    onChange={(event) => setSelectedSubscriptionHours(Number(event.target.value))}
-                    disabled={busy}
-                    aria-label="Choose exclusive access duration before going live"
-                  >
-                    {[3, 5, 7, 24].map((hours) => (
-                      <option key={hours} value={hours}>{hours} hours</option>
-                    ))}
+                <div className="creator-exclusive-live-settings">
+                  <h3>Set your exclusive session</h3>
+                  <p>Choose how long your card stays available and set your price before going live.</p>
+                  <label htmlFor="exclusive-live-hours">Availability duration</label>
+                  <select id="exclusive-live-hours" value={exclusiveHours} onChange={(event) => setExclusiveHours(Number(event.target.value))} disabled={busy}>
+                    {[3, 5, 7, 24].map((hours) => <option key={hours} value={hours}>{hours} hours</option>)}
                   </select>
-                  <small>Your homepage card will appear in the matching {selectedSubscriptionHours}-hour section while you are live.</small>
-                </label>
+                  <label htmlFor="exclusive-live-price">Exclusive access price (₹)</label>
+                  <input id="exclusive-live-price" type="number" min="1" max="100000" step="1" value={exclusivePrice} onChange={(event) => setExclusivePrice(event.target.value)} disabled={busy} />
+                </div>
               )}
               <button className="creator-go-live" onClick={goLive} disabled={busy}>
                 <Radio size={19} /> {busy ? "Starting camera..." : (exclusiveMode ? "Go Available" : "Go Live")}
