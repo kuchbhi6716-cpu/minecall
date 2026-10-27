@@ -2320,9 +2320,16 @@ io.on("connection", (socket) => {
         const creatorAmount = Math.round(price * CREATOR_REVENUE_SHARE * 100) / 100;
         rows.push({ amount: creatorAmount, grossAmount: price, createdAt: new Date().toISOString(), transactionId, buyerUsername });
         subscriptionEarningsLedger.set(key, rows);
-        void persistExclusiveEarning({ creatorUsername, buyerUsername, grossAmount: price, creatorAmount, transactionId })
-          .catch(error => console.error("Exclusive earning persistence failed:", error?.message || error));
-        if (creator.socketId) io.to(creator.socketId).emit("subscription-earnings-updated", { username: creatorUsername });
+        // Persist the earning before notifying the dashboard to refetch it.
+        // The previous fire-and-forget write emitted the refresh event too early,
+        // so the API could return the old total and leave the UI stuck at ₹0.
+        try {
+          await persistExclusiveEarning({ creatorUsername, buyerUsername, grossAmount: price, creatorAmount, transactionId });
+          if (creator.socketId) io.to(creator.socketId).emit("subscription-earnings-updated", { username: creatorUsername });
+        } catch (earningError) {
+          console.error("Exclusive earning persistence failed:", earningError?.message || earningError);
+          // Access is already recorded; do not falsely tell the buyer that it was not activated.
+        }
       }
       console.log(`[Exclusive access] Saved ${buyerUsername}'s ${accessHours}-hour access to ${creatorUsername} in Supabase.`);
       return reply({ ok: true, expiresAt, remainingMs: expiresAt - Date.now(), price, hours: accessHours, demoPayment: true, persisted: true });
@@ -2332,7 +2339,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("subscription-purchase", (payload, acknowledge) => {
+  socket.on("subscription-purchase", async (payload, acknowledge) => {
     const username = normalizeCreatorName(payload?.username);
     const amount = Number(payload?.amount);
     const transactionId = String(payload?.transactionId || "").slice(0, 120);
@@ -2346,10 +2353,15 @@ io.on("connection", (socket) => {
       const rows = subscriptionEarningsLedger.get(key) || [];
       rows.push({ amount: Math.round(amount * 100) / 100, createdAt: new Date().toISOString(), transactionId });
       subscriptionEarningsLedger.set(key, rows);
-      void persistExclusiveEarning({ creatorUsername: username, buyerUsername: "User", grossAmount: amount, creatorAmount: amount, transactionId })
-        .catch(error => console.error("Subscription earning persistence failed:", error?.message || error));
-      const creator = liveCreators.get(username);
-      if (creator?.socketId) io.to(creator.socketId).emit("subscription-earnings-updated", { username });
+      try {
+        await persistExclusiveEarning({ creatorUsername: username, buyerUsername: "User", grossAmount: amount, creatorAmount: amount, transactionId });
+        const creator = liveCreators.get(username);
+        if (creator?.socketId) io.to(creator.socketId).emit("subscription-earnings-updated", { username });
+      } catch (error) {
+        console.error("Subscription earning persistence failed:", error?.message || error);
+        if (typeof acknowledge === "function") acknowledge({ ok: false, error: "Purchase was recorded in this session, but earnings could not be saved. Please contact support before retrying." });
+        return;
+      }
     }
     if (typeof acknowledge === "function") acknowledge({ ok: true });
   });
