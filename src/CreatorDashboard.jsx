@@ -976,8 +976,11 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
     const isEarningType = rowType.includes("earning") || rowType.includes("revenue") || rowType.includes("share");
     const amount = Number(row.creatorShareInr ?? row.amountInr ?? row.amount ?? 0);
     const rowUsername = String(row.creatorUsername || row.username || "").toLowerCase();
-    return !exclusiveMode && !isBonus && !isExclusiveSale && isEarningType && amount > 0 &&
-      (!rowUsername || rowUsername === String(username || "").toLowerCase());
+    const matchesCreator = !rowUsername || rowUsername === String(username || "").toLowerCase();
+    // Exclusive creators earn from exclusive-access sales, not the call ledger.
+    // The history already showed these rows, but this revenue filter excluded them.
+    if (exclusiveMode) return isExclusiveSale && amount > 0 && matchesCreator;
+    return !isBonus && !isExclusiveSale && isEarningType && amount > 0 && matchesCreator;
   });
   const creatorRevenue = callRevenueRows.reduce((sum, row) => {
     const amount = Number(row.creatorShareInr ?? row.amountInr ?? row.amount ?? 0);
@@ -1003,7 +1006,8 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
   const periodRows = earningRows.filter((row) => row.date >= periodStart && row.date <= nowForEarnings);
   const periodCallRows = periodRows.filter((row) => !row.isBonus);
   const periodCallTotal = periodCallRows.reduce((sum, row) => sum + row.earningAmount, 0);
-  const totalEarned = signupBonus + Number(creatorRevenue || 0);
+  // Exclusive-access totals must not include the unrelated test signup bonus.
+  const totalEarned = exclusiveMode ? Number(creatorRevenue || 0) : signupBonus + Number(creatorRevenue || 0);
   const graphBuckets = Array.from({ length: earningsPeriod === "today" ? 6 : earningsPeriod === "week" ? 7 : 30 }, (_, index) => {
     const date = new Date(periodStart);
     if (earningsPeriod === "today") date.setHours(date.getHours() + index * 4);
@@ -1259,7 +1263,7 @@ export default function CreatorDashboard({ exclusiveMode = false } = {}) {
           <button type="button" className="creator-stat-card creator-earnings-link-card" onClick={() => { setShowEarnings(true); refreshEconomy(); }}>
             <div className="creator-stat-icon"><TrendingUp size={22} /></div>
             <p className="creator-stat-label">Your Earnings</p>
-            <div className="creator-stat-value">₹{formatNumber(signupBonus + Number(creatorRevenue || 0))}</div>
+            <div className="creator-stat-value">₹{formatNumber(exclusiveMode ? Number(creatorRevenue || 0) : signupBonus + Number(creatorRevenue || 0))}</div>
             <p className="creator-stat-footnote">{exclusiveMode ? "View exclusive access earnings, history and graphs" : "View signup bonus, call history, graphs and withdrawal options"}</p>
             <span className="creator-earnings-link-action">View earnings <ArrowUpRight size={16} /></span>
           </button>
