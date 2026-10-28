@@ -2664,4 +2664,11 @@ body:has(.minebbe) {
 /* Remove the small decorative accent line from all footer info cards.
    This override applies consistently on desktop and mobile. */
 .minebbe .footer-about-card::before {
-  display: none 
+  display: none !important;
+  content: none !important;
+}
+
+/* Footer information card headings: use OnlyStream blue on desktop and mobile. */
+.minebbe .footer-about-card h3 {
+  color: #087bd1 !important;
+}
