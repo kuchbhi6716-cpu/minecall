@@ -2660,3 +2660,8 @@ body:has(.minebbe) {
 .minebbe .creator-card img,.minebbe .stream-card img,.minebbe .onlystream-creator-card img{object-fit:cover}
 .minebbe .creator-card,.minebbe .stream-card,.minebbe .onlystream-creator-card{overflow:hidden}
 @media(max-width:600px){.minebbe .navbar{gap:8px}.minebbe .logo{font-size:23px;letter-spacing:-1.2px}.minebbe .profile-nav-button{padding:4px!important}.minebbe .profile-nav-button img,.minebbe .profile-nav-button .profile-nav-avatar{width:32px;height:32px;min-width:32px}}
+
+/* Remove the small decorative accent line from all footer info cards.
+   This override applies consistently on desktop and mobile. */
+.minebbe .footer-about-card::before {
+  display: none 
