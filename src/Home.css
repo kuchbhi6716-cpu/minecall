@@ -46,7 +46,7 @@ a:focus-visible {
   outline-offset: 4px;
 }
 
-.mineb​​be {
+.minebbe {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -1351,7 +1351,7 @@ a:focus-visible {
    One source of truth for footer styling
 ======================================== */
 
-.mineb​​be .site-footer {
+.minebbe .site-footer {
   position: relative;
   display: block;
   width: 100%;
@@ -1368,7 +1368,7 @@ a:focus-visible {
   color: #f5f3ff;
 }
 
-.mineb​​be .footer-main {
+.minebbe .footer-main {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1377,7 +1377,7 @@ a:focus-visible {
   border-bottom: 1px solid rgba(255,255,255,.08);
 }
 
-.mineb​​be .footer-main .logo {
+.minebbe .footer-main .logo {
   display: inline-flex;
   color: #fff;
   font-size: 27px;
@@ -1386,12 +1386,12 @@ a:focus-visible {
   line-height: 1.2;
 }
 
-.mineb​​be .footer-main .logo span {
+.minebbe .footer-main .logo span {
   color: #a78bfa;
   text-shadow: 0 0 18px rgba(167,139,250,.3);
 }
 
-.mineb​​be .footer-tagline {
+.minebbe .footer-tagline {
   margin: 0;
   color: #a9a5bc;
   font-size: 13px;
@@ -1400,7 +1400,7 @@ a:focus-visible {
 }
 
 /* About, information and contact cards */
-.mineb​​be .footer-about {
+.minebbe .footer-about {
   display: grid;
   grid-template-columns: 1.15fr 1fr 1fr;
   gap: 18px;
@@ -1409,7 +1409,7 @@ a:focus-visible {
   border: 0;
 }
 
-.mineb​​be .footer-about-card {
+.minebbe .footer-about-card {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1429,7 +1429,7 @@ a:focus-visible {
     box-shadow .22s ease;
 }
 
-.mineb​​be .footer-about-card::before {
+.minebbe .footer-about-card::before {
   position: absolute;
   top: 0;
   left: 22px;
@@ -1440,14 +1440,14 @@ a:focus-visible {
   content: "";
 }
 
-.mineb​​be .footer-about-card:hover {
+.minebbe .footer-about-card:hover {
   transform: translateY(-4px);
   border-color: rgba(167,139,250,.42);
   background-color: rgba(139,92,246,.08);
   box-shadow: 0 14px 35px rgba(0,0,0,.17);
 }
 
-.mineb​​be .footer-about-card h3 {
+.minebbe .footer-about-card h3 {
   margin: 0 0 12px;
   color: #c4b5fd;
   font-size: 15px;
@@ -1455,7 +1455,7 @@ a:focus-visible {
   line-height: 1.5;
 }
 
-.mineb​​be .footer-about-card p {
+.minebbe .footer-about-card p {
   margin: 0;
   color: #a7a1b8;
   font-size: 13px;
@@ -1464,7 +1464,7 @@ a:focus-visible {
 }
 
 /* Contact link */
-.mineb​​be .footer-contact a {
+.minebbe .footer-contact a {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1479,11 +1479,11 @@ a:focus-visible {
   transition: color .18s ease;
 }
 
-.mineb​​be .footer-contact a:hover { color: #f0abfc; }
-.mineb​​be .footer-contact a svg { flex-shrink: 0; }
+.minebbe .footer-contact a:hover { color: #f0abfc; }
+.minebbe .footer-contact a svg { flex-shrink: 0; }
 
 /* Copyright row */
-.mineb​​be .footer-bottom {
+.minebbe .footer-bottom {
   display: flex;
   align-items: center;
   justify-content: space-between;
